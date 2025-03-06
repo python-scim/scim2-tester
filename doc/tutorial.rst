@@ -9,7 +9,8 @@ scim2-tester is integrated in :doc:`scim2-cli <scim2_cli:index>`:
 .. code-block:: console
 
     pip install scim2-cli
-    scim https://scim.example test
+    export SCIM_CLI_URL="https://auth.example"
+    scim test
 
 You can check the :ref:`scim2-cli test command reference <scim2_cli:test>` for more details.
 
