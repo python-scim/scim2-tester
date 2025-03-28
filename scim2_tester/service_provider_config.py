@@ -14,7 +14,7 @@ def check_service_provider_config_endpoint(
 
     .. todo::
 
-        Check thet POST/PUT/PATCH/DELETE methods on the endpoint
+        Check that POST/PUT/PATCH/DELETE methods on the endpoint
     """
     response = conf.client.query(
         ServiceProviderConfig, expected_status_codes=conf.expected_status_codes or [200]
