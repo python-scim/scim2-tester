@@ -62,8 +62,8 @@ def fill_with_random_values(
 ) -> Resource:
     """Fill an object with random values generated according the attribute types."""
     garbages = []
-    for field_name in field_names or obj.model_fields.keys():
-        field = obj.model_fields[field_name]
+    for field_name in field_names or obj.__class__.model_fields.keys():
+        field = obj.__class__.model_fields[field_name]
         if field.default:
             continue
 
