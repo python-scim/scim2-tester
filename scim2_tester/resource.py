@@ -176,6 +176,7 @@ def check_resource_type(
         results.append(result)
 
     for garbage in reversed(garbages):
-        conf.client.delete(garbage)
+        result = check_object_deletion(conf, garbage)
+        results.append(result)
 
     return results

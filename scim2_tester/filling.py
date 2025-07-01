@@ -59,7 +59,7 @@ def model_from_ref_type(
 
 def fill_with_random_values(
     conf: CheckConfig, obj: Resource, field_names: list[str] | None = None
-) -> Resource:
+) -> tuple[Resource, list[Resource]]:
     """Fill an object with random values generated according the attribute types."""
     garbages = []
     for field_name in field_names or obj.__class__.model_fields.keys():
@@ -112,6 +112,7 @@ def fill_with_random_values(
                 )
                 ref_obj, sub_garbages = create_minimal_object(conf, model)
                 value = ref_obj.meta.location
+                garbages.append(ref_obj)
                 garbages += sub_garbages
 
             else:
