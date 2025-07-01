@@ -62,6 +62,25 @@ def fill_with_random_values(
 ) -> tuple[Resource, list[Resource]]:
     """Fill an object with random values generated according the attribute types."""
     garbages = []
+    ref_objs = {}
+
+    for field_name in field_names or obj.__class__.model_fields.keys():
+        field_type = obj.get_field_root_type(field_name)
+        if get_origin(field_type) == Annotated:
+            field_type = get_args(field_type)[0]
+
+        if get_origin(field_type) is Reference:
+            ref_type = get_args(field_type)[0]
+            if ref_type not in (ExternalReference, URIReference):
+                model = model_from_ref_type(
+                    conf, ref_type, different_than=obj.__class__
+                )
+                ref_obj, sub_garbages = create_minimal_object(conf, model)
+                garbages.append(ref_obj)
+                garbages += sub_garbages
+
+                ref_objs[obj.__class__.__name__.lower()] = ref_obj
+
     for field_name in field_names or obj.__class__.model_fields.keys():
         field = obj.__class__.model_fields[field_name]
         if field.default:
@@ -75,9 +94,6 @@ def fill_with_random_values(
         value: Any
         if field_type is Meta:
             value = None
-
-        elif field.examples:
-            value = random.choice(field.examples)
 
         # RFC7643 §4.1.2 provides the following indications, however
         # there is no way to guess the existence of such requirements
@@ -95,6 +111,20 @@ def fill_with_random_values(
         elif field_name == "value" and "phone" in obj.__class__.__name__.lower():
             value = "".join(str(random.choice(range(10))) for _ in range(10))
 
+        elif field_name == "value" and obj.__class__.__name__.lower() in ref_objs:
+            value = ref_objs[obj.__class__.__name__.lower()].id
+
+        elif field_name == "type" and obj.__class__.__name__.lower() in ref_objs:
+            value = ref_objs[obj.__class__.__name__.lower()].meta.resource_type
+
+        elif (
+            field_name == "display" or field_name == "display_name"
+        ) and obj.__class__.__name__.lower() in ref_objs:
+            value = ref_objs[obj.__class__.__name__.lower()].display_name
+
+        elif field.examples:
+            value = random.choice(field.examples)
+
         elif field_type is int:
             value = uuid.uuid4().int
 
@@ -107,14 +137,8 @@ def fill_with_random_values(
         elif get_origin(field_type) is Reference:
             ref_type = get_args(field_type)[0]
             if ref_type not in (ExternalReference, URIReference):
-                model = model_from_ref_type(
-                    conf, ref_type, different_than=obj.__class__
-                )
-                ref_obj, sub_garbages = create_minimal_object(conf, model)
-                value = ref_obj.meta.location
-                garbages.append(ref_obj)
-                garbages += sub_garbages
-
+                if obj.__class__.__name__.lower() in ref_objs:
+                    value = ref_objs[obj.__class__.__name__.lower()].meta.location
             else:
                 value = f"https://{str(uuid.uuid4())}.test"
 
