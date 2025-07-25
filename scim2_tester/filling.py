@@ -36,7 +36,7 @@ def create_minimal_object(
 
 
 def model_from_ref_type(
-    conf: CheckConfig, ref_type: type, different_than: Resource
+    conf: CheckConfig, ref_type: type, different_than: type[Resource]
 ) -> type[Resource]:
     """Return "User" from "Union[Literal['User'], Literal['Group']]"."""
 

@@ -6,7 +6,7 @@ from scim2_tester.utils import Status
 from scim2_tester.utils import checker
 
 
-@checker
+@checker("crud:delete")
 def check_object_deletion(conf: CheckConfig, obj: Resource) -> CheckResult:
     """Perform an object deletion."""
     conf.client.delete(

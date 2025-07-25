@@ -26,7 +26,7 @@ def model_from_resource_type(
     return None
 
 
-@checker
+@checker("crud:read")
 def check_object_query(conf: CheckConfig, obj: Resource) -> CheckResult:
     """Perform an object query by knowing its id.
 
@@ -46,7 +46,7 @@ def check_object_query(conf: CheckConfig, obj: Resource) -> CheckResult:
     )
 
 
-@checker
+@checker("crud:read")
 def check_object_query_without_id(conf: CheckConfig, obj: Resource) -> CheckResult:
     """Perform the query of all objects of one kind.
 
