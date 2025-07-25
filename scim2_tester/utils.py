@@ -1,4 +1,5 @@
 import functools
+import inspect
 from dataclasses import dataclass
 from dataclasses import field
 from enum import Enum
@@ -7,6 +8,8 @@ from typing import Any
 
 from scim2_client import SCIMClient
 from scim2_client import SCIMClientError
+from scim2_models import Required
+from scim2_models import Resource
 
 # Global registry for all tags discovered by checker decorators
 _REGISTERED_TAGS: set[str] = set()
@@ -116,6 +119,64 @@ class CheckResult:
             raise SCIMTesterError(self.reason, self)
 
 
+class ResourceManager:
+    """Manages SCIM resources with automatic cleanup for tests."""
+
+    def __init__(self, conf: CheckConfig):
+        self.conf = conf
+        self.resources: list[Resource] = []
+
+    def create_and_register(self, model: type[Resource]) -> Resource:
+        """Create an object and automatically register it for cleanup.
+
+        :param model: The Resource model class to create
+        :returns: The created Resource instance
+        """
+        from scim2_tester.filling import fill_with_random_values
+
+        field_names = [
+            field_name
+            for field_name in model.model_fields
+            if model.get_field_annotation(field_name, Required) == Required.true
+        ]
+        obj = fill_with_random_values(self.conf, model(), self, field_names)
+
+        # Should not happen since we're filling required fields, but handle just in case
+        if obj is None:
+            raise ValueError(
+                f"Could not create valid {model.__name__} object with required fields"
+            )
+
+        created = self.conf.client.create(obj)
+
+        self.resources.append(created)
+
+        return created
+
+    def register(self, resource: Resource):
+        """Manually register a resource for cleanup.
+
+        :param resource: The Resource instance to register for cleanup
+        """
+        self.resources.append(resource)
+
+    def register_dependencies(self, dependencies: list[Resource]):
+        """Register multiple dependencies for cleanup.
+
+        :param dependencies: List of Resource instances to register for cleanup
+        """
+        self.resources.extend(dependencies)
+
+    def cleanup(self):
+        """Clean up all registered resources in reverse order."""
+        for resource in reversed(self.resources):
+            try:
+                self.conf.client.delete(resource.__class__, resource.id)
+            except Exception:
+                # Best effort cleanup - ignore failures
+                pass
+
+
 def checker(*tags):
     """Decorate checker methods with tags for selective execution.
 
@@ -160,9 +221,15 @@ def checker(*tags):
                     reason="Skipped due to tag exclusion",
                 )
 
-            # Execute the function normally
+            resource_manager = ResourceManager(conf)
+
             try:
-                result = func(conf, *args, **kwargs)
+                sig = inspect.signature(func)
+                if "resources" in sig.parameters:
+                    result = func(conf, *args, resources=resource_manager, **kwargs)
+                else:
+                    result = func(conf, *args, **kwargs)
+
             except SCIMClientError as exc:
                 if conf.raise_exceptions:
                     raise
@@ -172,23 +239,31 @@ def checker(*tags):
                     conf, status=Status.ERROR, reason=reason, data=exc.source
                 )
 
-            # decorate results
+            except Exception as exc:
+                if conf.raise_exceptions:
+                    raise
+
+                result = CheckResult(
+                    conf, status=Status.ERROR, reason=str(exc), data=exc
+                )
+
+            finally:
+                resource_manager.cleanup()
+
             if isinstance(result, CheckResult):
                 result.title = func.__name__
                 result.description = func.__doc__
                 result.tags = func_tags
+
             elif isinstance(result, list):
-                # Handle list of results
                 for r in result:
                     r.title = func.__name__
                     r.description = func.__doc__
                     r.tags = func_tags
             return result
 
-        # Store tags on the function for potential filtering
         wrapped.tags = set(tags) if tags else set()
 
-        # Register tags globally for discovery
         if tags:
             _REGISTERED_TAGS.update(tags)
 
