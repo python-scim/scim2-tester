@@ -6,7 +6,7 @@ from scim2_tester.utils import Status
 from scim2_tester.utils import checker
 
 
-@checker
+@checker("crud:create")
 def check_object_creation(conf: CheckConfig, obj: Resource) -> CheckResult:
     """Perform an object creation.
 

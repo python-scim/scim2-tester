@@ -6,7 +6,7 @@ from .utils import Status
 from .utils import checker
 
 
-@checker
+@checker("discovery", "service-provider-config")
 def check_service_provider_config_endpoint(
     conf: CheckConfig,
 ) -> CheckResult:

@@ -6,7 +6,7 @@ from scim2_tester.utils import Status
 from scim2_tester.utils import checker
 
 
-@checker
+@checker("crud:update")
 def check_object_replacement(conf: CheckConfig, obj: Resource) -> CheckResult:
     """Perform an object replacement.
 

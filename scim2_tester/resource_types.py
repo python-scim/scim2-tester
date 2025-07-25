@@ -32,7 +32,7 @@ def check_resource_types_endpoint(conf: CheckConfig) -> list[CheckResult]:
     return results
 
 
-@checker
+@checker("discovery", "resource-types")
 def check_query_all_resource_types(conf: CheckConfig) -> CheckResult:
     response = conf.client.query(
         ResourceType, expected_status_codes=conf.expected_status_codes or [200]
@@ -44,7 +44,7 @@ def check_query_all_resource_types(conf: CheckConfig) -> CheckResult:
     )
 
 
-@checker
+@checker("discovery", "resource-types")
 def check_query_resource_type_by_id(
     conf: CheckConfig, resource_type: ResourceType
 ) -> CheckResult:
@@ -62,7 +62,7 @@ def check_query_resource_type_by_id(
     return CheckResult(conf, status=Status.SUCCESS, reason=reason, data=response)
 
 
-@checker
+@checker("discovery", "resource-types")
 def check_access_invalid_resource_type(conf: CheckConfig) -> CheckResult:
     probably_invalid_id = str(uuid.uuid4())
     response = conf.client.query(

@@ -32,7 +32,7 @@ def check_schemas_endpoint(conf: CheckConfig) -> list[CheckResult]:
     return results
 
 
-@checker
+@checker("discovery", "schemas")
 def check_query_all_schemas(conf: CheckConfig) -> CheckResult:
     response = conf.client.query(
         Schema, expected_status_codes=conf.expected_status_codes or [200]
@@ -46,7 +46,7 @@ def check_query_all_schemas(conf: CheckConfig) -> CheckResult:
     )
 
 
-@checker
+@checker("discovery", "schemas")
 def check_query_schema_by_id(conf: CheckConfig, schema: Schema) -> CheckResult:
     response = conf.client.query(
         Schema,
@@ -62,7 +62,7 @@ def check_query_schema_by_id(conf: CheckConfig, schema: Schema) -> CheckResult:
     return CheckResult(conf, status=Status.SUCCESS, reason=reason, data=response)
 
 
-@checker
+@checker("discovery", "schemas")
 def check_access_invalid_schema(conf: CheckConfig) -> CheckResult:
     probably_invalid_id = str(uuid.uuid4())
     response = conf.client.query(
