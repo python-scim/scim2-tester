@@ -49,7 +49,7 @@ dev = [
     "pytest-httpserver>=1.0.10",
     "tox-uv>=1.16.0",
     "portpicker>=1.6.0",
-    "scim2-server>=0.1.2",
+    "scim2-server>=0.1.7",
 ]
 doc = [
     "autodoc-pydantic>=2.2.0",
