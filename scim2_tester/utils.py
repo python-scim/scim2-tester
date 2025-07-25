@@ -11,6 +11,7 @@ from scim2_client import SCIMClientError
 class Status(Enum):
     SUCCESS = auto()
     ERROR = auto()
+    SKIPPED = auto()
 
 
 @dataclass
@@ -61,6 +62,19 @@ class CheckResult:
     def __post_init__(self):
         if self.conf.raise_exceptions and self.status == Status.ERROR:
             raise SCIMTesterError(self.reason, self)
+
+
+def should_test_patch(conf: CheckConfig) -> bool:
+    """Check if PATCH operations should be tested based on ServiceProviderConfig.
+
+    :param conf: The check configuration containing the SCIM client
+    :returns: True if PATCH is supported by the server, False otherwise
+    """
+    return (
+        conf.client.service_provider_config is not None
+        and conf.client.service_provider_config.patch is not None
+        and conf.client.service_provider_config.patch.supported
+    )
 
 
 def checker(func):

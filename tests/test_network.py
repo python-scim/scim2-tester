@@ -9,7 +9,7 @@ from scim2_models import User
 
 from scim2_tester.checker import check_schemas_endpoint
 from scim2_tester.checker import check_server
-from scim2_tester.resource import check_object_query
+from scim2_tester.resource_get import check_object_query_by_instance
 from scim2_tester.utils import CheckConfig
 from scim2_tester.utils import Status
 
@@ -75,16 +75,16 @@ def test_bad_content_type(httpserver):
     scim.register_naive_resource_types()
     conf = CheckConfig(scim)
 
-    result = check_object_query(conf, scim_user)
+    result = check_object_query_by_instance(conf, scim_user)
     assert result.status == Status.SUCCESS
 
-    result = check_object_query(conf, json_user)
+    result = check_object_query_by_instance(conf, json_user)
     assert result.status == Status.SUCCESS
 
-    result = check_object_query(conf, invalid_user)
+    result = check_object_query_by_instance(conf, invalid_user)
     assert result.status == Status.ERROR
-    assert result.reason == "Unexpected content type: application/invalid"
+    assert "Unexpected content type: application/invalid" in result.reason
 
-    result = check_object_query(conf, missing_user)
+    result = check_object_query_by_instance(conf, missing_user)
     assert result.status == Status.ERROR
-    assert result.reason == "Unexpected content type: "
+    assert "Unexpected content type:" in result.reason
