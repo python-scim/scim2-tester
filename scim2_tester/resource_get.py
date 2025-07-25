@@ -3,6 +3,7 @@ from scim2_models import ResourceType
 
 from scim2_tester.utils import CheckConfig
 from scim2_tester.utils import CheckResult
+from scim2_tester.utils import ResourceManager
 from scim2_tester.utils import Status
 from scim2_tester.utils import checker
 
@@ -27,50 +28,65 @@ def model_from_resource_type(
 
 
 @checker("crud:read")
-def check_object_query(conf: CheckConfig, obj: Resource) -> CheckResult:
-    """Perform an object query by knowing its id.
+def check_object_query(
+    conf: CheckConfig, model: type[Resource], resources: ResourceManager
+) -> CheckResult:
+    """Test object query by ID with automatic cleanup.
 
-    Todo:
-      - check if the fields of the result object are the same than the
-      fields of the request object
+    Creates a temporary test object, queries it by ID to validate the
+    read operation.
 
+    :param conf: The check configuration containing the SCIM client
+    :param model: The Resource model class to test
+    :param resources: Resource manager for automatic cleanup
+    :returns: The result of the check operation
     """
+    test_obj = resources.create_and_register(model)
+
     response = conf.client.query(
-        obj.__class__, obj.id, expected_status_codes=conf.expected_status_codes or [200]
+        model, test_obj.id, expected_status_codes=conf.expected_status_codes or [200]
     )
+
     return CheckResult(
         conf,
         status=Status.SUCCESS,
-        reason=f"Successful query of a {obj.__class__.__name__} object with id {response.id}",
+        reason=f"Successfully queried {model.__name__} object with id {test_obj.id}",
         data=response,
     )
 
 
 @checker("crud:read")
-def check_object_query_without_id(conf: CheckConfig, obj: Resource) -> CheckResult:
-    """Perform the query of all objects of one kind.
+def check_object_query_without_id(
+    conf: CheckConfig, model: type[Resource], resources: ResourceManager
+) -> CheckResult:
+    """Test object listing without ID with automatic cleanup.
 
-    Todo:
-      - look for the object across several pages
-      - check if the fields of the result object are the same than the
-      fields of the request object
+    Creates a temporary test object, performs a list/search operation to
+    validate bulk retrieval.
 
+    :param conf: The check configuration containing the SCIM client
+    :param model: The Resource model class to test
+    :param resources: Resource manager for automatic cleanup
+    :returns: The result of the check operation
     """
+    test_obj = resources.create_and_register(model)
+
     response = conf.client.query(
-        obj.__class__, expected_status_codes=conf.expected_status_codes or [200]
+        model, expected_status_codes=conf.expected_status_codes or [200]
     )
-    found = any(obj.id == resource.id for resource in response.resources)
+
+    found = any(test_obj.id == resource.id for resource in response.resources)
     if not found:
         return CheckResult(
             conf,
             status=Status.ERROR,
-            reason=f"Could not find object {obj.__class__.__name__} with id : {obj.id}",
+            reason=f"Could not find {model.__name__} object with id {test_obj.id} in list response",
             data=response,
         )
 
     return CheckResult(
         conf,
         status=Status.SUCCESS,
-        reason=f"Successful query of a {obj.__class__.__name__} object with id {obj.id}",
+        reason=f"Successfully found {model.__name__} object with id {test_obj.id} in list response",
         data=response,
     )

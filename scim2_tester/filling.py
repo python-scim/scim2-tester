@@ -3,6 +3,7 @@ import random
 import uuid
 from enum import Enum
 from inspect import isclass
+from typing import TYPE_CHECKING
 from typing import Annotated
 from typing import Any
 from typing import get_args
@@ -13,26 +14,14 @@ from scim2_models import Extension
 from scim2_models import ExternalReference
 from scim2_models import Meta
 from scim2_models import Reference
-from scim2_models import Required
 from scim2_models import Resource
 from scim2_models import URIReference
 from scim2_models.utils import UNION_TYPES
 
 from scim2_tester.utils import CheckConfig
 
-
-def create_minimal_object(
-    conf: CheckConfig, model: type[Resource]
-) -> tuple[Resource, list[Resource]]:
-    """Create an object filling with the minimum required field set."""
-    field_names = [
-        field_name
-        for field_name in model.model_fields
-        if model.get_field_annotation(field_name, Required) == Required.true
-    ]
-    obj, garbages = fill_with_random_values(conf, model(), field_names)
-    obj = conf.client.create(obj)
-    return obj, garbages
+if TYPE_CHECKING:
+    from scim2_tester.utils import ResourceManager
 
 
 def model_from_ref_type(
@@ -58,10 +47,19 @@ def model_from_ref_type(
 
 
 def fill_with_random_values(
-    conf: CheckConfig, obj: Resource, field_names: list[str] | None = None
-) -> Resource:
-    """Fill an object with random values generated according the attribute types."""
-    garbages = []
+    conf: CheckConfig,
+    obj: Resource,
+    resource_manager: "ResourceManager",
+    field_names: list[str] | None = None,
+) -> Resource | None:
+    """Fill an object with random values generated according the attribute types.
+
+    :param conf: The check configuration containing the SCIM client
+    :param obj: The Resource object to fill with random values
+    :param resource_manager: Resource manager for automatic cleanup
+    :param field_names: Optional list of field names to fill (defaults to all)
+    :returns: The filled object or None if the object ends up empty
+    """
     for field_name in field_names or obj.__class__.model_fields.keys():
         field = obj.__class__.model_fields[field_name]
         if field.default:
@@ -110,9 +108,8 @@ def fill_with_random_values(
                 model = model_from_ref_type(
                     conf, ref_type, different_than=obj.__class__
                 )
-                ref_obj, sub_garbages = create_minimal_object(conf, model)
+                ref_obj = resource_manager.create_and_register(model)
                 value = ref_obj.meta.location
-                garbages += sub_garbages
 
             else:
                 value = f"https://{str(uuid.uuid4())}.test"
@@ -121,12 +118,10 @@ def fill_with_random_values(
             value = random.choice(list(field_type))
 
         elif isclass(field_type) and issubclass(field_type, ComplexAttribute):
-            value, sub_garbages = fill_with_random_values(conf, field_type())
-            garbages += sub_garbages
+            value = fill_with_random_values(conf, field_type(), resource_manager)
 
         elif isclass(field_type) and issubclass(field_type, Extension):
-            value, sub_garbages = fill_with_random_values(conf, field_type())
-            garbages += sub_garbages
+            value = fill_with_random_values(conf, field_type(), resource_manager)
 
         else:
             # Put emails so this will be accepted by EmailStr too
@@ -134,8 +129,7 @@ def fill_with_random_values(
 
         if is_multiple:
             setattr(obj, field_name, [value])
-
         else:
             setattr(obj, field_name, value)
 
-    return obj, garbages
+    return obj

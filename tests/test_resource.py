@@ -5,7 +5,9 @@ from scim2_models import ComplexAttribute
 from scim2_models import Reference
 from scim2_models import Resource
 
-from scim2_tester.resource import fill_with_random_values
+from scim2_tester.filling import fill_with_random_values
+from scim2_tester.utils import CheckConfig
+from scim2_tester.utils import ResourceManager
 
 
 class Complex(ComplexAttribute):
@@ -47,8 +49,22 @@ class CustomModel(Resource):
 
 def test_random_values():
     """Check that 'fill_with_random_values' produce valid objects."""
+
+    # Create a mock config and resource manager for testing
+    class MockClient:
+        def create(self, obj):
+            return obj
+
+    conf = CheckConfig(MockClient())
+    resource_manager = ResourceManager(conf)
+
     obj = CustomModel()
-    fill_with_random_values(None, obj)
+    obj = fill_with_random_values(conf, obj, resource_manager)
+
+    assert obj is not None, (
+        "fill_with_random_values should not return None for test object"
+    )
+
     for field_name in obj.__class__.model_fields:
         if field_name == "meta":
             continue

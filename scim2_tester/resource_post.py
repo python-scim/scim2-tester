@@ -2,26 +2,30 @@ from scim2_models import Resource
 
 from scim2_tester.utils import CheckConfig
 from scim2_tester.utils import CheckResult
+from scim2_tester.utils import ResourceManager
 from scim2_tester.utils import Status
 from scim2_tester.utils import checker
 
 
 @checker("crud:create")
-def check_object_creation(conf: CheckConfig, obj: Resource) -> CheckResult:
-    """Perform an object creation.
+def check_object_creation(
+    conf: CheckConfig, model: type[Resource], resources: ResourceManager
+) -> CheckResult:
+    """Test object creation with automatic cleanup.
 
-    Todo:
-      - check if the fields of the result object are the same than the
-      fields of the request object
+    Creates a test object of the specified model type, validates the creation
+    operation.
 
+    :param conf: The check configuration containing the SCIM client
+    :param model: The Resource model class to test
+    :param resources: Resource manager for automatic cleanup
+    :returns: The result of the check operation
     """
-    response = conf.client.create(
-        obj, expected_status_codes=conf.expected_status_codes or [201]
-    )
+    created_obj = resources.create_and_register(model)
 
     return CheckResult(
         conf,
         status=Status.SUCCESS,
-        reason=f"Successful creation of a {obj.__class__.__name__} object with id {response.id}",
-        data=response,
+        reason=f"Successfully created {model.__name__} object with id {created_obj.id}",
+        data=created_obj,
     )
