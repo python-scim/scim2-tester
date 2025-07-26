@@ -4,7 +4,6 @@ import uuid
 from enum import Enum
 from inspect import isclass
 from typing import TYPE_CHECKING
-from typing import Annotated
 from typing import Any
 from typing import get_args
 from typing import get_origin
@@ -46,6 +45,72 @@ def model_from_ref_type(
     return acceptable_models[0]
 
 
+def generate_random_value(
+    conf: CheckConfig,
+    obj: Resource,
+    resource_manager: "ResourceManager",
+    field_name: str,
+):
+    field = obj.__class__.model_fields[field_name]
+    field_type = obj.get_field_root_type(field_name)
+
+    value: Any
+    if field_type is Meta:
+        value = None
+
+    elif field.examples:
+        value = random.choice(field.examples)
+
+    # RFC7643 §4.1.2 provides the following indications, however
+    # there is no way to guess the existence of such requirements
+    # just by looking at the object schema.
+    #     The value SHOULD be specified according to [RFC5321].
+    elif field_name == "value" and "email" in obj.__class__.__name__.lower():
+        value = f"{uuid.uuid4()}@{uuid.uuid4()}.com"
+
+    # RFC7643 §4.1.2 provides the following indications, however
+    # there is no way to guess the existence of such requirements
+    # just by looking at the object schema.
+    #     The value SHOULD be specified
+    #     according to the format defined in [RFC3966], e.g.,
+    #     'tel:+1-201-555-0123'.
+    elif field_name == "value" and "phone" in obj.__class__.__name__.lower():
+        value = "".join(str(random.choice(range(10))) for _ in range(10))
+
+    elif field_type is int:
+        value = uuid.uuid4().int
+
+    elif field_type is bool:
+        value = random.choice([True, False])
+
+    elif field_type is bytes:
+        value = base64.b64encode(str(uuid.uuid4()).encode("utf-8"))
+
+    elif get_origin(field_type) is Reference:
+        ref_type = get_args(field_type)[0]
+        if ref_type not in (ExternalReference, URIReference):
+            model = model_from_ref_type(conf, ref_type, different_than=obj.__class__)
+            ref_obj = resource_manager.create_and_register(model)
+            value = ref_obj.meta.location
+
+        else:
+            value = f"https://{str(uuid.uuid4())}.test"
+
+    elif isclass(field_type) and issubclass(field_type, Enum):
+        value = random.choice(list(field_type))
+
+    elif isclass(field_type) and issubclass(field_type, ComplexAttribute):
+        value = fill_with_random_values(conf, field_type(), resource_manager)
+
+    elif isclass(field_type) and issubclass(field_type, Extension):
+        value = fill_with_random_values(conf, field_type(), resource_manager)
+
+    else:
+        # Put emails so this will be accepted by EmailStr too
+        value = str(uuid.uuid4())
+    return value
+
+
 def fill_with_random_values(
     conf: CheckConfig,
     obj: Resource,
@@ -65,68 +130,9 @@ def fill_with_random_values(
         if field.default:
             continue
 
+        value = generate_random_value(conf, obj, resource_manager, field_name)
+
         is_multiple = obj.get_field_multiplicity(field_name)
-        field_type = obj.get_field_root_type(field_name)
-        if get_origin(field_type) == Annotated:
-            field_type = get_args(field_type)[0]
-
-        value: Any
-        if field_type is Meta:
-            value = None
-
-        elif field.examples:
-            value = random.choice(field.examples)
-
-        # RFC7643 §4.1.2 provides the following indications, however
-        # there is no way to guess the existence of such requirements
-        # just by looking at the object schema.
-        #     The value SHOULD be specified according to [RFC5321].
-        elif field_name == "value" and "email" in obj.__class__.__name__.lower():
-            value = f"{uuid.uuid4()}@{uuid.uuid4()}.com"
-
-        # RFC7643 §4.1.2 provides the following indications, however
-        # there is no way to guess the existence of such requirements
-        # just by looking at the object schema.
-        #     The value SHOULD be specified
-        #     according to the format defined in [RFC3966], e.g.,
-        #     'tel:+1-201-555-0123'.
-        elif field_name == "value" and "phone" in obj.__class__.__name__.lower():
-            value = "".join(str(random.choice(range(10))) for _ in range(10))
-
-        elif field_type is int:
-            value = uuid.uuid4().int
-
-        elif field_type is bool:
-            value = random.choice([True, False])
-
-        elif field_type is bytes:
-            value = base64.b64encode(str(uuid.uuid4()).encode("utf-8"))
-
-        elif get_origin(field_type) is Reference:
-            ref_type = get_args(field_type)[0]
-            if ref_type not in (ExternalReference, URIReference):
-                model = model_from_ref_type(
-                    conf, ref_type, different_than=obj.__class__
-                )
-                ref_obj = resource_manager.create_and_register(model)
-                value = ref_obj.meta.location
-
-            else:
-                value = f"https://{str(uuid.uuid4())}.test"
-
-        elif isclass(field_type) and issubclass(field_type, Enum):
-            value = random.choice(list(field_type))
-
-        elif isclass(field_type) and issubclass(field_type, ComplexAttribute):
-            value = fill_with_random_values(conf, field_type(), resource_manager)
-
-        elif isclass(field_type) and issubclass(field_type, Extension):
-            value = fill_with_random_values(conf, field_type(), resource_manager)
-
-        else:
-            # Put emails so this will be accepted by EmailStr too
-            value = str(uuid.uuid4())
-
         if is_multiple:
             setattr(obj, field_name, [value])
         else:
