@@ -1,3 +1,5 @@
+from typing import Any
+
 from scim2_models import Resource
 
 from scim2_tester.utils import CheckContext
@@ -7,7 +9,9 @@ from scim2_tester.utils import checker
 
 
 @checker("crud:delete")
-def check_object_deletion(context: CheckContext, model: type[Resource]) -> CheckResult:
+def check_object_deletion(
+    context: CheckContext, model: type[Resource[Any]]
+) -> CheckResult:
     """Test object deletion with automatic cleanup.
 
     Creates a test object specifically for deletion testing, performs the
@@ -23,16 +27,16 @@ def check_object_deletion(context: CheckContext, model: type[Resource]) -> Check
     if test_obj in context.resource_manager.resources:
         context.resource_manager.resources.remove(test_obj)
 
-    context.client.delete(
-        model,
-        test_obj.id,
-        expected_status_codes=context.conf.expected_status_codes or [204],
-    )
+    if test_obj.id is not None:
+        context.client.delete(
+            model,
+            test_obj.id,
+            expected_status_codes=context.conf.expected_status_codes or [204],
+        )
 
     try:
         context.client.query(model, test_obj.id)
         return CheckResult(
-            context.conf,
             status=Status.ERROR,
             reason=f"{model.__name__} object with id {test_obj.id} still exists after deletion",
         )
@@ -41,7 +45,6 @@ def check_object_deletion(context: CheckContext, model: type[Resource]) -> Check
         pass
 
     return CheckResult(
-        context.conf,
         status=Status.SUCCESS,
         reason=f"Successfully deleted {model.__name__} object with id {test_obj.id}",
     )

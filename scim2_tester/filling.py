@@ -24,11 +24,11 @@ if TYPE_CHECKING:
 
 
 def model_from_ref_type(
-    context: CheckContext, ref_type: type, different_than: type[Resource]
-) -> type[Resource]:
+    context: CheckContext, ref_type: type, different_than: type[Resource[Any]]
+) -> type[Resource[Any]]:
     """Return "User" from "Union[Literal['User'], Literal['Group']]"."""
 
-    def model_from_ref_type_(ref_type):
+    def model_from_ref_type_(ref_type: type) -> Any:
         if get_origin(ref_type) in UNION_TYPES:
             return [
                 model_from_ref_type_(sub_ref_type)
@@ -47,10 +47,10 @@ def model_from_ref_type(
 
 def generate_random_value(
     context: CheckContext,
-    obj: Resource,
+    obj: Resource[Any],
     resource_manager: "ResourceManager",
     field_name: str,
-):
+) -> Any:
     field = obj.__class__.model_fields[field_name]
     field_type = obj.get_field_root_type(field_name)
 
@@ -113,10 +113,10 @@ def generate_random_value(
 
 def fill_with_random_values(
     context: CheckContext,
-    obj: Resource,
+    obj: Resource[Any],
     resource_manager: "ResourceManager",
     field_names: list[str] | None = None,
-) -> Resource | None:
+) -> Resource[Any] | None:
     """Fill an object with random values generated according the attribute types.
 
     :param context: The check context containing the SCIM client and configuration

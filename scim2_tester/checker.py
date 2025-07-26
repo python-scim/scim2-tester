@@ -1,7 +1,8 @@
 import argparse
 import uuid
+from typing import Any
 
-from scim2_client import SCIMClient
+from scim2_client.engines.httpx import SyncSCIMClient
 from scim2_models import Error
 
 from scim2_tester.resource import check_resource_type
@@ -19,11 +20,12 @@ from scim2_tester.utils import checker
 def check_random_url(context: CheckContext) -> CheckResult:
     """Check that a request to a random URL returns a 404 Error object."""
     probably_invalid_url = f"/{str(uuid.uuid4())}"
-    response = context.client.query(url=probably_invalid_url, raise_scim_errors=False)
+    response: Any = context.client.query(
+        url=probably_invalid_url, raise_scim_errors=False
+    )
 
     if not isinstance(response, Error):
         return CheckResult(
-            context.conf,
             status=Status.ERROR,
             reason=f"{probably_invalid_url} did not return an Error object",
             data=response,
@@ -31,14 +33,12 @@ def check_random_url(context: CheckContext) -> CheckResult:
 
     if response.status != 404:
         return CheckResult(
-            context.conf,
             status=Status.ERROR,
             reason=f"{probably_invalid_url} did return an object, but the status code is {response.status}",
             data=response,
         )
 
     return CheckResult(
-        context.conf,
         status=Status.SUCCESS,
         reason=f"{probably_invalid_url} correctly returned a 404 error",
         data=response,
@@ -46,8 +46,8 @@ def check_random_url(context: CheckContext) -> CheckResult:
 
 
 def check_server(
-    client: SCIMClient,
-    raise_exceptions=False,
+    client: SyncSCIMClient,
+    raise_exceptions: bool = False,
     include_tags: set[str] | None = None,
     exclude_tags: set[str] | None = None,
     resource_types: list[str] | None = None,
@@ -191,7 +191,7 @@ if __name__ == "__main__":
         headers={"Authorization": f"Bearer {args.token}"} if args.token else None,
     )
     scim = SyncSCIMClient(client)
-    scim.discover()
+    scim.discover()  # type: ignore[no-untyped-call]
 
     include_tags: set[str] | None = (
         set(args.include_tags) if args.include_tags else None

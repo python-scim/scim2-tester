@@ -39,9 +39,7 @@ def check_query_all_resource_types(context: CheckContext) -> CheckResult:
     )
     available = ", ".join([f"'{resource.name}'" for resource in response.resources])
     reason = f"Resource types available are: {available}"
-    return CheckResult(
-        context.conf, status=Status.SUCCESS, reason=reason, data=response.resources
-    )
+    return CheckResult(status=Status.SUCCESS, reason=reason, data=response.resources)
 
 
 @checker("discovery", "resource-types")
@@ -54,14 +52,10 @@ def check_query_resource_type_by_id(
         expected_status_codes=context.conf.expected_status_codes or [200],
     )
     if isinstance(response, Error):
-        return CheckResult(
-            context.conf, status=Status.ERROR, reason=response.detail, data=response
-        )
+        return CheckResult(status=Status.ERROR, reason=response.detail, data=response)
 
     reason = f"Successfully accessed the /ResourceTypes/{resource_type.id} endpoint."
-    return CheckResult(
-        context.conf, status=Status.SUCCESS, reason=reason, data=response
-    )
+    return CheckResult(status=Status.SUCCESS, reason=reason, data=response)
 
 
 @checker("discovery", "resource-types")
@@ -76,7 +70,6 @@ def check_access_invalid_resource_type(context: CheckContext) -> CheckResult:
 
     if not isinstance(response, Error):
         return CheckResult(
-            context.conf,
             status=Status.ERROR,
             reason=f"/resource_types/{probably_invalid_id} invalid URL did not return an Error object",
             data=response,
@@ -84,14 +77,12 @@ def check_access_invalid_resource_type(context: CheckContext) -> CheckResult:
 
     if response.status != 404:
         return CheckResult(
-            context.conf,
             status=Status.ERROR,
             reason=f"/resource_types/{probably_invalid_id} invalid URL did return an object, but the status code is {response.status}",
             data=response,
         )
 
     return CheckResult(
-        context.conf,
         status=Status.SUCCESS,
         reason=f"/resource_types/{probably_invalid_id} invalid URL correctly returned a 404 error",
         data=response,

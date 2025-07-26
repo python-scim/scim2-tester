@@ -1,14 +1,21 @@
 import functools
+import sys
 from dataclasses import dataclass
 from dataclasses import field
 from enum import Enum
 from enum import auto
 from typing import Any
 
-from scim2_client import SCIMClient
 from scim2_client import SCIMClientError
+from scim2_client.engines.httpx import SyncSCIMClient
 from scim2_models import Required
 from scim2_models import Resource
+
+# Import ExceptionGroup for Python < 3.11 compatibility
+if sys.version_info >= (3, 11):
+    from builtins import ExceptionGroup
+else:
+    from exceptiongroup import ExceptionGroup
 
 # Global registry for all tags discovered by checker decorators
 _REGISTERED_TAGS: set[str] = set()
@@ -76,7 +83,7 @@ class CheckConfig:
 class CheckContext:
     """Execution context with client, config and resource management."""
 
-    def __init__(self, client: SCIMClient, conf: CheckConfig):
+    def __init__(self, client: SyncSCIMClient, conf: CheckConfig):
         self.client = client
         self.conf = conf
         from scim2_tester.utils import ResourceManager
@@ -92,7 +99,7 @@ class SCIMTesterError(Exception):
         self.message = message
         self.conf = conf
 
-    def __str__(self):
+    def __str__(self) -> str:
         return self.message
 
 
@@ -100,7 +107,6 @@ class SCIMTesterError(Exception):
 class CheckResult:
     """Store a check result."""
 
-    conf: CheckConfig
     status: Status
 
     title: str | None = None
@@ -121,19 +127,15 @@ class CheckResult:
     resource_type: str | None = None
     """The resource type name if this check is related to a specific resource."""
 
-    def __post_init__(self):
-        if self.conf.raise_exceptions and self.status == Status.ERROR:
-            raise SCIMTesterError(self.reason, self)
-
 
 class ResourceManager:
     """Manages SCIM resources with automatic cleanup for tests."""
 
     def __init__(self, context: CheckContext):
         self.context = context
-        self.resources: list[Resource] = []
+        self.resources: list[Resource[Any]] = []
 
-    def create_and_register(self, model: type[Resource]) -> Resource:
+    def create_and_register(self, model: type[Resource[Any]]) -> Resource[Any]:
         """Create an object and automatically register it for cleanup.
 
         :param model: The Resource model class to create
@@ -156,35 +158,40 @@ class ResourceManager:
 
         created = self.context.client.create(obj)
 
-        self.resources.append(created)
+        # Handle the case where create might return Error or dict
+        if isinstance(created, Resource):
+            self.resources.append(created)
+            return created
+        else:
+            # This shouldn't happen with valid inputs, but handle for type safety
+            raise ValueError(f"Failed to create resource: {created}")
 
-        return created
-
-    def register(self, resource: Resource):
+    def register(self, resource: Resource[Any]) -> None:
         """Manually register a resource for cleanup.
 
         :param resource: The Resource instance to register for cleanup
         """
         self.resources.append(resource)
 
-    def register_dependencies(self, dependencies: list[Resource]):
+    def register_dependencies(self, dependencies: list[Resource[Any]]) -> None:
         """Register multiple dependencies for cleanup.
 
         :param dependencies: List of Resource instances to register for cleanup
         """
         self.resources.extend(dependencies)
 
-    def cleanup(self):
+    def cleanup(self) -> None:
         """Clean up all registered resources in reverse order."""
         for resource in reversed(self.resources):
             try:
-                self.context.client.delete(resource.__class__, resource.id)
+                if resource.id is not None:
+                    self.context.client.delete(resource.__class__, resource.id)
             except Exception:
                 # Best effort cleanup - ignore failures
                 pass
 
 
-def checker(*tags):
+def checker(*tags: str) -> Any:
     """Decorate checker methods with tags for selective execution.
 
     - It adds a title and a description to the returned result, extracted from the method name and its docstring.
@@ -198,9 +205,9 @@ def checker(*tags):
             ...
     """
 
-    def decorator(func):
+    def decorator(func: Any) -> Any:
         @functools.wraps(func)
-        def wrapped(context: CheckContext, *args, **kwargs):
+        def wrapped(context: CheckContext, *args: Any, **kwargs: Any) -> Any:
             func_tags = set(tags) if tags else set()
 
             # Check if function should be skipped based on tag filtering
@@ -208,7 +215,6 @@ def checker(*tags):
                 func_tags, context.conf.include_tags
             ):
                 return CheckResult(
-                    context.conf,
                     status=Status.SKIPPED,
                     title=func.__name__,
                     description=func.__doc__,
@@ -220,7 +226,6 @@ def checker(*tags):
                 func_tags, context.conf.exclude_tags
             ):
                 return CheckResult(
-                    context.conf,
                     status=Status.SKIPPED,
                     title=func.__name__,
                     description=func.__doc__,
@@ -237,19 +242,32 @@ def checker(*tags):
 
                 reason = f"{exc} {exc.__cause__}" if exc.__cause__ else str(exc)
                 result = CheckResult(
-                    context.conf, status=Status.ERROR, reason=reason, data=exc.source
+                    status=Status.ERROR, reason=reason, data=exc.source
                 )
 
             except Exception as exc:
                 if context.conf.raise_exceptions:
                     raise
 
-                result = CheckResult(
-                    context.conf, status=Status.ERROR, reason=str(exc), data=exc
-                )
+                result = CheckResult(status=Status.ERROR, reason=str(exc), data=exc)
 
             finally:
                 context.resource_manager.cleanup()
+
+            # Check for ERROR results and raise SCIMTesterError if configured
+            if context.conf.raise_exceptions:
+                if isinstance(result, CheckResult) and result.status == Status.ERROR:
+                    raise SCIMTesterError(result.reason or "Check failed", context.conf)
+                elif isinstance(result, list):
+                    errors = [
+                        SCIMTesterError(r.reason or "Check failed", context.conf)
+                        for r in result
+                        if r.status == Status.ERROR
+                    ]
+                    if len(errors) == 1:
+                        raise errors[0]
+                    elif len(errors) > 1:
+                        raise ExceptionGroup("Multiple check failures", errors)
 
             if isinstance(result, CheckResult):
                 result.title = func.__name__
@@ -263,7 +281,7 @@ def checker(*tags):
                     r.tags = func_tags
             return result
 
-        wrapped.tags = set(tags) if tags else set()
+        wrapped.tags = set(tags) if tags else set()  # type: ignore[attr-defined]
 
         if tags:
             _REGISTERED_TAGS.update(tags)

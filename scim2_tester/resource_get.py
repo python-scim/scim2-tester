@@ -1,3 +1,5 @@
+from typing import Any
+
 from scim2_models import Resource
 from scim2_models import ResourceType
 
@@ -9,7 +11,7 @@ from scim2_tester.utils import checker
 
 def model_from_resource_type(
     context: CheckContext, resource_type: ResourceType
-) -> type[Resource] | None:
+) -> type[Resource[Any]] | None:
     """Return the Resource model class from a given ResourceType.
 
     ResourceType.name contains the resource type name (e.g., "User", "Group").
@@ -27,7 +29,9 @@ def model_from_resource_type(
 
 
 @checker("crud:read")
-def check_object_query(context: CheckContext, model: type[Resource]) -> CheckResult:
+def check_object_query(
+    context: CheckContext, model: type[Resource[Any]]
+) -> CheckResult:
     """Test object query by ID with automatic cleanup.
 
     Creates a temporary test object, queries it by ID to validate the
@@ -46,7 +50,6 @@ def check_object_query(context: CheckContext, model: type[Resource]) -> CheckRes
     )
 
     return CheckResult(
-        context.conf,
         status=Status.SUCCESS,
         reason=f"Successfully queried {model.__name__} object with id {test_obj.id}",
         data=response,
@@ -55,7 +58,7 @@ def check_object_query(context: CheckContext, model: type[Resource]) -> CheckRes
 
 @checker("crud:read")
 def check_object_query_without_id(
-    context: CheckContext, model: type[Resource]
+    context: CheckContext, model: type[Resource[Any]]
 ) -> CheckResult:
     """Test object listing without ID with automatic cleanup.
 
@@ -75,14 +78,12 @@ def check_object_query_without_id(
     found = any(test_obj.id == resource.id for resource in response.resources)
     if not found:
         return CheckResult(
-            context.conf,
             status=Status.ERROR,
             reason=f"Could not find {model.__name__} object with id {test_obj.id} in list response",
             data=response,
         )
 
     return CheckResult(
-        context.conf,
         status=Status.SUCCESS,
         reason=f"Successfully found {model.__name__} object with id {test_obj.id} in list response",
         data=response,

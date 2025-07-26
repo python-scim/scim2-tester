@@ -86,14 +86,12 @@ def test_bad_content_type(httpserver):
                 obj.__class__, obj.id, expected_status_codes=[200]
             )
             return CheckResult(
-                context.conf,
                 status=Status.SUCCESS,
                 reason=f"Successful query of {obj.__class__.__name__}",
                 data=response,
             )
         except Exception as e:
             return CheckResult(
-                context.conf,
                 status=Status.ERROR,
                 reason=str(e),
                 data=e,

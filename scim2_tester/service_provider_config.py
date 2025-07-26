@@ -20,4 +20,4 @@ def check_service_provider_config_endpoint(
         ServiceProviderConfig,
         expected_status_codes=context.conf.expected_status_codes or [200],
     )
-    return CheckResult(context.conf, status=Status.SUCCESS, data=response)
+    return CheckResult(status=Status.SUCCESS, data=response)

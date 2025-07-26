@@ -25,7 +25,6 @@ def check_resource_type(
     if not model:
         return [
             CheckResult(
-                context.conf,
                 status=Status.ERROR,
                 reason=f"No Schema matching the ResourceType {resource_type.id}",
             )
