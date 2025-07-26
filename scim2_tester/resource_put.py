@@ -2,28 +2,26 @@ from scim2_models import Mutability
 from scim2_models import Resource
 
 from scim2_tester.filling import fill_with_random_values
-from scim2_tester.utils import CheckConfig
+from scim2_tester.utils import CheckContext
 from scim2_tester.utils import CheckResult
-from scim2_tester.utils import ResourceManager
 from scim2_tester.utils import Status
 from scim2_tester.utils import checker
 
 
 @checker("crud:update")
 def check_object_replacement(
-    conf: CheckConfig, model: type[Resource], resources: ResourceManager
+    context: CheckContext, model: type[Resource]
 ) -> CheckResult:
     """Test object replacement (PUT) with automatic cleanup.
 
     Creates a test object, modifies its mutable fields, performs a replacement
     operation to validate the update functionality.
 
-    :param conf: The check configuration containing the SCIM client
+    :param context: The check context containing the SCIM client and configuration
     :param model: The Resource model class to test
-    :param resources: Resource manager for automatic cleanup
     :returns: The result of the check operation
     """
-    test_obj = resources.create_and_register(model)
+    test_obj = context.resource_manager.create_and_register(model)
 
     mutable_fields = [
         field_name
@@ -32,19 +30,21 @@ def check_object_replacement(
         in (Mutability.read_write, Mutability.write_only)
     ]
 
-    modified_obj = fill_with_random_values(conf, test_obj, resources, mutable_fields)
+    modified_obj = fill_with_random_values(
+        context, test_obj, context.resource_manager, mutable_fields
+    )
 
     if modified_obj is None:
         raise ValueError(
             f"Could not modify {model.__name__} object with mutable fields"
         )
 
-    response = conf.client.replace(
-        modified_obj, expected_status_codes=conf.expected_status_codes or [200]
+    response = context.client.replace(
+        modified_obj, expected_status_codes=context.conf.expected_status_codes or [200]
     )
 
     return CheckResult(
-        conf,
+        context.conf,
         status=Status.SUCCESS,
         reason=f"Successfully replaced {model.__name__} object with id {test_obj.id}",
         data=response,

@@ -7,7 +7,7 @@ from scim2_models import Resource
 
 from scim2_tester.filling import fill_with_random_values
 from scim2_tester.utils import CheckConfig
-from scim2_tester.utils import ResourceManager
+from scim2_tester.utils import CheckContext
 
 
 class Complex(ComplexAttribute):
@@ -55,11 +55,11 @@ def test_random_values():
         def create(self, obj):
             return obj
 
-    conf = CheckConfig(MockClient())
-    resource_manager = ResourceManager(conf)
+    conf = CheckConfig()
+    context = CheckContext(MockClient(), conf)
 
     obj = CustomModel()
-    obj = fill_with_random_values(conf, obj, resource_manager)
+    obj = fill_with_random_values(context, obj, context.resource_manager)
 
     assert obj is not None, (
         "fill_with_random_values should not return None for test object"

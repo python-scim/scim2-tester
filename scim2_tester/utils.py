@@ -1,5 +1,4 @@
 import functools
-import inspect
 from dataclasses import dataclass
 from dataclasses import field
 from enum import Enum
@@ -56,10 +55,7 @@ class Status(Enum):
 
 @dataclass
 class CheckConfig:
-    """Object used to configure the checks behavior."""
-
-    client: SCIMClient
-    """The SCIM client that will be used to perform the requests."""
+    """Configuration for check behavior."""
 
     raise_exceptions: bool = False
     """Whether to raise exceptions or store them in a :class:`~scim2_tester.Result` object."""
@@ -75,6 +71,17 @@ class CheckConfig:
 
     resource_types: list[str] | None = None
     """Filter by resource type names (e.g., ["User", "Group"])."""
+
+
+class CheckContext:
+    """Execution context with client, config and resource management."""
+
+    def __init__(self, client: SCIMClient, conf: CheckConfig):
+        self.client = client
+        self.conf = conf
+        from scim2_tester.utils import ResourceManager
+
+        self.resource_manager = ResourceManager(self)
 
 
 class SCIMTesterError(Exception):
@@ -122,8 +129,8 @@ class CheckResult:
 class ResourceManager:
     """Manages SCIM resources with automatic cleanup for tests."""
 
-    def __init__(self, conf: CheckConfig):
-        self.conf = conf
+    def __init__(self, context: CheckContext):
+        self.context = context
         self.resources: list[Resource] = []
 
     def create_and_register(self, model: type[Resource]) -> Resource:
@@ -139,7 +146,7 @@ class ResourceManager:
             for field_name in model.model_fields
             if model.get_field_annotation(field_name, Required) == Required.true
         ]
-        obj = fill_with_random_values(self.conf, model(), self, field_names)
+        obj = fill_with_random_values(self.context, model(), self, field_names)
 
         # Should not happen since we're filling required fields, but handle just in case
         if obj is None:
@@ -147,7 +154,7 @@ class ResourceManager:
                 f"Could not create valid {model.__name__} object with required fields"
             )
 
-        created = self.conf.client.create(obj)
+        created = self.context.client.create(obj)
 
         self.resources.append(created)
 
@@ -171,7 +178,7 @@ class ResourceManager:
         """Clean up all registered resources in reverse order."""
         for resource in reversed(self.resources):
             try:
-                self.conf.client.delete(resource.__class__, resource.id)
+                self.context.client.delete(resource.__class__, resource.id)
             except Exception:
                 # Best effort cleanup - ignore failures
                 pass
@@ -193,15 +200,15 @@ def checker(*tags):
 
     def decorator(func):
         @functools.wraps(func)
-        def wrapped(conf: CheckConfig, *args, **kwargs):
+        def wrapped(context: CheckContext, *args, **kwargs):
             func_tags = set(tags) if tags else set()
 
             # Check if function should be skipped based on tag filtering
-            if conf.include_tags and not _matches_hierarchical_tags(
-                func_tags, conf.include_tags
+            if context.conf.include_tags and not _matches_hierarchical_tags(
+                func_tags, context.conf.include_tags
             ):
                 return CheckResult(
-                    conf,
+                    context.conf,
                     status=Status.SKIPPED,
                     title=func.__name__,
                     description=func.__doc__,
@@ -209,11 +216,11 @@ def checker(*tags):
                     reason="Skipped due to tag filtering",
                 )
 
-            if conf.exclude_tags and _matches_hierarchical_tags(
-                func_tags, conf.exclude_tags
+            if context.conf.exclude_tags and _matches_hierarchical_tags(
+                func_tags, context.conf.exclude_tags
             ):
                 return CheckResult(
-                    conf,
+                    context.conf,
                     status=Status.SKIPPED,
                     title=func.__name__,
                     description=func.__doc__,
@@ -221,34 +228,28 @@ def checker(*tags):
                     reason="Skipped due to tag exclusion",
                 )
 
-            resource_manager = ResourceManager(conf)
-
             try:
-                sig = inspect.signature(func)
-                if "resources" in sig.parameters:
-                    result = func(conf, *args, resources=resource_manager, **kwargs)
-                else:
-                    result = func(conf, *args, **kwargs)
+                result = func(context, *args, **kwargs)
 
             except SCIMClientError as exc:
-                if conf.raise_exceptions:
+                if context.conf.raise_exceptions:
                     raise
 
                 reason = f"{exc} {exc.__cause__}" if exc.__cause__ else str(exc)
                 result = CheckResult(
-                    conf, status=Status.ERROR, reason=reason, data=exc.source
+                    context.conf, status=Status.ERROR, reason=reason, data=exc.source
                 )
 
             except Exception as exc:
-                if conf.raise_exceptions:
+                if context.conf.raise_exceptions:
                     raise
 
                 result = CheckResult(
-                    conf, status=Status.ERROR, reason=str(exc), data=exc
+                    context.conf, status=Status.ERROR, reason=str(exc), data=exc
                 )
 
             finally:
-                resource_manager.cleanup()
+                context.resource_manager.cleanup()
 
             if isinstance(result, CheckResult):
                 result.title = func.__name__

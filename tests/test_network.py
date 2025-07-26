@@ -10,6 +10,7 @@ from scim2_models import User
 from scim2_tester.checker import check_schemas_endpoint
 from scim2_tester.checker import check_server
 from scim2_tester.utils import CheckConfig
+from scim2_tester.utils import CheckContext
 from scim2_tester.utils import CheckResult
 from scim2_tester.utils import Status
 
@@ -36,8 +37,9 @@ def test_bad_authentication(httpserver):
 
     client = Client(base_url=f"http://localhost:{httpserver.port}")
     scim = SyncSCIMClient(client, resource_models=(User, Group))
-    conf = CheckConfig(scim, expected_status_codes=[200, 401])
-    results = check_schemas_endpoint(conf)
+    conf = CheckConfig(expected_status_codes=[200, 401])
+    context = CheckContext(scim, conf)
+    results = check_schemas_endpoint(context)
 
     assert results[0].status == Status.ERROR
     assert (
@@ -73,39 +75,40 @@ def test_bad_content_type(httpserver):
     client = Client(base_url=f"http://localhost:{httpserver.port}")
     scim = SyncSCIMClient(client, resource_models=(User, Group))
     scim.register_naive_resource_types()
-    conf = CheckConfig(scim)
+    conf = CheckConfig()
+    context = CheckContext(scim, conf)
 
     # Simple test function for network content types
-    def simple_query_test(conf, obj):
+    def simple_query_test(context, obj):
         """Direct query test without ResourceManager for network testing."""
         try:
-            response = conf.client.query(
+            response = context.client.query(
                 obj.__class__, obj.id, expected_status_codes=[200]
             )
             return CheckResult(
-                conf,
+                context.conf,
                 status=Status.SUCCESS,
                 reason=f"Successful query of {obj.__class__.__name__}",
                 data=response,
             )
         except Exception as e:
             return CheckResult(
-                conf,
+                context.conf,
                 status=Status.ERROR,
                 reason=str(e),
                 data=e,
             )
 
-    result = simple_query_test(conf, scim_user)
+    result = simple_query_test(context, scim_user)
     assert result.status == Status.SUCCESS
 
-    result = simple_query_test(conf, json_user)
+    result = simple_query_test(context, json_user)
     assert result.status == Status.SUCCESS
 
-    result = simple_query_test(conf, invalid_user)
+    result = simple_query_test(context, invalid_user)
     assert result.status == Status.ERROR
     assert result.reason == "Unexpected content type: application/invalid"
 
-    result = simple_query_test(conf, missing_user)
+    result = simple_query_test(context, missing_user)
     assert result.status == Status.ERROR
     assert result.reason == "Unexpected content type: "

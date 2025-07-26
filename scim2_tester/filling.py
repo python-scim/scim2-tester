@@ -17,14 +17,14 @@ from scim2_models import Resource
 from scim2_models import URIReference
 from scim2_models.utils import UNION_TYPES
 
-from scim2_tester.utils import CheckConfig
+from scim2_tester.utils import CheckContext
 
 if TYPE_CHECKING:
     from scim2_tester.utils import ResourceManager
 
 
 def model_from_ref_type(
-    conf: CheckConfig, ref_type: type, different_than: type[Resource]
+    context: CheckContext, ref_type: type, different_than: type[Resource]
 ) -> type[Resource]:
     """Return "User" from "Union[Literal['User'], Literal['Group']]"."""
 
@@ -36,7 +36,7 @@ def model_from_ref_type(
             ]
 
         model_name = get_args(ref_type)[0]
-        model = conf.client.get_resource_model(model_name)
+        model = context.client.get_resource_model(model_name)
         return model
 
     models = model_from_ref_type_(ref_type)
@@ -46,7 +46,7 @@ def model_from_ref_type(
 
 
 def generate_random_value(
-    conf: CheckConfig,
+    context: CheckContext,
     obj: Resource,
     resource_manager: "ResourceManager",
     field_name: str,
@@ -89,7 +89,7 @@ def generate_random_value(
     elif get_origin(field_type) is Reference:
         ref_type = get_args(field_type)[0]
         if ref_type not in (ExternalReference, URIReference):
-            model = model_from_ref_type(conf, ref_type, different_than=obj.__class__)
+            model = model_from_ref_type(context, ref_type, different_than=obj.__class__)
             ref_obj = resource_manager.create_and_register(model)
             value = ref_obj.meta.location
 
@@ -100,10 +100,10 @@ def generate_random_value(
         value = random.choice(list(field_type))
 
     elif isclass(field_type) and issubclass(field_type, ComplexAttribute):
-        value = fill_with_random_values(conf, field_type(), resource_manager)
+        value = fill_with_random_values(context, field_type(), resource_manager)
 
     elif isclass(field_type) and issubclass(field_type, Extension):
-        value = fill_with_random_values(conf, field_type(), resource_manager)
+        value = fill_with_random_values(context, field_type(), resource_manager)
 
     else:
         # Put emails so this will be accepted by EmailStr too
@@ -112,14 +112,14 @@ def generate_random_value(
 
 
 def fill_with_random_values(
-    conf: CheckConfig,
+    context: CheckContext,
     obj: Resource,
     resource_manager: "ResourceManager",
     field_names: list[str] | None = None,
 ) -> Resource | None:
     """Fill an object with random values generated according the attribute types.
 
-    :param conf: The check configuration containing the SCIM client
+    :param context: The check context containing the SCIM client and configuration
     :param obj: The Resource object to fill with random values
     :param resource_manager: Resource manager for automatic cleanup
     :param field_names: Optional list of field names to fill (defaults to all)
@@ -130,7 +130,7 @@ def fill_with_random_values(
         if field.default:
             continue
 
-        value = generate_random_value(conf, obj, resource_manager, field_name)
+        value = generate_random_value(context, obj, resource_manager, field_name)
 
         is_multiple = obj.get_field_multiplicity(field_name)
         if is_multiple:

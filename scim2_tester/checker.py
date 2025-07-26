@@ -9,20 +9,21 @@ from scim2_tester.resource_types import check_resource_types_endpoint
 from scim2_tester.schemas import check_schemas_endpoint
 from scim2_tester.service_provider_config import check_service_provider_config_endpoint
 from scim2_tester.utils import CheckConfig
+from scim2_tester.utils import CheckContext
 from scim2_tester.utils import CheckResult
 from scim2_tester.utils import Status
 from scim2_tester.utils import checker
 
 
 @checker("misc")
-def check_random_url(conf: CheckConfig) -> CheckResult:
+def check_random_url(context: CheckContext) -> CheckResult:
     """Check that a request to a random URL returns a 404 Error object."""
     probably_invalid_url = f"/{str(uuid.uuid4())}"
-    response = conf.client.query(url=probably_invalid_url, raise_scim_errors=False)
+    response = context.client.query(url=probably_invalid_url, raise_scim_errors=False)
 
     if not isinstance(response, Error):
         return CheckResult(
-            conf,
+            context.conf,
             status=Status.ERROR,
             reason=f"{probably_invalid_url} did not return an Error object",
             data=response,
@@ -30,14 +31,14 @@ def check_random_url(conf: CheckConfig) -> CheckResult:
 
     if response.status != 404:
         return CheckResult(
-            conf,
+            context.conf,
             status=Status.ERROR,
             reason=f"{probably_invalid_url} did return an object, but the status code is {response.status}",
             data=response,
         )
 
     return CheckResult(
-        conf,
+        context.conf,
         status=Status.SUCCESS,
         reason=f"{probably_invalid_url} correctly returned a 404 error",
         data=response,
@@ -97,58 +98,58 @@ def check_server(
         )
     """
     conf = CheckConfig(
-        client=client,
         raise_exceptions=raise_exceptions,
         include_tags=include_tags,
         exclude_tags=exclude_tags,
         resource_types=resource_types,
     )
+    context = CheckContext(client, conf)
     results = []
 
     # Get the initial basic objects
-    result_spc = check_service_provider_config_endpoint(conf)
+    result_spc = check_service_provider_config_endpoint(context)
     results.append(result_spc)
-    if result_spc.status != Status.SKIPPED and not conf.client.service_provider_config:
-        conf.client.service_provider_config = result_spc.data
+    if result_spc.status != Status.SKIPPED and not client.service_provider_config:
+        client.service_provider_config = result_spc.data
 
-    results_resource_types = check_resource_types_endpoint(conf)
+    results_resource_types = check_resource_types_endpoint(context)
     results.extend(results_resource_types)
-    if not conf.client.resource_types:
+    if not client.resource_types:
         # Find first non-skipped result with data
         for rt_result in results_resource_types:
             if rt_result.status != Status.SKIPPED and rt_result.data:
-                conf.client.resource_types = rt_result.data
+                client.resource_types = rt_result.data
                 break
 
-    results_schemas = check_schemas_endpoint(conf)
+    results_schemas = check_schemas_endpoint(context)
     results.extend(results_schemas)
-    if not conf.client.resource_models:
+    if not client.resource_models:
         # Find first non-skipped result with data
         for schema_result in results_schemas:
             if schema_result.status != Status.SKIPPED and schema_result.data:
-                conf.client.resource_models = conf.client.build_resource_models(
-                    conf.client.resource_types or [], schema_result.data or []
+                client.resource_models = client.build_resource_models(
+                    client.resource_types or [], schema_result.data or []
                 )
                 break
 
     if (
-        not conf.client.service_provider_config
-        or not conf.client.resource_types
-        or not conf.client.resource_models
+        not client.service_provider_config
+        or not client.resource_types
+        or not client.resource_models
     ):
         return results
 
     # Miscelleaneous checks
-    result_random = check_random_url(conf)
+    result_random = check_random_url(context)
     results.append(result_random)
 
     # Resource checks
-    for resource_type in conf.client.resource_types or []:
+    for resource_type in client.resource_types or []:
         # Filter by resource type if specified
         if conf.resource_types and resource_type.name not in conf.resource_types:
             continue
 
-        resource_results = check_resource_type(conf, resource_type)
+        resource_results = check_resource_type(context, resource_type)
         # Add resource type to each result for better tracking
         for result in resource_results:
             result.resource_type = resource_type.name

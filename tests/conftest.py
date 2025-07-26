@@ -5,6 +5,7 @@ from scim2_models import Group
 from scim2_models import User
 
 from scim2_tester.utils import CheckConfig
+from scim2_tester.utils import CheckContext
 
 
 @pytest.fixture
@@ -17,4 +18,5 @@ def scim_client(httpserver):
 
 @pytest.fixture
 def check_config(scim_client):
-    return CheckConfig(scim_client)
+    conf = CheckConfig()
+    return CheckContext(scim_client, conf)
