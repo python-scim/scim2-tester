@@ -56,8 +56,27 @@ def _matches_hierarchical_tags(func_tags: set[str], filter_tags: set[str]) -> bo
 
 class Status(Enum):
     SUCCESS = auto()
+    """Server behavior strictly conforms to RFC requirements (MUST/MUST NOT)."""
+
+    COMPLIANT = auto()
+    """Server behavior follows RFC recommendations (SHOULD/SHOULD NOT) correctly."""
+
+    ACCEPTABLE = auto()
+    """Server behavior is RFC-compliant but uses optional features (MAY)
+    or applies robustness principle reasonably."""
+
+    DEVIATION = auto()
+    """Server behavior deviates from RFC recommendations (SHOULD/SHOULD NOT)
+    but remains within specification bounds."""
+
     ERROR = auto()
+    """Server behavior violates mandatory RFC requirements (MUST/MUST NOT)."""
+
+    CRITICAL = auto()
+    """Server behavior creates security risks or fundamental protocol violations."""
+
     SKIPPED = auto()
+    """Check was not executed due to filtering or prerequisites."""
 
 
 @dataclass
