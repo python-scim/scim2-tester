@@ -30,9 +30,6 @@ def object_deletion(context: CheckContext, model: type[Resource[Any]]) -> CheckR
     """
     test_obj = context.resource_manager.create_and_register(model)
 
-    if test_obj in context.resource_manager.resources:
-        context.resource_manager.resources.remove(test_obj)
-
     if test_obj.id is not None:
         context.client.delete(
             model,
