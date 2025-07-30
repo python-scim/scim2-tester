@@ -14,7 +14,7 @@ from scim2_models import Resource
 # Import ExceptionGroup for Python < 3.11 compatibility
 if sys.version_info >= (3, 11):
     from builtins import ExceptionGroup
-else:
+else:  # pragma: no cover
     from exceptiongroup import ExceptionGroup
 
 # Global registry for all tags discovered by checker decorators
@@ -167,13 +167,6 @@ class ResourceManager:
             if model.get_field_annotation(field_name, Required) == Required.true
         ]
         obj = fill_with_random_values(self.context, model(), self, field_names)
-
-        # Should not happen since we're filling required fields, but handle just in case
-        if obj is None:
-            raise ValueError(
-                f"Could not create valid {model.__name__} object with required fields"
-            )
-
         created = self.context.client.create(obj)
 
         # Handle the case where create might return Error or dict
