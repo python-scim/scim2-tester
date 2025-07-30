@@ -10,6 +10,9 @@ from scim2_client import SCIMClientError
 from scim2_client.engines.httpx import SyncSCIMClient
 from scim2_models import Required
 from scim2_models import Resource
+from scim2_models.attributes import is_complex_attribute
+from scim2_models.base import BaseModel
+from scim2_models.resources.resource import Extension
 
 # Import ExceptionGroup for Python < 3.11 compatibility
 if sys.version_info >= (3, 11):
@@ -308,3 +311,48 @@ def checker(*tags: str) -> Any:
         tags = ()
         return decorator(func)
     return decorator
+
+
+def list_model_attribute_urns(
+    model_class: type[BaseModel], parent_urn: str = ""
+) -> list[str]:
+    """List all possible attribute URNs for a SCIM model class.
+
+    This method analyzes the model class definition to extract URNs for all
+    defined attributes, including complex attributes, sub-attributes, and extensions.
+
+    :param model_class: The SCIM BaseModel class to analyze
+    :returns: A sorted list of all possible attribute URNs for this model class
+
+    :Example:
+
+    >>> from scim2_models.resources.user import User
+    >>> urns = list_model_attribute_urns(User)
+    >>> "urn:ietf:params:scim:schemas:core:2.0:User:userName" in urns
+    True
+    """
+    urns = []
+    for field_name, field_info in model_class.model_fields.items():
+        alias = field_info.serialization_alias or field_name
+        if issubclass(model_class, Resource | Extension):
+            base_schema = model_class.model_fields["schemas"].default[0]
+            current_urn = f"{base_schema}:{alias}"
+        else:
+            current_urn = f"{parent_urn}.{alias}"
+        urns.append(current_urn)
+
+        field_type = model_class.get_field_root_type(field_name)
+        if (
+            field_type
+            and isinstance(field_type, type)
+            and issubclass(field_type, BaseModel)
+        ):
+            if is_complex_attribute(field_type):
+                urns += list_model_attribute_urns(field_type, current_urn)
+
+    if issubclass(model_class, Resource):
+        extension_models = model_class.get_extension_models()
+        for extension_class in extension_models.values() or []:
+            urns += list_model_attribute_urns(extension_class)
+
+    return sorted(list(urns))
