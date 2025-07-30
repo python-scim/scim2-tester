@@ -886,6 +886,20 @@ wheels = [
 ]
 
 [[package]]
+name = "pytest-scim2-server"
+version = "0.1.5"
+source = { registry = "https://pypi.org/simple" }
+dependencies = [
+    { name = "portpicker" },
+    { name = "pytest" },
+    { name = "scim2-server" },
+]
+sdist = { url = "https://files.pythonhosted.org/packages/4b/e2/70933ba624c8aab0fd076d5ad35f07d65eed3eb7323fb0f62f792deab06a/pytest_scim2_server-0.1.5.tar.gz", hash = "sha256:e63b2356dc62485ddcbbdbac783126c10e393ea2406667f0ece5086640a2ea04", size = 44494, upload-time = "2025-05-14T15:35:25.985Z" }
+wheels = [
+    { url = "https://files.pythonhosted.org/packages/17/96/1def3d577fe0238678085295532397e1f74d8a490ea28e35ffc511cdd986/pytest_scim2_server-0.1.5-py3-none-any.whl", hash = "sha256:7be577d083bf2c84f7c0114da4ec2ebbcc26442ec03b7f6ea4f2d49ea0a4eb58", size = 4337, upload-time = "2025-05-14T15:35:24.712Z" },
+]
+
+[[package]]
 name = "python-dotenv"
 version = "1.1.1"
 source = { registry = "https://pypi.org/simple" }
@@ -1039,6 +1053,7 @@ dev = [
     { name = "pytest" },
     { name = "pytest-coverage" },
     { name = "pytest-httpserver" },
+    { name = "pytest-scim2-server" },
     { name = "scim2-server" },
     { name = "tox-uv" },
 ]
@@ -1069,6 +1084,7 @@ dev = [
     { name = "pytest", specifier = ">=8.2.1" },
     { name = "pytest-coverage", specifier = ">=0.0" },
     { name = "pytest-httpserver", specifier = ">=1.0.10" },
+    { name = "pytest-scim2-server", specifier = ">=0.1.5" },
     { name = "scim2-server", specifier = ">=0.1.7" },
     { name = "tox-uv", specifier = ">=1.16.0" },
 ]

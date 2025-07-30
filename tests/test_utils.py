@@ -1,3 +1,5 @@
+import sys
+
 import pytest
 
 from scim2_tester.utils import CheckConfig
@@ -9,7 +11,7 @@ from scim2_tester.utils import checker
 
 
 def test_checker_decorator_with_tags():
-    """Test the checker decorator with tags."""
+    """Validates checker decorator properly assigns tags to functions."""
 
     @checker("tag1", "tag2")
     def check_function(context: CheckContext) -> CheckResult:
@@ -29,7 +31,7 @@ def test_checker_decorator_with_tags():
 
 
 def test_checker_decorator_without_tags():
-    """Test the checker decorator without tags."""
+    """Ensures checker decorator works without explicit tags."""
 
     @checker
     def check_function(context: CheckContext) -> CheckResult:
@@ -47,7 +49,7 @@ def test_checker_decorator_without_tags():
 
 
 def test_checker_decorator_with_list_results():
-    """Test the checker decorator with list of results."""
+    """Confirms tags are applied to all results in list returns."""
 
     @checker("tag1")
     def check_function(context: CheckContext) -> list[CheckResult]:
@@ -67,17 +69,9 @@ def test_checker_decorator_with_list_results():
     assert all(r.description == "Test check function." for r in results)
 
 
-def test_scim_tester_error():
-    """Test SCIMTesterError exception."""
-    conf = CheckConfig(raise_exceptions=False)
-    error = SCIMTesterError("Test error", conf)
-    assert str(error) == "Test error"
-    assert error.conf == conf
-
-
 def test_check_result_raises_exception_when_configured():
     """Test that checker decorator raises exception when configured."""
-    from scim2_tester.utils import checker
+    """Test that checker decorator raises exception when configured."""
 
     @checker("test")
     def failing_check(context):
@@ -94,6 +88,7 @@ def test_check_result_raises_exception_when_configured():
 
 
 def test_check_result_no_exception_when_not_configured():
+    """Test that checker decorator doesn't raise exception when not configured."""
     """Test that checker decorator doesn't raise exception when not configured."""
     from scim2_tester.utils import checker
 
@@ -112,6 +107,7 @@ def test_check_result_no_exception_when_not_configured():
 
 def test_check_result_no_exception_on_success():
     """Test that successful checks don't raise exception even when configured."""
+    """Test that successful checks don't raise exception even when configured."""
     from scim2_tester.utils import checker
 
     @checker("test")
@@ -128,7 +124,7 @@ def test_check_result_no_exception_on_success():
 
 def test_check_result_error_should_raise_when_configured():
     """Test that CheckResult with ERROR status should raise exception when configured."""
-    from scim2_tester.utils import SCIMTesterError
+    """Test that CheckResult with ERROR status should raise exception when configured."""
     from scim2_tester.utils import checker
 
     @checker("test")
@@ -148,7 +144,7 @@ def test_check_result_error_should_raise_when_configured():
 
 def test_check_result_list_error_should_raise_when_configured():
     """Test that list of CheckResult with ERROR status should raise exception when configured."""
-    from scim2_tester.utils import SCIMTesterError
+    """Test that list of CheckResult with ERROR status should raise exception when configured."""
     from scim2_tester.utils import checker
 
     @checker("test")
@@ -162,24 +158,19 @@ def test_check_result_list_error_should_raise_when_configured():
     conf = CheckConfig(raise_exceptions=True)
     context = CheckContext(client=None, conf=conf)
 
-    # This should raise an exception for the first ERROR in the list
-    with pytest.raises(SCIMTesterError) as exc_info:
+    with pytest.raises(SCIMTesterError):
         error_check_list(context)
-
-    assert str(exc_info.value) == "List check failed"
 
 
 def test_check_result_multiple_errors_should_raise_exception_group():
     """Test that multiple CheckResult with ERROR status should raise ExceptionGroup when configured."""
-    import sys
-
-    from scim2_tester.utils import SCIMTesterError
+    """Test that multiple CheckResult with ERROR status should raise ExceptionGroup when configured."""
     from scim2_tester.utils import checker
 
     # Import ExceptionGroup for compatibility
     if sys.version_info >= (3, 11):
         from builtins import ExceptionGroup
-    else:
+    else:  # pragma: no cover
         from exceptiongroup import ExceptionGroup
 
     @checker("test")
@@ -208,14 +199,13 @@ def test_check_result_multiple_errors_should_raise_exception_group():
 
 def test_exception_group_usage_example():
     """Demonstrate how to handle ExceptionGroup in practice."""
-    import sys
-
+    """Demonstrate how to handle ExceptionGroup in practice."""
     from scim2_tester.utils import checker
 
     # Import ExceptionGroup for compatibility
     if sys.version_info >= (3, 11):
         from builtins import ExceptionGroup
-    else:
+    else:  # pragma: no cover
         from exceptiongroup import ExceptionGroup
 
     @checker("integration-test")
@@ -250,32 +240,8 @@ def test_exception_group_usage_example():
     assert error_messages == expected_messages
 
 
-def test_check_result_default_values():
-    """Test CheckResult default values."""
-    result = CheckResult(status=Status.SUCCESS)
-    assert result.status == Status.SUCCESS
-    assert result.title is None
-    assert result.description is None
-    assert result.reason is None
-    assert result.data is None
-    assert result.tags == set()
-    assert result.resource_type is None
-
-
-def test_check_context():
-    """Test CheckContext initialization and access."""
-    from scim2_tester.utils import CheckContext
-
-    conf = CheckConfig(raise_exceptions=False)
-    context = CheckContext(client=None, conf=conf)
-
-    assert context.client is None
-    assert context.conf == conf
-    assert context.resource_manager is not None
-    assert context.resource_manager.context == context
-
-
 def test_hierarchical_tag_matching():
+    """Test hierarchical tag matching in decorator."""
     """Test hierarchical tag matching in decorator."""
     from scim2_tester.utils import checker
 

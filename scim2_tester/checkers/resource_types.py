@@ -170,9 +170,6 @@ def query_resource_type_by_id(
         resource_type.id,
         expected_status_codes=context.conf.expected_status_codes or [200],
     )
-    if isinstance(response, Error):
-        return CheckResult(status=Status.ERROR, reason=response.detail, data=response)
-
     reason = f"Successfully accessed the /ResourceTypes/{resource_type.id} endpoint."
     return CheckResult(status=Status.SUCCESS, reason=reason, data=response)
 

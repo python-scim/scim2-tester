@@ -38,7 +38,7 @@ def test_random_url_valid_object(httpserver, check_config):
 
 
 def test_random_url_not_404(httpserver, check_config):
-    """Test reaching a random URL that returns a SCIM object."""
+    """Test reaching a random URL that returns a non-404 status code."""
     httpserver.expect_request(re.compile(r".*")).respond_with_json(
         Error(status=200, detail="Endpoint Not Found").model_dump(),
         status=200,

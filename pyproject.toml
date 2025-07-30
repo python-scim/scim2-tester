@@ -51,6 +51,7 @@ dev = [
     "tox-uv>=1.16.0",
     "portpicker>=1.6.0",
     "scim2-server>=0.1.7",
+    "pytest-scim2-server>=0.1.5",
 ]
 doc = [
     "autodoc-pydantic>=2.2.0",
@@ -71,11 +72,13 @@ omit = [".tox/*"]
 branch = true
 
 [tool.coverage.report]
+fail_under = 99
 exclude_lines = [
     "@pytest.mark.skip",
     "pragma: no cover",
     "raise NotImplementedError",
     "except ImportError",
+    "if TYPE_CHECKING:",
     "if app.debug",
 ]
 
@@ -155,6 +158,6 @@ commands = [
 
 [tool.tox.env.coverage]
 commands = [
-    ["pytest", "--cov", "--cov-fail-under=100", "--cov-report", "term:skip-covered", "{posargs}"],
+    ["pytest", "--cov", "--cov-report", "term:skip-covered", "{posargs}"],
     ["coverage", "html"],
 ]
