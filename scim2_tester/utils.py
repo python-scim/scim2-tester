@@ -25,7 +25,6 @@ def get_registered_tags() -> set[str]:
     """Get all tags that have been registered by checker decorators.
 
     :returns: Set of all registered tags.
-    :rtype: set[str]
     """
     return _REGISTERED_TAGS.copy()
 
