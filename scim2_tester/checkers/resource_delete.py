@@ -10,14 +10,23 @@ from ..utils import checker
 
 @checker("crud:delete")
 def object_deletion(context: CheckContext, model: type[Resource[Any]]) -> CheckResult:
-    """Test object deletion with automatic cleanup.
+    """Validate SCIM resource deletion via DELETE requests.
 
-    Creates a test object specifically for deletion testing, performs the
-    delete operation, and verifies the object no longer exists.
+    Tests that resources can be successfully deleted using DELETE method and
+    verifies that the resource no longer exists after deletion.
 
-    :param context: The check context containing the SCIM client and configuration
-    :param model: The Resource model class to test
-    :returns: The result of the check operation
+    **Status:**
+
+    - :attr:`~scim2_tester.Status.SUCCESS`: Resource deleted successfully and no longer accessible
+    - :attr:`~scim2_tester.Status.ERROR`: Deletion failed or resource still exists after deletion
+
+    .. pull-quote:: :rfc:`RFC 7644 Section 3.6 - Deleting Resources <7644#section-3.6>`
+
+       "Clients request resource removal via HTTP DELETE requests to the
+       resource endpoint (e.g., ``/Users/{id}`` or ``/Groups/{id}``)."
+
+       "In response to a successful DELETE, the server SHALL return HTTP status
+       code 204 (No Content)."
     """
     test_obj = context.resource_manager.create_and_register(model)
 

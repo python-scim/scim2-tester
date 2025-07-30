@@ -13,7 +13,6 @@ Available checker categories:
 from .misc import random_url
 from .resource import resource_type_tests
 from .resource_delete import object_deletion
-from .resource_get import model_from_resource_type
 from .resource_get import object_query
 from .resource_get import object_query_without_id
 from .resource_post import object_creation
@@ -48,6 +47,4 @@ __all__ = [
     "resource_type_tests",
     # Miscellaneous checkers
     "random_url",
-    # Utilities
-    "model_from_resource_type",
 ]

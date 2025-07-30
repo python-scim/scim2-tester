@@ -10,14 +10,24 @@ from ..utils import checker
 
 @checker("crud:create")
 def object_creation(context: CheckContext, model: type[Resource[Any]]) -> CheckResult:
-    """Test object creation with automatic cleanup.
+    """Validate SCIM resource creation via POST requests.
 
-    Creates a test object of the specified model type, validates the creation
-    operation.
+    Tests that resources can be successfully created using POST method on the
+    appropriate resource endpoint, with automatic cleanup after validation.
+    Creates a test object with all required fields populated with valid data.
 
-    :param context: The check context containing the SCIM client and configuration
-    :param model: The Resource model class to test
-    :returns: The result of the check operation
+    **Status:**
+
+    - :attr:`~scim2_tester.Status.SUCCESS`: Resource created successfully with valid response
+    - :attr:`~scim2_tester.Status.ERROR`: Creation failed due to client/server error
+
+    .. pull-quote:: :rfc:`RFC 7644 Section 3.3 - Creating Resources <7644#section-3.3>`
+
+       "To create new resources, clients send HTTP POST requests to the resource
+       endpoint, such as ``/Users`` or ``/Groups``."
+
+       "If the resource is successfully created, the server SHALL return a ``201``
+       'Created' response code with the newly created resource."
     """
     created_obj = context.resource_manager.create_and_register(model)
 

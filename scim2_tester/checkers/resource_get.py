@@ -9,17 +9,13 @@ from ..utils import Status
 from ..utils import checker
 
 
-def model_from_resource_type(
+def _model_from_resource_type(
     context: CheckContext, resource_type: ResourceType
 ) -> type[Resource[Any]] | None:
-    """Return the Resource model class from a given ResourceType.
+    """Resolve Resource model class from ResourceType metadata.
 
-    ResourceType.name contains the resource type name (e.g., "User", "Group").
-    This function looks up the corresponding model class from the client.
-
-    :param context: The check context containing the SCIM client and configuration
-    :param resource_type: The ResourceType object containing metadata
-    :returns: The Resource model class, or None if not found
+    Maps a :class:`~scim2_models.ResourceType` object (containing schema URIs and metadata) to the
+    corresponding Python model class registered in the SCIM client.
     """
     for resource_model in context.client.resource_models:
         if resource_model.model_fields["schemas"].default[0] == resource_type.schema_:
@@ -30,14 +26,23 @@ def model_from_resource_type(
 
 @checker("crud:read")
 def object_query(context: CheckContext, model: type[Resource[Any]]) -> CheckResult:
-    """Test object query by ID with automatic cleanup.
+    """Validate SCIM resource retrieval by ID via GET requests.
 
-    Creates a temporary test object, queries it by ID to validate the
-    read operation.
+    Tests that individual resources can be successfully retrieved using GET method
+    on the resource endpoint with specific resource ID, with automatic cleanup.
 
-    :param context: The check context containing the SCIM client and configuration
-    :param model: The Resource model class to test
-    :returns: The result of the check operation
+    **Status:**
+
+    - :attr:`~scim2_tester.Status.SUCCESS`: Resource retrieved successfully with valid data
+    - :attr:`~scim2_tester.Status.ERROR`: Failed to retrieve or received invalid response
+
+    .. pull-quote:: :rfc:`RFC 7644 Section 3.4.1 - Retrieving a Known Resource <7644#section-3.4.1>`
+
+       "Clients retrieve a known resource using an HTTP GET request to the resource
+       endpoint, such as ``/Users/{id}`` or ``/Groups/{id}``."
+
+       "If successful, the server responds with HTTP status code 200 (OK) and includes
+       the target resource within the response body."
     """
     test_obj = context.resource_manager.create_and_register(model)
 
@@ -58,14 +63,21 @@ def object_query(context: CheckContext, model: type[Resource[Any]]) -> CheckResu
 def object_query_without_id(
     context: CheckContext, model: type[Resource[Any]]
 ) -> CheckResult:
-    """Test object listing without ID with automatic cleanup.
+    """Validate SCIM resource listing via GET requests without ID.
 
-    Creates a temporary test object, performs a list/search operation to
-    validate bulk retrieval.
+    Tests that resources can be successfully listed using GET method on the
+    collection endpoint, validating bulk retrieval with automatic cleanup.
 
-    :param context: The check context containing the SCIM client and configuration
-    :param model: The Resource model class to test
-    :returns: The result of the check operation
+    **Status:**
+
+    - :attr:`~scim2_tester.Status.SUCCESS`: Resources listed successfully, created resource found
+    - :attr:`~scim2_tester.Status.ERROR`: Failed to list resources or created resource not found
+
+    .. pull-quote:: :rfc:`RFC 7644 Section 3.4.2 - List/Query Resources <7644#section-3.4.2>`
+
+       "To query resources, clients send GET requests to the resource endpoint
+       (e.g., ``/Users`` or ``/Groups``). The response to a successful query
+       operation SHALL be a JSON structure that matches the ListResponse schema."
     """
     test_obj = context.resource_manager.create_and_register(model)
 

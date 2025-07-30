@@ -10,7 +10,23 @@ from ..utils import checker
 
 
 def schemas_endpoint(context: CheckContext) -> list[CheckResult]:
-    """As described in RFC7644 §4 <rfc7644#section-4>`, `/ResourceTypes` is a mandatory endpoint, and should only be accessible by GET.
+    """Orchestrate validation of the Schemas discovery endpoint.
+
+    Runs comprehensive tests on the ``/Schemas`` endpoint including listing
+    all schemas, querying individual schemas by ID, and error handling for
+    invalid schema requests.
+
+    **Status:**
+
+    - :attr:`~scim2_tester.Status.SUCCESS`: All sub-checks completed successfully
+    - :attr:`~scim2_tester.Status.ERROR`: One or more sub-checks failed
+
+    .. pull-quote:: :rfc:`RFC 7644 Section 4 - Discovery <7644#section-4>`
+
+       "An HTTP GET to this endpoint is used to retrieve information about
+       resource schemas supported by a SCIM service provider."
+
+       "Service providers MUST provide this endpoint."
 
     .. todo::
 
@@ -34,6 +50,21 @@ def schemas_endpoint(context: CheckContext) -> list[CheckResult]:
 
 @checker("discovery", "schemas")
 def query_all_schemas(context: CheckContext) -> CheckResult:
+    """Validate retrieval of all available schemas.
+
+    Tests that the ``/Schemas`` endpoint returns a complete list of all supported
+    schemas including core schemas, extensions, and custom schemas.
+
+    **Status:**
+
+    - :attr:`~scim2_tester.Status.SUCCESS`: Endpoint returns valid list of :class:`~scim2_models.Schema` objects
+    - :attr:`~scim2_tester.Status.ERROR`: Endpoint is inaccessible or returns invalid response
+
+    .. pull-quote:: :rfc:`RFC 7644 Section 4 - Discovery <7644#section-4>`
+
+       "An HTTP GET to this endpoint is used to retrieve information about
+       resource schemas supported by a SCIM service provider."
+    """
     response = context.client.query(
         Schema, expected_status_codes=context.conf.expected_status_codes or [200]
     )
@@ -47,6 +78,21 @@ def query_all_schemas(context: CheckContext) -> CheckResult:
 
 @checker("discovery", "schemas")
 def query_schema_by_id(context: CheckContext, schema: Schema) -> CheckResult:
+    """Validate individual schema retrieval by ID.
+
+    Tests that specific schemas can be retrieved using GET requests to
+    ``/Schemas/{id}`` with their complete attribute definitions and metadata.
+
+    **Status:**
+
+    - :attr:`~scim2_tester.Status.SUCCESS`: :class:`~scim2_models.Schema` retrieved successfully with valid data
+    - :attr:`~scim2_tester.Status.ERROR`: Failed to retrieve or received invalid response
+
+    .. pull-quote:: :rfc:`RFC 7644 Section 7 - Schema Definition <7644#section-7>`
+
+       "Each schema specifies the name of the resource, the resource's base URI,
+       and any attributes (including sub-attributes) of the resource."
+    """
     response = context.client.query(
         Schema,
         schema.id,
@@ -61,6 +107,21 @@ def query_schema_by_id(context: CheckContext, schema: Schema) -> CheckResult:
 
 @checker("discovery", "schemas")
 def access_invalid_schema(context: CheckContext) -> CheckResult:
+    """Validate error handling for non-existent schema IDs.
+
+    Tests that accessing ``/Schemas/{invalid_id}`` with a non-existent schema
+    ID returns appropriate :class:`~scim2_models.Error` object with 404 status.
+
+    **Status:**
+
+    - :attr:`~scim2_tester.Status.SUCCESS`: Server returns :class:`~scim2_models.Error` object with 404 status
+    - :attr:`~scim2_tester.Status.ERROR`: Server returns non-:class:`~scim2_models.Error` object or incorrect status
+
+    .. pull-quote:: :rfc:`RFC 7644 Section 3.12 - Error Response Handling <7644#section-3.12>`
+
+       "When returning HTTP error status codes, the server SHOULD return
+       a SCIM error response."
+    """
     probably_invalid_id = str(uuid.uuid4())
     response = context.client.query(
         Schema,

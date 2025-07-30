@@ -10,12 +10,27 @@ from ..utils import checker
 
 
 def resource_types_endpoint(context: CheckContext) -> list[CheckResult]:
-    """As described in RFC7644 §4 <rfc7644#section-4>`, `/ResourceTypes` is a mandatory endpoint, and should only be accessible by GET.
+    """Orchestrate validation of the ResourceTypes discovery endpoint.
+
+    Runs comprehensive tests on the ``/ResourceTypes`` endpoint including listing
+    all resource types, querying individual types by ID, and error handling for
+    invalid requests.
+
+    **Status:**
+
+    - :attr:`~scim2_tester.Status.SUCCESS`: All sub-checks completed successfully
+    - :attr:`~scim2_tester.Status.ERROR`: One or more sub-checks failed
+
+    .. pull-quote:: :rfc:`RFC 7644 Section 4 - Discovery <7644#section-4>`
+
+       "An HTTP GET to this endpoint is used to discover the types of resources
+       available on a SCIM service provider (e.g., Users and Groups)."
+
+       "Service providers MUST provide this endpoint."
 
     .. todo::
 
         - Check POST/PUT/PATCH/DELETE on the endpoint
-        - Check that query parameters are ignored
         - Check that query parameters are ignored
         - Check that a 403 response is returned if a filter is passed
         - Check that the `schema` attribute exists and is available.
@@ -34,6 +49,21 @@ def resource_types_endpoint(context: CheckContext) -> list[CheckResult]:
 
 @checker("discovery", "resource-types")
 def query_all_resource_types(context: CheckContext) -> CheckResult:
+    """Validate retrieval of all available resource types.
+
+    Tests that the ``/ResourceTypes`` endpoint returns a list of all supported
+    resource types with their metadata, schemas, and endpoint information.
+
+    **Status:**
+
+    - :attr:`~scim2_tester.Status.SUCCESS`: Endpoint returns valid list of :class:`~scim2_models.ResourceType` objects
+    - :attr:`~scim2_tester.Status.ERROR`: Endpoint is inaccessible or returns invalid response
+
+    .. pull-quote:: :rfc:`RFC 7644 Section 4 - Discovery <7644#section-4>`
+
+       "An HTTP GET to this endpoint is used to discover the types of resources
+       available on a SCIM service provider (e.g., Users and Groups)."
+    """
     response = context.client.query(
         ResourceType, expected_status_codes=context.conf.expected_status_codes or [200]
     )
@@ -46,6 +76,21 @@ def query_all_resource_types(context: CheckContext) -> CheckResult:
 def query_resource_type_by_id(
     context: CheckContext, resource_type: ResourceType
 ) -> CheckResult:
+    """Validate individual ResourceType retrieval by ID.
+
+    Tests that specific resource types can be retrieved using GET requests
+    to ``/ResourceTypes/{id}`` with their complete metadata and configuration.
+
+    **Status:**
+
+    - :attr:`~scim2_tester.Status.SUCCESS`: :class:`~scim2_models.ResourceType` retrieved successfully with valid data
+    - :attr:`~scim2_tester.Status.ERROR`: Failed to retrieve or received invalid response
+
+    .. pull-quote:: :rfc:`RFC 7644 Section 4 - Discovery <7644#section-4>`
+
+       "Each resource type defines the endpoint, the core schema URI that defines
+       the resource, and any supported schema extensions."
+    """
     response = context.client.query(
         ResourceType,
         resource_type.id,
@@ -60,6 +105,20 @@ def query_resource_type_by_id(
 
 @checker("discovery", "resource-types")
 def access_invalid_resource_type(context: CheckContext) -> CheckResult:
+    """Validate error handling for non-existent resource type IDs.
+
+    Tests that accessing ``/ResourceTypes/{invalid_id}`` with a non-existent resource
+    type ID returns appropriate :class:`~scim2_models.Error` object with 404 status.
+
+    **Status:**
+
+    - :attr:`~scim2_tester.Status.SUCCESS`: Server returns :class:`~scim2_models.Error` object with 404 status
+    - :attr:`~scim2_tester.Status.ERROR`: Server returns non-:class:`~scim2_models.Error` object or incorrect status
+
+    .. pull-quote:: :rfc:`RFC 7644 Section 3.12 - Error Response Handling <7644#section-3.12>`
+
+       "When returning HTTP error status codes, the server SHOULD return a SCIM error response."
+    """
     probably_invalid_id = str(uuid.uuid4())
     response = context.client.query(
         ResourceType,

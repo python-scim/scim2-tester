@@ -4,7 +4,7 @@ from ..utils import CheckContext
 from ..utils import CheckResult
 from ..utils import Status
 from .resource_delete import object_deletion
-from .resource_get import model_from_resource_type
+from .resource_get import _model_from_resource_type
 from .resource_get import object_query
 from .resource_get import object_query_without_id
 from .resource_post import object_creation
@@ -15,13 +15,24 @@ def resource_type_tests(
     context: CheckContext,
     resource_type: ResourceType,
 ) -> list[CheckResult]:
-    """Orchestrate CRUD tests for a resource type.
+    """Orchestrate comprehensive CRUD testing for a specific resource type.
 
-    :param context: The check context containing the SCIM client and configuration
-    :param resource_type: The ResourceType object to test
-    :returns: A list of check results for all tested operations
+    Runs the complete suite of CRUD operations (Create, Read, Update, Delete)
+    on a given resource type to validate full lifecycle management compliance.
+
+    **Status:**
+
+    - :attr:`~scim2_tester.Status.SUCCESS`: All CRUD operations completed successfully
+    - :attr:`~scim2_tester.Status.ERROR`: One or more CRUD operations failed or no schema found
+
+    .. pull-quote:: :rfc:`RFC 7644 Section 3 - SCIM Protocol <7644#section-3>`
+
+       "SCIM is intended to reduce the cost and complexity of user management
+       operations by providing a common user schema and extension model, as
+       well as binding documents to provide patterns for exchanging this schema
+       using standard protocols."
     """
-    model = model_from_resource_type(context, resource_type)
+    model = _model_from_resource_type(context, resource_type)
     if not model:
         return [
             CheckResult(

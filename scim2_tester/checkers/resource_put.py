@@ -14,14 +14,23 @@ from ..utils import checker
 def object_replacement(
     context: CheckContext, model: type[Resource[Any]]
 ) -> CheckResult:
-    """Test object replacement (PUT) with automatic cleanup.
+    """Validate SCIM resource replacement via PUT requests.
 
-    Creates a test object, modifies its mutable fields, performs a replacement
-    operation to validate the update functionality.
+    Tests that resources can be successfully replaced using PUT method, modifying
+    mutable fields and validating the complete resource replacement operation.
 
-    :param context: The check context containing the SCIM client and configuration
-    :param model: The Resource model class to test
-    :returns: The result of the check operation
+    **Status:**
+
+    - :attr:`~scim2_tester.Status.SUCCESS`: Resource replaced successfully with valid response
+    - :attr:`~scim2_tester.Status.ERROR`: Replacement failed due to client/server error
+
+    .. pull-quote:: :rfc:`RFC 7644 Section 3.5.1 - Replacing Resources <7644#section-3.5.1>`
+
+       "To replace a resource's attributes, clients issue an HTTP PUT request
+       to the resource endpoint (e.g., ``/Users/{id}`` or ``/Groups/{id}``)."
+
+       "If successful, the server responds with HTTP status code 200 (OK) and
+       includes the updated resource within the response body."
     """
     test_obj = context.resource_manager.create_and_register(model)
 
