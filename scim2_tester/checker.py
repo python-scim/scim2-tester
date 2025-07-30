@@ -4,9 +4,9 @@ from scim2_client.engines.httpx import SyncSCIMClient
 
 from scim2_tester.checkers import random_url
 from scim2_tester.checkers import resource_type_tests
-from scim2_tester.checkers import resource_types_endpoint
-from scim2_tester.checkers import schemas_endpoint
 from scim2_tester.checkers import service_provider_config_endpoint
+from scim2_tester.checkers.resource_types import _resource_types_endpoint
+from scim2_tester.checkers.schemas import _schemas_endpoint
 from scim2_tester.utils import CheckConfig
 from scim2_tester.utils import CheckContext
 from scim2_tester.utils import CheckResult
@@ -74,25 +74,22 @@ def check_server(
     context = CheckContext(client, conf)
     results = []
 
-    # Get the initial basic objects
     result_spc = service_provider_config_endpoint(context)
     results.append(result_spc)
     if result_spc.status != Status.SKIPPED and not client.service_provider_config:
         client.service_provider_config = result_spc.data
 
-    results_resource_types = resource_types_endpoint(context)
+    results_resource_types = _resource_types_endpoint(context)
     results.extend(results_resource_types)
     if not client.resource_types:
-        # Find first non-skipped result with data
         for rt_result in results_resource_types:
             if rt_result.status != Status.SKIPPED and rt_result.data:
                 client.resource_types = rt_result.data
                 break
 
-    results_schemas = schemas_endpoint(context)
+    results_schemas = _schemas_endpoint(context)
     results.extend(results_schemas)
     if not client.resource_models:
-        # Find first non-skipped result with data
         for schema_result in results_schemas:
             if schema_result.status != Status.SKIPPED and schema_result.data:
                 client.resource_models = client.build_resource_models(
@@ -107,18 +104,14 @@ def check_server(
     ):
         return results
 
-    # Miscelleaneous checks
     result_random = random_url(context)
     results.append(result_random)
 
-    # Resource checks
     for resource_type in client.resource_types or []:
-        # Filter by resource type if specified
         if conf.resource_types and resource_type.name not in conf.resource_types:
             continue
 
         resource_results = resource_type_tests(context, resource_type)
-        # Add resource type to each result for better tracking
         for result in resource_results:
             result.resource_type = resource_type.name
         results.extend(resource_results)

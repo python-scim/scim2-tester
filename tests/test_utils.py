@@ -20,7 +20,6 @@ def test_checker_decorator_with_tags():
     assert hasattr(check_function, "tags")
     assert check_function.tags == {"tag1", "tag2"}
 
-    # Test that result gets tags
     conf = CheckConfig(raise_exceptions=False)
     context = CheckContext(client=None, conf=conf)
     result = check_function(context)
@@ -41,7 +40,6 @@ def test_checker_decorator_without_tags():
     assert hasattr(check_function, "tags")
     assert check_function.tags == set()
 
-    # Test that result gets empty tags
     conf = CheckConfig(raise_exceptions=False)
     context = CheckContext(client=None, conf=conf)
     result = check_function(context)
@@ -243,7 +241,6 @@ def test_exception_group_usage_example():
     assert "Multiple check failures" in str(exception_group)
     assert len(exception_group.exceptions) == 3  # Three errors
 
-    # Verify each error is a SCIMTesterError with the right message
     error_messages = [str(e) for e in exception_group.exceptions]
     expected_messages = [
         "Authentication failed",
@@ -289,13 +286,11 @@ def test_hierarchical_tag_matching():
 
         return CheckResult(status=Status.SUCCESS)
 
-    # Test include tags matching
     conf_include = CheckConfig(include_tags={"crud"})
     context_include = CheckContext(client=None, conf=conf_include)
     result = test_func(context_include)  # Call with decorator signature
     assert result.status.name == "SUCCESS"
 
-    # Test exclude tags matching
     conf_exclude = CheckConfig(exclude_tags={"crud"})
     context_exclude = CheckContext(client=None, conf=conf_exclude)
     result = test_func(context_exclude)  # Call with decorator signature
