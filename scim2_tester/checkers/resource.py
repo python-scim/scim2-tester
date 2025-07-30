@@ -43,10 +43,6 @@ def resource_type_tests(
 
     results = []
 
-    # Each test is now completely independent and handles its own cleanup
-    # These functions have @checker decorators so we call them with client, conf
-    # The decorator will create a context and call the function appropriately
-    # For now, call them directly - may need adjustment based on actual function signatures
     results.append(object_creation(context, model))
     results.append(object_query(context, model))
     results.append(object_query_without_id(context, model))

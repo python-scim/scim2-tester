@@ -50,7 +50,6 @@ class CustomModel(Resource):
 def test_random_values():
     """Check that 'fill_with_random_values' produce valid objects."""
 
-    # Create a mock config and resource manager for testing
     class MockClient:
         def create(self, obj):
             return obj

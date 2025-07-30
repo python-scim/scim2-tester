@@ -32,7 +32,6 @@ def test_discovered_scim2_server(scim2_server):
     client.discover()
     results = check_server(client, raise_exceptions=False)
 
-    # Verify all tests executed successfully (no skipped)
     executed_results = [r for r in results if r.status != Status.SKIPPED]
     assert len(executed_results) > 0
     assert all(r.status in (Status.SUCCESS, Status.ERROR) for r in executed_results)
@@ -43,7 +42,6 @@ def test_undiscovered_scim2_server(scim2_server):
     client = TestSCIMClient(Client(scim2_server))
     results = check_server(client, raise_exceptions=False)
 
-    # Verify all tests executed successfully (no skipped)
     executed_results = [r for r in results if r.status != Status.SKIPPED]
     assert len(executed_results) > 0
     assert all(r.status in (Status.SUCCESS, Status.ERROR) for r in executed_results)
@@ -73,7 +71,6 @@ def test_filtering_functionality(scim2_server):
     all_results = check_server(client, raise_exceptions=False)
     all_executed = [r for r in all_results if r.status != Status.SKIPPED]
 
-    # Test discovery only
     discovery_results = check_server(
         client, raise_exceptions=False, include_tags={"discovery"}
     )
@@ -91,7 +88,6 @@ def test_filtering_functionality(scim2_server):
         "Expected fewer results when filtering"
     )
 
-    # Test misc only
     misc_results = check_server(client, raise_exceptions=False, include_tags={"misc"})
     misc_executed = [r for r in misc_results if r.status != Status.SKIPPED]
 
@@ -125,11 +121,9 @@ def test_tag_discovery_utility(scim2_server):
         f"Expected at least 8 core tags, got {len(discovered_core)}: {discovered_core}"
     )
 
-    # Test with actual server - only test discoverable function-level tags
     client = TestSCIMClient(Client(scim2_server))
     client.discover()
 
-    # Test function-level tags
     function_level_tags = {
         "discovery",
         "service-provider-config",

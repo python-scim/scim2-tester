@@ -30,7 +30,6 @@ def object_deletion(context: CheckContext, model: type[Resource[Any]]) -> CheckR
     """
     test_obj = context.resource_manager.create_and_register(model)
 
-    # Remove from resource manager since we're testing deletion explicitly
     if test_obj in context.resource_manager.resources:
         context.resource_manager.resources.remove(test_obj)
 
@@ -48,7 +47,6 @@ def object_deletion(context: CheckContext, model: type[Resource[Any]]) -> CheckR
             reason=f"{model.__name__} object with id {test_obj.id} still exists after deletion",
         )
     except Exception:
-        # Expected - object should not exist after deletion
         pass
 
     return CheckResult(

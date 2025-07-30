@@ -1,15 +1,18 @@
 import uuid
 
+from scim2_client import SCIMClientError
 from scim2_models import Error
 from scim2_models import ResourceType
+from scim2_models import Schema
 
 from ..utils import CheckContext
 from ..utils import CheckResult
 from ..utils import Status
 from ..utils import checker
+from ._discovery_utils import _test_discovery_endpoint_methods
 
 
-def resource_types_endpoint(context: CheckContext) -> list[CheckResult]:
+def _resource_types_endpoint(context: CheckContext) -> list[CheckResult]:
     """Orchestrate validation of the ResourceTypes discovery endpoint.
 
     Runs comprehensive tests on the ``/ResourceTypes`` endpoint including listing
@@ -28,12 +31,6 @@ def resource_types_endpoint(context: CheckContext) -> list[CheckResult]:
 
        "Service providers MUST provide this endpoint."
 
-    .. todo::
-
-        - Check POST/PUT/PATCH/DELETE on the endpoint
-        - Check that query parameters are ignored
-        - Check that a 403 response is returned if a filter is passed
-        - Check that the `schema` attribute exists and is available.
     """
     resource_types_result = query_all_resource_types(context)
     results = [resource_types_result]
@@ -42,7 +39,84 @@ def resource_types_endpoint(context: CheckContext) -> list[CheckResult]:
         for resource_type in resource_types_result.data:
             results.append(query_resource_type_by_id(context, resource_type))
 
+        results.extend(resource_types_schema_validation(context))
+
     results.append(access_invalid_resource_type(context))
+
+    return results
+
+
+@checker("discovery", "resource-types")
+def resource_types_endpoint_methods(
+    context: CheckContext,
+) -> list[CheckResult]:
+    """Validate that unsupported HTTP methods return 405 Method Not Allowed.
+
+    Tests that POST, PUT, PATCH, and DELETE methods on the ``/ResourceTypes``
+    endpoint correctly return HTTP 405 Method Not Allowed status, as only GET is supported.
+
+    **Status:**
+
+    - :attr:`~scim2_tester.Status.SUCCESS`: All unsupported methods return 405 status
+    - :attr:`~scim2_tester.Status.ERROR`: One or more methods return unexpected status
+
+    .. pull-quote:: :rfc:`RFC 7644 Section 4 - Discovery <7644#section-4>`
+
+       "An HTTP GET to this endpoint is used to discover the types of resources
+       available on a SCIM service provider."
+
+       Only GET method is specified, other methods should return appropriate errors.
+    """
+    return _test_discovery_endpoint_methods(context, "/ResourceTypes")
+
+
+@checker("discovery", "resource-types")
+def resource_types_schema_validation(
+    context: CheckContext,
+) -> list[CheckResult]:
+    """Validate that ResourceType schemas exist and are accessible.
+
+    Tests that all :class:`~scim2_models.ResourceType` objects returned by the
+    ``/ResourceTypes`` endpoint reference valid schemas that can be retrieved
+    from the ``/Schemas`` endpoint.
+
+    **Status:**
+
+    - :attr:`~scim2_tester.Status.SUCCESS`: All ResourceType schemas are accessible
+    - :attr:`~scim2_tester.Status.ERROR`: One or more ResourceType schemas are missing or inaccessible
+
+    .. pull-quote:: :rfc:`RFC 7644 Section 4 - Discovery <7644#section-4>`
+
+       "Each resource type defines the endpoint, the core schema URI that defines
+       the resource, and any supported schema extensions."
+    """
+    response = context.client.query(
+        ResourceType, expected_status_codes=context.conf.expected_status_codes or [200]
+    )
+
+    results = []
+    for resource_type in response.resources:
+        schema_id = resource_type.schema_
+        try:
+            schema_response = context.client.query(
+                Schema,
+                schema_id,
+                expected_status_codes=context.conf.expected_status_codes or [200],
+            )
+            results.append(
+                CheckResult(
+                    status=Status.SUCCESS,
+                    reason=f"ResourceType '{resource_type.name}' schema '{schema_id}' is accessible",
+                    data=schema_response,
+                )
+            )
+        except SCIMClientError as e:
+            results.append(
+                CheckResult(
+                    status=Status.ERROR,
+                    reason=f"ResourceType '{resource_type.name}' schema '{schema_id}' is not accessible: {str(e)}",
+                )
+            )
 
     return results
 

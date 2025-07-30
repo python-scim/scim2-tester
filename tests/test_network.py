@@ -8,7 +8,7 @@ from scim2_models import Group
 from scim2_models import User
 
 from scim2_tester.checker import check_server
-from scim2_tester.checkers import schemas_endpoint
+from scim2_tester.checkers.schemas import _schemas_endpoint
 from scim2_tester.utils import CheckConfig
 from scim2_tester.utils import CheckContext
 from scim2_tester.utils import CheckResult
@@ -39,7 +39,7 @@ def test_bad_authentication(httpserver):
     scim = SyncSCIMClient(client, resource_models=(User, Group))
     conf = CheckConfig(expected_status_codes=[200, 401])
     context = CheckContext(scim, conf)
-    results = schemas_endpoint(context)
+    results = _schemas_endpoint(context)
 
     assert results[0].status == Status.ERROR
     assert (
@@ -78,7 +78,6 @@ def test_bad_content_type(httpserver):
     conf = CheckConfig()
     context = CheckContext(scim, conf)
 
-    # Simple test function for network content types
     def simple_query_test(context, obj):
         """Direct query test without ResourceManager for network testing."""
         try:
