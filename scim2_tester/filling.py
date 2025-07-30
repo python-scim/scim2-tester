@@ -125,7 +125,12 @@ def fill_with_random_values(
     :param field_names: Optional list of field names to fill (defaults to all)
     :returns: The filled object or None if the object ends up empty
     """
-    for field_name in field_names or obj.__class__.model_fields.keys():
+    for field_name in (
+        field_names if field_names is not None else obj.__class__.model_fields.keys()
+    ):
+        if field_name not in obj.__class__.model_fields:
+            continue
+
         field = obj.__class__.model_fields[field_name]
         if field.default:
             continue
