@@ -1,17 +1,17 @@
 from scim2_models import ResourceType
 
-from scim2_tester.resource_delete import check_object_deletion
-from scim2_tester.resource_get import check_object_query
-from scim2_tester.resource_get import check_object_query_without_id
-from scim2_tester.resource_get import model_from_resource_type
-from scim2_tester.resource_post import check_object_creation
-from scim2_tester.resource_put import check_object_replacement
-from scim2_tester.utils import CheckContext
-from scim2_tester.utils import CheckResult
-from scim2_tester.utils import Status
+from ..utils import CheckContext
+from ..utils import CheckResult
+from ..utils import Status
+from .resource_delete import object_deletion
+from .resource_get import model_from_resource_type
+from .resource_get import object_query
+from .resource_get import object_query_without_id
+from .resource_post import object_creation
+from .resource_put import object_replacement
 
 
-def check_resource_type(
+def resource_type_tests(
     context: CheckContext,
     resource_type: ResourceType,
 ) -> list[CheckResult]:
@@ -36,10 +36,10 @@ def check_resource_type(
     # These functions have @checker decorators so we call them with client, conf
     # The decorator will create a context and call the function appropriately
     # For now, call them directly - may need adjustment based on actual function signatures
-    results.append(check_object_creation(context, model))
-    results.append(check_object_query(context, model))
-    results.append(check_object_query_without_id(context, model))
-    results.append(check_object_replacement(context, model))
-    results.append(check_object_deletion(context, model))
+    results.append(object_creation(context, model))
+    results.append(object_query(context, model))
+    results.append(object_query_without_id(context, model))
+    results.append(object_replacement(context, model))
+    results.append(object_deletion(context, model))
 
     return results

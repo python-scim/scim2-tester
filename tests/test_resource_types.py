@@ -5,7 +5,7 @@ from scim2_models import Error
 from scim2_models import ListResponse
 from scim2_models import ResourceType
 
-from scim2_tester.resource_types import check_resource_types_endpoint
+from scim2_tester.checkers import resource_types_endpoint
 from scim2_tester.utils import Status
 
 
@@ -33,7 +33,7 @@ def test_resource_types_endpoint(httpserver, check_config):
         content_type="application/scim+json",
     )
 
-    results = check_resource_types_endpoint(check_config)
+    results = resource_types_endpoint(check_config)
 
     assert all(result.status == Status.SUCCESS for result in results)
 
@@ -48,6 +48,6 @@ def test_resource_missing_query_endpoint(httpserver, check_config):
         status=200,
         content_type="application/scim+json",
     )
-    results = check_resource_types_endpoint(check_config)
+    results = resource_types_endpoint(check_config)
 
     assert all(result.status == Status.ERROR for result in results[1:])

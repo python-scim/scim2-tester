@@ -3,10 +3,10 @@ from typing import Any
 from scim2_models import Resource
 from scim2_models import ResourceType
 
-from scim2_tester.utils import CheckContext
-from scim2_tester.utils import CheckResult
-from scim2_tester.utils import Status
-from scim2_tester.utils import checker
+from ..utils import CheckContext
+from ..utils import CheckResult
+from ..utils import Status
+from ..utils import checker
 
 
 def model_from_resource_type(
@@ -29,9 +29,7 @@ def model_from_resource_type(
 
 
 @checker("crud:read")
-def check_object_query(
-    context: CheckContext, model: type[Resource[Any]]
-) -> CheckResult:
+def object_query(context: CheckContext, model: type[Resource[Any]]) -> CheckResult:
     """Test object query by ID with automatic cleanup.
 
     Creates a temporary test object, queries it by ID to validate the
@@ -57,7 +55,7 @@ def check_object_query(
 
 
 @checker("crud:read")
-def check_object_query_without_id(
+def object_query_without_id(
     context: CheckContext, model: type[Resource[Any]]
 ) -> CheckResult:
     """Test object listing without ID with automatic cleanup.

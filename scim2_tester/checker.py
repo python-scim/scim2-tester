@@ -1,48 +1,16 @@
 import argparse
-import uuid
-from typing import Any
 
 from scim2_client.engines.httpx import SyncSCIMClient
-from scim2_models import Error
 
-from scim2_tester.resource import check_resource_type
-from scim2_tester.resource_types import check_resource_types_endpoint
-from scim2_tester.schemas import check_schemas_endpoint
-from scim2_tester.service_provider_config import check_service_provider_config_endpoint
+from scim2_tester.checkers import random_url
+from scim2_tester.checkers import resource_type_tests
+from scim2_tester.checkers import resource_types_endpoint
+from scim2_tester.checkers import schemas_endpoint
+from scim2_tester.checkers import service_provider_config_endpoint
 from scim2_tester.utils import CheckConfig
 from scim2_tester.utils import CheckContext
 from scim2_tester.utils import CheckResult
 from scim2_tester.utils import Status
-from scim2_tester.utils import checker
-
-
-@checker("misc")
-def check_random_url(context: CheckContext) -> CheckResult:
-    """Check that a request to a random URL returns a 404 Error object."""
-    probably_invalid_url = f"/{str(uuid.uuid4())}"
-    response: Any = context.client.query(
-        url=probably_invalid_url, raise_scim_errors=False
-    )
-
-    if not isinstance(response, Error):
-        return CheckResult(
-            status=Status.ERROR,
-            reason=f"{probably_invalid_url} did not return an Error object",
-            data=response,
-        )
-
-    if response.status != 404:
-        return CheckResult(
-            status=Status.ERROR,
-            reason=f"{probably_invalid_url} did return an object, but the status code is {response.status}",
-            data=response,
-        )
-
-    return CheckResult(
-        status=Status.SUCCESS,
-        reason=f"{probably_invalid_url} correctly returned a 404 error",
-        data=response,
-    )
 
 
 def check_server(
@@ -107,12 +75,12 @@ def check_server(
     results = []
 
     # Get the initial basic objects
-    result_spc = check_service_provider_config_endpoint(context)
+    result_spc = service_provider_config_endpoint(context)
     results.append(result_spc)
     if result_spc.status != Status.SKIPPED and not client.service_provider_config:
         client.service_provider_config = result_spc.data
 
-    results_resource_types = check_resource_types_endpoint(context)
+    results_resource_types = resource_types_endpoint(context)
     results.extend(results_resource_types)
     if not client.resource_types:
         # Find first non-skipped result with data
@@ -121,7 +89,7 @@ def check_server(
                 client.resource_types = rt_result.data
                 break
 
-    results_schemas = check_schemas_endpoint(context)
+    results_schemas = schemas_endpoint(context)
     results.extend(results_schemas)
     if not client.resource_models:
         # Find first non-skipped result with data
@@ -140,7 +108,7 @@ def check_server(
         return results
 
     # Miscelleaneous checks
-    result_random = check_random_url(context)
+    result_random = random_url(context)
     results.append(result_random)
 
     # Resource checks
@@ -149,7 +117,7 @@ def check_server(
         if conf.resource_types and resource_type.name not in conf.resource_types:
             continue
 
-        resource_results = check_resource_type(context, resource_type)
+        resource_results = resource_type_tests(context, resource_type)
         # Add resource type to each result for better tracking
         for result in resource_results:
             result.resource_type = resource_type.name

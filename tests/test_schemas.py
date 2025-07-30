@@ -5,7 +5,7 @@ from scim2_models import Error
 from scim2_models import ListResponse
 from scim2_models import Schema
 
-from scim2_tester.schemas import check_schemas_endpoint
+from scim2_tester.checkers import schemas_endpoint
 from scim2_tester.utils import Status
 
 
@@ -34,7 +34,7 @@ def test_shemas_endpoint(httpserver, check_config):
         content_type="application/scim+json",
     )
 
-    results = check_schemas_endpoint(check_config)
+    results = schemas_endpoint(check_config)
 
     assert all(result.status == Status.SUCCESS for result in results)
 
@@ -50,6 +50,6 @@ def test_missing_query_endpoint(httpserver, check_config):
         status=200,
         content_type="application/scim+json",
     )
-    results = check_schemas_endpoint(check_config)
+    results = schemas_endpoint(check_config)
 
     assert all(result.status == Status.ERROR for result in results[1:])

@@ -2,16 +2,14 @@ from typing import Any
 
 from scim2_models import Resource
 
-from scim2_tester.utils import CheckContext
-from scim2_tester.utils import CheckResult
-from scim2_tester.utils import Status
-from scim2_tester.utils import checker
+from ..utils import CheckContext
+from ..utils import CheckResult
+from ..utils import Status
+from ..utils import checker
 
 
 @checker("crud:delete")
-def check_object_deletion(
-    context: CheckContext, model: type[Resource[Any]]
-) -> CheckResult:
+def object_deletion(context: CheckContext, model: type[Resource[Any]]) -> CheckResult:
     """Test object deletion with automatic cleanup.
 
     Creates a test object specifically for deletion testing, performs the

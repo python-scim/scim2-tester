@@ -3,7 +3,7 @@ import re
 from scim2_models import Error
 from scim2_models import User
 
-from scim2_tester.checker import check_random_url
+from scim2_tester.checkers import random_url
 from scim2_tester.utils import Status
 
 
@@ -15,7 +15,7 @@ def test_random_url(httpserver, check_config):
         content_type="application/scim+json",
     )
 
-    result = check_random_url(check_config)
+    result = random_url(check_config)
 
     assert result.status == Status.SUCCESS
     assert "correctly returned a 404 error" in result.reason
@@ -31,7 +31,7 @@ def test_random_url_valid_object(httpserver, check_config):
         content_type="application/scim+json",
     )
 
-    result = check_random_url(check_config)
+    result = random_url(check_config)
 
     assert result.status == Status.ERROR
     assert "did not return an Error object" in result.reason
@@ -45,7 +45,7 @@ def test_random_url_not_404(httpserver, check_config):
         content_type="application/scim+json",
     )
 
-    result = check_random_url(check_config)
+    result = random_url(check_config)
 
     assert result.status == Status.ERROR
     assert "did return an object, but the status code is 200" in result.reason

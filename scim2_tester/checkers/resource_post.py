@@ -2,16 +2,14 @@ from typing import Any
 
 from scim2_models import Resource
 
-from scim2_tester.utils import CheckContext
-from scim2_tester.utils import CheckResult
-from scim2_tester.utils import Status
-from scim2_tester.utils import checker
+from ..utils import CheckContext
+from ..utils import CheckResult
+from ..utils import Status
+from ..utils import checker
 
 
 @checker("crud:create")
-def check_object_creation(
-    context: CheckContext, model: type[Resource[Any]]
-) -> CheckResult:
+def object_creation(context: CheckContext, model: type[Resource[Any]]) -> CheckResult:
     """Test object creation with automatic cleanup.
 
     Creates a test object of the specified model type, validates the creation

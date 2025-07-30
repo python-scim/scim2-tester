@@ -3,15 +3,15 @@ from typing import Any
 from scim2_models import Mutability
 from scim2_models import Resource
 
-from scim2_tester.filling import fill_with_random_values
-from scim2_tester.utils import CheckContext
-from scim2_tester.utils import CheckResult
-from scim2_tester.utils import Status
-from scim2_tester.utils import checker
+from ..filling import fill_with_random_values
+from ..utils import CheckContext
+from ..utils import CheckResult
+from ..utils import Status
+from ..utils import checker
 
 
 @checker("crud:update")
-def check_object_replacement(
+def object_replacement(
     context: CheckContext, model: type[Resource[Any]]
 ) -> CheckResult:
     """Test object replacement (PUT) with automatic cleanup.

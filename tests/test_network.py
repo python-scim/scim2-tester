@@ -7,8 +7,8 @@ from scim2_models import Error
 from scim2_models import Group
 from scim2_models import User
 
-from scim2_tester.checker import check_schemas_endpoint
 from scim2_tester.checker import check_server
+from scim2_tester.checkers import schemas_endpoint
 from scim2_tester.utils import CheckConfig
 from scim2_tester.utils import CheckContext
 from scim2_tester.utils import CheckResult
@@ -39,7 +39,7 @@ def test_bad_authentication(httpserver):
     scim = SyncSCIMClient(client, resource_models=(User, Group))
     conf = CheckConfig(expected_status_codes=[200, 401])
     context = CheckContext(scim, conf)
-    results = check_schemas_endpoint(context)
+    results = schemas_endpoint(context)
 
     assert results[0].status == Status.ERROR
     assert (

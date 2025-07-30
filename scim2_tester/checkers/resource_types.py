@@ -3,13 +3,13 @@ import uuid
 from scim2_models import Error
 from scim2_models import ResourceType
 
-from .utils import CheckContext
-from .utils import CheckResult
-from .utils import Status
-from .utils import checker
+from ..utils import CheckContext
+from ..utils import CheckResult
+from ..utils import Status
+from ..utils import checker
 
 
-def check_resource_types_endpoint(context: CheckContext) -> list[CheckResult]:
+def resource_types_endpoint(context: CheckContext) -> list[CheckResult]:
     """As described in RFC7644 §4 <rfc7644#section-4>`, `/ResourceTypes` is a mandatory endpoint, and should only be accessible by GET.
 
     .. todo::
@@ -20,20 +20,20 @@ def check_resource_types_endpoint(context: CheckContext) -> list[CheckResult]:
         - Check that a 403 response is returned if a filter is passed
         - Check that the `schema` attribute exists and is available.
     """
-    resource_types_result = check_query_all_resource_types(context)
+    resource_types_result = query_all_resource_types(context)
     results = [resource_types_result]
 
     if resource_types_result.status == Status.SUCCESS:
         for resource_type in resource_types_result.data:
-            results.append(check_query_resource_type_by_id(context, resource_type))
+            results.append(query_resource_type_by_id(context, resource_type))
 
-    results.append(check_access_invalid_resource_type(context))
+    results.append(access_invalid_resource_type(context))
 
     return results
 
 
 @checker("discovery", "resource-types")
-def check_query_all_resource_types(context: CheckContext) -> CheckResult:
+def query_all_resource_types(context: CheckContext) -> CheckResult:
     response = context.client.query(
         ResourceType, expected_status_codes=context.conf.expected_status_codes or [200]
     )
@@ -43,7 +43,7 @@ def check_query_all_resource_types(context: CheckContext) -> CheckResult:
 
 
 @checker("discovery", "resource-types")
-def check_query_resource_type_by_id(
+def query_resource_type_by_id(
     context: CheckContext, resource_type: ResourceType
 ) -> CheckResult:
     response = context.client.query(
@@ -59,7 +59,7 @@ def check_query_resource_type_by_id(
 
 
 @checker("discovery", "resource-types")
-def check_access_invalid_resource_type(context: CheckContext) -> CheckResult:
+def access_invalid_resource_type(context: CheckContext) -> CheckResult:
     probably_invalid_id = str(uuid.uuid4())
     response = context.client.query(
         ResourceType,
