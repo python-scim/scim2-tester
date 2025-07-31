@@ -1,4 +1,7 @@
 from scim2_tester.checker import check_server
+from scim2_tester.checkers.patch import check_patch_mutability
+from scim2_tester.checkers.patch import check_patch_required
+from scim2_tester.checkers.patch import check_patch_uniqueness
 from scim2_tester.discovery import get_all_available_tags
 from scim2_tester.discovery import get_standard_resource_types
 from scim2_tester.utils import CheckConfig
@@ -14,6 +17,9 @@ __all__ = [
     "SCIMTesterError",
     "get_all_available_tags",
     "get_standard_resource_types",
+    "check_patch_mutability",
+    "check_patch_required",
+    "check_patch_uniqueness",
 ]
 
 if __name__ == "__main__":  # pragma: no cover
