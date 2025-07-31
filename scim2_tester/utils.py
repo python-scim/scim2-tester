@@ -267,13 +267,16 @@ def checker(*tags: str) -> Any:
 
             # Check for ERROR results and raise SCIMTesterError if configured
             if context.conf.raise_exceptions:
-                if isinstance(result, CheckResult) and result.status == Status.ERROR:
+                if isinstance(result, CheckResult) and result.status in (
+                    Status.ERROR,
+                    Status.CRITICAL,
+                ):
                     raise SCIMTesterError(result.reason or "Check failed", context.conf)
                 elif isinstance(result, list):
                     errors = [
                         SCIMTesterError(r.reason or "Check failed", context.conf)
                         for r in result
-                        if r.status == Status.ERROR
+                        if r.status in (Status.ERROR, Status.CRITICAL)
                     ]
                     if len(errors) == 1:
                         raise errors[0]

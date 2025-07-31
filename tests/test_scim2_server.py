@@ -16,7 +16,9 @@ def test_discovered_scim2_server(scim2_server_app):
 
     executed_results = [r for r in results if r.status != Status.SKIPPED]
     assert len(executed_results) > 0
-    assert all(r.status in (Status.SUCCESS, Status.ERROR) for r in executed_results)
+    assert all(
+        r.status not in (Status.ERROR, Status.CRITICAL) for r in executed_results
+    )
 
 
 def test_undiscovered_scim2_server(scim2_server_app):
@@ -26,7 +28,9 @@ def test_undiscovered_scim2_server(scim2_server_app):
 
     executed_results = [r for r in results if r.status != Status.SKIPPED]
     assert len(executed_results) > 0
-    assert all(r.status in (Status.SUCCESS, Status.ERROR) for r in executed_results)
+    assert all(
+        r.status not in (Status.ERROR, Status.CRITICAL) for r in executed_results
+    )
 
 
 @pytest.mark.parametrize("tag", get_all_available_tags())
@@ -36,10 +40,10 @@ def test_individual_filters(scim2_server_app, tag, resource_type):
     client = TestSCIMClient(Client(scim2_server_app))
     client.discover()
     results = check_server(
-        client, raise_exceptions=False, include_tags={tag}, resource_types=resource_type
+        client, raise_exceptions=True, include_tags={tag}, resource_types=resource_type
     )
     for result in results:
-        assert result.status in (Status.SKIPPED, Status.SUCCESS), (
+        assert result.status not in (Status.ERROR, Status.CRITICAL), (
             f"Result {result.title} failed: {result.reason}"
         )
 
