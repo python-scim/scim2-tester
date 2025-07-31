@@ -1071,7 +1071,7 @@ doc = [
 [package.metadata]
 requires-dist = [
     { name = "exceptiongroup", marker = "python_full_version < '3.11'", specifier = ">=1.0.0" },
-    { name = "scim2-client", specifier = ">=0.4.0" },
+    { name = "scim2-client", specifier = ">=0.6.0" },
     { name = "scim2-client", extras = ["httpx"], marker = "extra == 'httpx'", specifier = ">=0.4.0" },
 ]
 provides-extras = ["httpx"]
