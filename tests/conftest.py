@@ -17,6 +17,6 @@ def scim_client(httpserver):
 
 
 @pytest.fixture
-def check_config(scim_client):
+def testing_context(scim_client):
     conf = CheckConfig()
     return CheckContext(scim_client, conf)

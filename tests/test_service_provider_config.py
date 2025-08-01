@@ -12,7 +12,7 @@ from scim2_tester.checkers.service_provider_config import (
 from scim2_tester.utils import Status
 
 
-def test_service_provider_config_endpoint_methods(httpserver, check_config):
+def test_service_provider_config_endpoint_methods(httpserver, testing_context):
     """Test that service provider config endpoint returns proper errors for unsupported HTTP methods."""
     # Mock all HTTP methods to return 405
     for method in ["POST", "PUT", "PATCH", "DELETE"]:
@@ -20,7 +20,7 @@ def test_service_provider_config_endpoint_methods(httpserver, check_config):
             uri="/ServiceProviderConfig", method=method
         ).respond_with_data("", status=405)
 
-    results = service_provider_config_endpoint_methods(check_config)
+    results = service_provider_config_endpoint_methods(testing_context)
 
     assert len(results) == 4
     assert all(result.status == Status.SUCCESS for result in results)
@@ -31,7 +31,7 @@ def test_service_provider_config_endpoint_methods(httpserver, check_config):
         )
 
 
-def test_service_provider_config_endpoint(httpserver, check_config):
+def test_service_provider_config_endpoint(httpserver, testing_context):
     """Test successful access to service provider config endpoint."""
     spc = ServiceProviderConfig()
 
@@ -41,6 +41,6 @@ def test_service_provider_config_endpoint(httpserver, check_config):
         content_type="application/scim+json",
     )
 
-    result = service_provider_config_endpoint(check_config)
+    result = service_provider_config_endpoint(testing_context)
     assert result.status == Status.SUCCESS
     assert result.data == spc

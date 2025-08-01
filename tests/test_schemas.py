@@ -13,9 +13,9 @@ from scim2_tester.checkers.schemas import schemas_endpoint_methods
 from scim2_tester.utils import Status
 
 
-def test_schemas_endpoint(httpserver, check_config):
+def test_schemas_endpoint(httpserver, testing_context):
     """Test a fully functional schemas endpoint."""
-    schemas = [model.to_schema() for model in check_config.client.resource_models]
+    schemas = [model.to_schema() for model in testing_context.client.resource_models]
     httpserver.expect_request(re.compile(r"^/Schemas$")).respond_with_json(
         ListResponse[Schema](
             resources=schemas,
@@ -38,14 +38,14 @@ def test_schemas_endpoint(httpserver, check_config):
         content_type="application/scim+json",
     )
 
-    results = _schemas_endpoint(check_config)
+    results = _schemas_endpoint(testing_context)
 
     assert all(result.status == Status.SUCCESS for result in results)
 
 
-def test_missing_individual_schema_endpoints(httpserver, check_config):
+def test_missing_individual_schema_endpoints(httpserver, testing_context):
     """Test behavior when individual schema endpoints are not available."""
-    schemas = [model.to_schema() for model in check_config.client.resource_models]
+    schemas = [model.to_schema() for model in testing_context.client.resource_models]
     httpserver.expect_request(re.compile(r"^/Schemas$")).respond_with_json(
         ListResponse[Schema](
             resources=schemas,
@@ -54,12 +54,12 @@ def test_missing_individual_schema_endpoints(httpserver, check_config):
         status=200,
         content_type="application/scim+json",
     )
-    results = _schemas_endpoint(check_config)
+    results = _schemas_endpoint(testing_context)
 
     assert all(result.status == Status.ERROR for result in results[1:])
 
 
-def test_invalid_schema_returns_non_error_response(httpserver, check_config):
+def test_invalid_schema_returns_non_error_response(httpserver, testing_context):
     """Test accessing an invalid schema that returns a valid schema instead of an error."""
     mock_schema = Schema(
         id="urn:ietf:params:scim:schemas:invalid:schema",
@@ -73,14 +73,14 @@ def test_invalid_schema_returns_non_error_response(httpserver, check_config):
         content_type="application/scim+json",
     )
 
-    result = access_invalid_schema(check_config)
+    result = access_invalid_schema(testing_context)
 
     assert result.status == Status.ERROR
     # The client throws an exception when it gets unexpected status code
     assert "Unexpected response status code: 200" in result.reason
 
 
-def test_invalid_schema_returns_wrong_error_status(httpserver, check_config):
+def test_invalid_schema_returns_wrong_error_status(httpserver, testing_context):
     """Test accessing an invalid schema that returns an error with wrong status code."""
     error_response = Error(status=400, detail="Bad Request")
 
@@ -88,14 +88,14 @@ def test_invalid_schema_returns_wrong_error_status(httpserver, check_config):
         error_response.model_dump(), status=400, content_type="application/scim+json"
     )
 
-    result = access_invalid_schema(check_config)
+    result = access_invalid_schema(testing_context)
 
     assert result.status == Status.ERROR
     assert "did return an Error object, but the status code is 400" in result.reason
     assert result.data == error_response
 
 
-def test_schema_access_with_partial_failures(httpserver, check_config):
+def test_schema_access_with_partial_failures(httpserver, testing_context):
     """Test accessing schemas when some individual schema requests fail."""
     schemas = [
         Schema(id="urn:ietf:params:scim:schemas:core:2.0:User", name="User"),
@@ -133,7 +133,7 @@ def test_schema_access_with_partial_failures(httpserver, check_config):
         "Internal Server Error", status=500
     )
 
-    results = access_schema_by_id(check_config)
+    results = access_schema_by_id(testing_context)
 
     assert len(results) == 3
     assert results[0].status == Status.SUCCESS
@@ -150,7 +150,7 @@ def test_schema_access_with_partial_failures(httpserver, check_config):
     assert "Failed to access schema urn:error:schema:" in results[2].reason
 
 
-def test_schemas_without_ids(httpserver, check_config):
+def test_schemas_without_ids(httpserver, testing_context):
     """Test handling of schemas that don't have IDs."""
     schemas = [
         Schema(name="User"),  # No id field
@@ -165,14 +165,14 @@ def test_schemas_without_ids(httpserver, check_config):
         content_type="application/scim+json",
     )
 
-    results = access_schema_by_id(check_config)
+    results = access_schema_by_id(testing_context)
 
     assert len(results) == 1
     assert results[0].status == Status.SUCCESS
     assert "No schemas with IDs found to test" in results[0].reason
 
 
-def test_core_schemas_missing(httpserver, check_config):
+def test_core_schemas_missing(httpserver, testing_context):
     """Test validation when mandatory core schemas are missing."""
     schemas = [
         Schema(name="User", description="User schema"),
@@ -189,7 +189,7 @@ def test_core_schemas_missing(httpserver, check_config):
         content_type="application/scim+json",
     )
 
-    result = core_schemas_validation(check_config)
+    result = core_schemas_validation(testing_context)
 
     assert result.status == Status.ERROR
     assert "Missing mandatory core schemas:" in result.reason
@@ -198,7 +198,7 @@ def test_core_schemas_missing(httpserver, check_config):
     assert "ResourceType" not in result.reason
 
 
-def test_core_schemas_all_present(httpserver, check_config):
+def test_core_schemas_all_present(httpserver, testing_context):
     """Test validation when all mandatory core schemas are present."""
     schemas = [
         Schema(name="User", description="User schema"),
@@ -218,7 +218,7 @@ def test_core_schemas_all_present(httpserver, check_config):
         content_type="application/scim+json",
     )
 
-    result = core_schemas_validation(check_config)
+    result = core_schemas_validation(testing_context)
 
     assert result.status == Status.SUCCESS
     assert (
@@ -227,7 +227,7 @@ def test_core_schemas_all_present(httpserver, check_config):
     )
 
 
-def test_invalid_schema_returns_non_error_object_404(httpserver, check_config):
+def test_invalid_schema_returns_non_error_object_404(httpserver, testing_context):
     """Test accessing an invalid schema that returns a non-Error object with expected 404 status."""
     mock_schema = Schema(
         id="urn:ietf:params:scim:schemas:invalid:schema",
@@ -242,14 +242,14 @@ def test_invalid_schema_returns_non_error_object_404(httpserver, check_config):
         content_type="application/scim+json",
     )
 
-    result = access_invalid_schema(check_config)
+    result = access_invalid_schema(testing_context)
 
     assert result.status == Status.ERROR
     assert "invalid URL did not return an Error object" in result.reason
     assert result.data == mock_schema
 
 
-def test_schemas_endpoint_http_methods(httpserver, check_config):
+def test_schemas_endpoint_http_methods(httpserver, testing_context):
     """Test that schemas endpoint returns proper errors for unsupported HTTP methods."""
     # Mock all HTTP methods to return 405
     for method in ["POST", "PUT", "PATCH", "DELETE"]:
@@ -257,7 +257,7 @@ def test_schemas_endpoint_http_methods(httpserver, check_config):
             "", status=405
         )
 
-    results = schemas_endpoint_methods(check_config)
+    results = schemas_endpoint_methods(testing_context)
 
     assert len(results) == 4
     assert all(result.status == Status.SUCCESS for result in results)

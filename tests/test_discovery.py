@@ -6,7 +6,7 @@ from scim2_tester.checkers._discovery_utils import _test_discovery_endpoint_meth
 from scim2_tester.utils import Status
 
 
-def test_discovery_endpoint_methods_return_405(httpserver, check_config):
+def test_discovery_endpoint_methods_return_405(httpserver, testing_context):
     """Test that discovery endpoints return 405 for unsupported HTTP methods."""
     endpoint = "/ServiceProviderConfig"
 
@@ -16,7 +16,7 @@ def test_discovery_endpoint_methods_return_405(httpserver, check_config):
             "", status=405
         )
 
-    results = _test_discovery_endpoint_methods(check_config, endpoint)
+    results = _test_discovery_endpoint_methods(testing_context, endpoint)
 
     assert len(results) == 4
     assert all(result.status == Status.SUCCESS for result in results)
@@ -27,7 +27,7 @@ def test_discovery_endpoint_methods_return_405(httpserver, check_config):
         )
 
 
-def test_discovery_endpoint_methods_wrong_status_codes(httpserver, check_config):
+def test_discovery_endpoint_methods_wrong_status_codes(httpserver, testing_context):
     """Test that non-405 responses are reported as errors."""
     endpoint = "/ResourceTypes"
 
@@ -48,7 +48,7 @@ def test_discovery_endpoint_methods_wrong_status_codes(httpserver, check_config)
         "", status=405
     )  # This one should succeed
 
-    results = _test_discovery_endpoint_methods(check_config, endpoint)
+    results = _test_discovery_endpoint_methods(testing_context, endpoint)
 
     assert len(results) == 4
     assert results[0].status == Status.ERROR
@@ -65,18 +65,18 @@ def test_discovery_endpoint_methods_wrong_status_codes(httpserver, check_config)
     assert all(result.data is not None for result in results)
 
 
-def test_discovery_endpoint_methods_connection_error(check_config):
+def test_discovery_endpoint_methods_connection_error(testing_context):
     """Test handling of connection errors during HTTP method testing."""
     # Mock the client to raise SCIMClientError
-    original_request = check_config.client.client.request
+    original_request = testing_context.client.client.request
 
     def mock_request(*args, **kwargs):
         raise SCIMClientError("Connection failed")
 
-    check_config.client.client.request = mock_request
+    testing_context.client.client.request = mock_request
 
     try:
-        results = _test_discovery_endpoint_methods(check_config, "/TestEndpoint")
+        results = _test_discovery_endpoint_methods(testing_context, "/TestEndpoint")
 
         assert len(results) == 4
         assert all(result.status == Status.ERROR for result in results)
@@ -84,4 +84,4 @@ def test_discovery_endpoint_methods_connection_error(check_config):
             assert "failed: Connection failed" in result.reason
     finally:
         # Restore original method
-        check_config.client.client.request = original_request
+        testing_context.client.client.request = original_request

@@ -7,7 +7,7 @@ from scim2_tester.checkers import random_url
 from scim2_tester.utils import Status
 
 
-def test_random_url(httpserver, check_config):
+def test_random_url(httpserver, testing_context):
     """Test reaching a random URL that returns a SCIM 404 error."""
     httpserver.expect_request(re.compile(r".*")).respond_with_json(
         Error(status=404, detail="Endpoint Not Found").model_dump(),
@@ -15,13 +15,13 @@ def test_random_url(httpserver, check_config):
         content_type="application/scim+json",
     )
 
-    result = random_url(check_config)
+    result = random_url(testing_context)
 
     assert result.status == Status.SUCCESS
     assert "correctly returned a 404 error" in result.reason
 
 
-def test_random_url_valid_object(httpserver, check_config):
+def test_random_url_valid_object(httpserver, testing_context):
     """Test reaching a random URL that returns a SCIM object."""
     httpserver.expect_request(re.compile(r".*")).respond_with_json(
         User(
@@ -31,13 +31,13 @@ def test_random_url_valid_object(httpserver, check_config):
         content_type="application/scim+json",
     )
 
-    result = random_url(check_config)
+    result = random_url(testing_context)
 
     assert result.status == Status.ERROR
     assert "did not return an Error object" in result.reason
 
 
-def test_random_url_not_404(httpserver, check_config):
+def test_random_url_not_404(httpserver, testing_context):
     """Test reaching a random URL that returns a non-404 status code."""
     httpserver.expect_request(re.compile(r".*")).respond_with_json(
         Error(status=200, detail="Endpoint Not Found").model_dump(),
@@ -45,7 +45,7 @@ def test_random_url_not_404(httpserver, check_config):
         content_type="application/scim+json",
     )
 
-    result = random_url(check_config)
+    result = random_url(testing_context)
 
     assert result.status == Status.ERROR
     assert "did return an object, but the status code is 200" in result.reason

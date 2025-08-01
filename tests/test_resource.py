@@ -85,7 +85,7 @@ def test_fill_with_random_values_generates_valid_data():
     assert all(val in ["foo", "bar"] for val in obj.example_multiple)
 
 
-def test_resource_type_tests_with_unknown_schema(check_config):
+def test_resource_type_tests_with_unknown_schema(testing_context):
     """Test CRUD operations on a resource type with unknown schema."""
     resource_type = ResourceType(
         id="urn:test:UnknownResource",
@@ -94,7 +94,7 @@ def test_resource_type_tests_with_unknown_schema(check_config):
         schema_="urn:ietf:params:scim:schemas:core:2.0:UnknownResource",
     )
 
-    results = resource_type_tests(check_config, resource_type)
+    results = resource_type_tests(testing_context, resource_type)
 
     assert len(results) == 1
     assert results[0].status == Status.ERROR
@@ -103,7 +103,7 @@ def test_resource_type_tests_with_unknown_schema(check_config):
     )
 
 
-def test_model_resolution_from_resource_type(check_config):
+def test_model_resolution_from_resource_type(testing_context):
     """Test model resolution from ResourceType schema."""
     unknown_resource_type = ResourceType(
         id="urn:test:UnknownResource",
@@ -112,7 +112,7 @@ def test_model_resolution_from_resource_type(check_config):
         schema_="urn:ietf:params:scim:schemas:core:2.0:UnknownResource",
     )
 
-    model = _model_from_resource_type(check_config, unknown_resource_type)
+    model = _model_from_resource_type(testing_context, unknown_resource_type)
     assert model is None
 
     # Test when model matches the schema
@@ -123,12 +123,12 @@ def test_model_resolution_from_resource_type(check_config):
         schema_="urn:ietf:params:scim:schemas:core:2.0:User",
     )
 
-    model = _model_from_resource_type(check_config, user_resource_type)
+    model = _model_from_resource_type(testing_context, user_resource_type)
     assert model == User
 
 
 def test_object_query_without_id_when_object_missing_from_list(
-    httpserver, check_config
+    httpserver, testing_context
 ):
     """Test querying objects when the created object is missing from the list response."""
     # Mock user creation first (it happens before the query)
@@ -148,7 +148,7 @@ def test_object_query_without_id_when_object_missing_from_list(
         content_type="application/scim+json",
     )
 
-    result = object_query_without_id(check_config, User)
+    result = object_query_without_id(testing_context, User)
 
     assert result.status == Status.ERROR
     assert (
@@ -156,7 +156,7 @@ def test_object_query_without_id_when_object_missing_from_list(
     )
 
 
-def test_object_deletion_with_null_id(check_config):
+def test_object_deletion_with_null_id(testing_context):
     """Test deletion of objects without an ID."""
 
     class MockResourceManager:
@@ -172,18 +172,18 @@ def test_object_deletion_with_null_id(check_config):
         def cleanup(self):
             pass
 
-    original_rm = check_config.resource_manager
-    check_config.resource_manager = MockResourceManager()
+    original_rm = testing_context.resource_manager
+    testing_context.resource_manager = MockResourceManager()
 
     try:
-        result = object_deletion(check_config, User)
+        result = object_deletion(testing_context, User)
         assert result.status == Status.SUCCESS
         assert "Successfully deleted User object with id None" in result.reason
     finally:
-        check_config.resource_manager = original_rm
+        testing_context.resource_manager = original_rm
 
 
-def test_object_deletion_when_object_persists(httpserver, check_config):
+def test_object_deletion_when_object_persists(httpserver, testing_context):
     """Test deletion failure when object persists after DELETE request."""
     user_id = "test-user-123"
     test_user = User(id=user_id, user_name="testuser")
@@ -207,13 +207,13 @@ def test_object_deletion_when_object_persists(httpserver, check_config):
         content_type="application/scim+json",
     )
 
-    result = object_deletion(check_config, User)
+    result = object_deletion(testing_context, User)
 
     assert result.status == Status.ERROR
     assert f"User object with id {user_id} still exists after deletion" in result.reason
 
 
-def test_object_deletion_successful(httpserver, check_config):
+def test_object_deletion_successful(httpserver, testing_context):
     """Test successful object deletion when object is properly removed."""
     user_id = "test-user-456"
     test_user = User(id=user_id, user_name="testuser")
@@ -235,7 +235,7 @@ def test_object_deletion_successful(httpserver, check_config):
         "Not Found", status=404
     )
 
-    result = object_deletion(check_config, User)
+    result = object_deletion(testing_context, User)
 
     assert result.status == Status.SUCCESS
     assert f"Successfully deleted User object with id {user_id}" in result.reason
