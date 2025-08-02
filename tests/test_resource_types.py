@@ -103,8 +103,8 @@ def test_query_resource_type_by_id_client_returns_error(httpserver, testing_cont
     )
 
     result = query_resource_type_by_id(testing_context, resource_type)
-    assert result.status == Status.ERROR
-    assert "Resource Type not found" in result.reason
+    assert result[0].status == Status.ERROR
+    assert "Resource Type not found" in result[0].reason
 
 
 def test_access_resource_type_by_id_success(httpserver, testing_context):
@@ -117,12 +117,12 @@ def test_access_resource_type_by_id_success(httpserver, testing_context):
     )
 
     result = query_resource_type_by_id(testing_context, resource_type)
-    assert result.status == Status.SUCCESS
+    assert result[0].status == Status.SUCCESS
     assert (
         f"Successfully accessed the /ResourceTypes/{resource_type.id} endpoint."
-        == result.reason
+        == result[0].reason
     )
-    assert result.data == resource_type
+    assert result[0].data == resource_type
 
 
 def test_access_invalid_resource_type_non_error_response(httpserver, testing_context):
@@ -144,9 +144,9 @@ def test_access_invalid_resource_type_non_error_response(httpserver, testing_con
 
     result = access_invalid_resource_type(testing_context)
 
-    assert result.status == Status.ERROR
-    assert "invalid URL did not return an Error object" in result.reason
-    assert result.data == mock_resource_type
+    assert result[0].status == Status.ERROR
+    assert "invalid URL did not return an Error object" in result[0].reason
+    assert result[0].data == mock_resource_type
 
 
 def test_access_invalid_resource_type_wrong_status_code(httpserver, testing_context):
@@ -163,6 +163,6 @@ def test_access_invalid_resource_type_wrong_status_code(httpserver, testing_cont
 
     result = access_invalid_resource_type(testing_context)
 
-    assert result.status == Status.ERROR
-    assert "did return an object, but the status code is 400" in result.reason
-    assert result.data == error
+    assert result[0].status == Status.ERROR
+    assert "did return an object, but the status code is 400" in result[0].reason
+    assert result[0].data == error

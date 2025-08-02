@@ -42,5 +42,5 @@ def test_service_provider_config_endpoint(httpserver, testing_context):
     )
 
     result = service_provider_config_endpoint(testing_context)
-    assert result.status == Status.SUCCESS
-    assert result.data == spc
+    assert result[0].status == Status.SUCCESS
+    assert result[0].data == spc

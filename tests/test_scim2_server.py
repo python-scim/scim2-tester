@@ -44,7 +44,7 @@ def test_individual_filters(scim2_server_app, tag, resource_type):
     )
     for result in results:
         assert result.status not in (Status.ERROR, Status.CRITICAL), (
-            f"Result {result.title} failed: {result.reason}"
+            f"Result {result.title} failed: {result[0].reason}"
         )
 
 

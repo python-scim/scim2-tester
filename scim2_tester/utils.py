@@ -225,24 +225,28 @@ def checker(*tags: str) -> Any:
             if context.conf.include_tags and not _matches_hierarchical_tags(
                 func_tags, context.conf.include_tags
             ):
-                return CheckResult(
-                    status=Status.SKIPPED,
-                    title=func.__name__,
-                    description=func.__doc__,
-                    tags=func_tags,
-                    reason="Skipped due to tag filtering",
-                )
+                return [
+                    CheckResult(
+                        status=Status.SKIPPED,
+                        title=func.__name__,
+                        description=func.__doc__,
+                        tags=func_tags,
+                        reason="Skipped due to tag filtering",
+                    )
+                ]
 
             if context.conf.exclude_tags and _matches_hierarchical_tags(
                 func_tags, context.conf.exclude_tags
             ):
-                return CheckResult(
-                    status=Status.SKIPPED,
-                    title=func.__name__,
-                    description=func.__doc__,
-                    tags=func_tags,
-                    reason="Skipped due to tag exclusion",
-                )
+                return [
+                    CheckResult(
+                        status=Status.SKIPPED,
+                        title=func.__name__,
+                        description=func.__doc__,
+                        tags=func_tags,
+                        reason="Skipped due to tag exclusion",
+                    )
+                ]
 
             try:
                 result = func(context, *args, **kwargs)
@@ -252,47 +256,36 @@ def checker(*tags: str) -> Any:
                     raise
 
                 reason = f"{exc} {exc.__cause__}" if exc.__cause__ else str(exc)
-                result = CheckResult(
-                    status=Status.ERROR, reason=reason, data=exc.source
-                )
+                result = [
+                    CheckResult(status=Status.ERROR, reason=reason, data=exc.source)
+                ]
 
             except Exception as exc:
                 if context.conf.raise_exceptions:
                     raise
 
-                result = CheckResult(status=Status.ERROR, reason=str(exc), data=exc)
+                result = [CheckResult(status=Status.ERROR, reason=str(exc), data=exc)]
 
             finally:
                 context.resource_manager.cleanup()
 
             # Check for ERROR results and raise SCIMTesterError if configured
             if context.conf.raise_exceptions:
-                if isinstance(result, CheckResult) and result.status in (
-                    Status.ERROR,
-                    Status.CRITICAL,
-                ):
-                    raise SCIMTesterError(result.reason or "Check failed", context.conf)
-                elif isinstance(result, list):
-                    errors = [
-                        SCIMTesterError(r.reason or "Check failed", context.conf)
-                        for r in result
-                        if r.status in (Status.ERROR, Status.CRITICAL)
-                    ]
-                    if len(errors) == 1:
-                        raise errors[0]
-                    elif len(errors) > 1:
-                        raise ExceptionGroup("Multiple check failures", errors)
+                errors = [
+                    SCIMTesterError(r.reason or "Check failed", context.conf)
+                    for r in result
+                    if r.status in (Status.ERROR, Status.CRITICAL)
+                ]
+                if len(errors) == 1:
+                    raise errors[0]
+                elif len(errors) > 1:
+                    raise ExceptionGroup("Multiple check failures", errors)
 
-            if isinstance(result, CheckResult):
-                result.title = func.__name__
-                result.description = func.__doc__
-                result.tags = func_tags
-
-            elif isinstance(result, list):
-                for r in result:
-                    r.title = func.__name__
-                    r.description = func.__doc__
-                    r.tags = func_tags
+            # All checkers now return list[CheckResult]
+            for r in result:
+                r.title = func.__name__
+                r.description = func.__doc__
+                r.tags = func_tags
             return result
 
         wrapped.tags = set(tags) if tags else set()  # type: ignore[attr-defined]

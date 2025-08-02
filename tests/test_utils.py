@@ -14,9 +14,9 @@ def test_checker_decorator_with_tags():
     """Validates checker decorator properly assigns tags to functions."""
 
     @checker("tag1", "tag2")
-    def check_function(context: CheckContext) -> CheckResult:
+    def check_function(context: CheckContext) -> list[CheckResult]:
         """Test check function."""
-        return CheckResult(status=Status.SUCCESS, reason="Success")
+        return [CheckResult(status=Status.SUCCESS, reason="Success")]
 
     # Verify function has tags attribute
     assert hasattr(check_function, "tags")
@@ -25,18 +25,18 @@ def test_checker_decorator_with_tags():
     conf = CheckConfig(raise_exceptions=False)
     context = CheckContext(client=None, conf=conf)
     result = check_function(context)
-    assert result.tags == {"tag1", "tag2"}
-    assert result.title == "check_function"
-    assert result.description == "Test check function."
+    assert result[0].tags == {"tag1", "tag2"}
+    assert result[0].title == "check_function"
+    assert result[0].description == "Test check function."
 
 
 def test_checker_decorator_without_tags():
     """Ensures checker decorator works without explicit tags."""
 
     @checker
-    def check_function(context: CheckContext) -> CheckResult:
+    def check_function(context: CheckContext) -> list[CheckResult]:
         """Test check function."""
-        return CheckResult(status=Status.SUCCESS, reason="Success")
+        return [CheckResult(status=Status.SUCCESS, reason="Success")]
 
     # Verify function has empty tags
     assert hasattr(check_function, "tags")
@@ -45,7 +45,7 @@ def test_checker_decorator_without_tags():
     conf = CheckConfig(raise_exceptions=False)
     context = CheckContext(client=None, conf=conf)
     result = check_function(context)
-    assert result.tags == set()
+    assert result[0].tags == set()
 
 
 def test_checker_decorator_with_list_results():
@@ -101,8 +101,8 @@ def test_check_result_no_exception_when_not_configured():
     context = CheckContext(client=None, conf=conf)
 
     result = failing_check(context)
-    assert result.status == Status.ERROR
-    assert "Test error" in result.reason
+    assert result[0].status == Status.ERROR
+    assert "Test error" in result[0].reason
 
 
 def test_check_result_no_exception_on_success():
@@ -112,14 +112,14 @@ def test_check_result_no_exception_on_success():
 
     @checker("test")
     def successful_check(context):
-        return CheckResult(status=Status.SUCCESS, reason="Success")
+        return [CheckResult(status=Status.SUCCESS, reason="Success")]
 
     conf = CheckConfig(raise_exceptions=True)
     context = CheckContext(client=None, conf=conf)
 
     result = successful_check(context)
-    assert result.status == Status.SUCCESS
-    assert result.reason == "Success"
+    assert result[0].status == Status.SUCCESS
+    assert result[0].reason == "Success"
 
 
 def test_check_result_error_should_raise_when_configured():
@@ -130,7 +130,7 @@ def test_check_result_error_should_raise_when_configured():
     @checker("test")
     def error_check(context):
         # Function returns an error result instead of raising exception
-        return CheckResult(status=Status.ERROR, reason="Check failed")
+        return [CheckResult(status=Status.ERROR, reason="Check failed")]
 
     conf = CheckConfig(raise_exceptions=True)
     context = CheckContext(client=None, conf=conf)
@@ -250,14 +250,14 @@ def test_hierarchical_tag_matching():
         from scim2_tester.utils import CheckResult
         from scim2_tester.utils import Status
 
-        return CheckResult(status=Status.SUCCESS)
+        return [CheckResult(status=Status.SUCCESS)]
 
     conf_include = CheckConfig(include_tags={"crud"})
     context_include = CheckContext(client=None, conf=conf_include)
     result = test_func(context_include)  # Call with decorator signature
-    assert result.status.name == "SUCCESS"
+    assert result[0].status.name == "SUCCESS"
 
     conf_exclude = CheckConfig(exclude_tags={"crud"})
     context_exclude = CheckContext(client=None, conf=conf_exclude)
     result = test_func(context_exclude)  # Call with decorator signature
-    assert result.status.name == "SKIPPED"
+    assert result[0].status.name == "SKIPPED"

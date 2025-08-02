@@ -10,7 +10,7 @@ from ._discovery_utils import _test_discovery_endpoint_methods
 @checker("discovery", "service-provider-config")
 def service_provider_config_endpoint(
     context: CheckContext,
-) -> CheckResult:
+) -> list[CheckResult]:
     """Validate the mandatory ServiceProviderConfig discovery endpoint.
 
     Tests that the ``/ServiceProviderConfig`` endpoint is accessible via GET request
@@ -34,7 +34,7 @@ def service_provider_config_endpoint(
         ServiceProviderConfig,
         expected_status_codes=context.conf.expected_status_codes or [200],
     )
-    return CheckResult(status=Status.SUCCESS, data=response)
+    return [CheckResult(status=Status.SUCCESS, data=response)]
 
 
 @checker("discovery", "service-provider-config")

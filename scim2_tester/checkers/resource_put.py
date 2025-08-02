@@ -13,7 +13,7 @@ from ..utils import checker
 @checker("crud:update")
 def object_replacement(
     context: CheckContext, model: type[Resource[Any]]
-) -> CheckResult:
+) -> list[CheckResult]:
     """Validate SCIM resource replacement via PUT requests.
 
     Tests that resources can be successfully replaced using PUT method, modifying
@@ -54,8 +54,10 @@ def object_replacement(
         modified_obj, expected_status_codes=context.conf.expected_status_codes or [200]
     )
 
-    return CheckResult(
-        status=Status.SUCCESS,
-        reason=f"Successfully replaced {model.__name__} object with id {test_obj.id}",
-        data=response,
-    )
+    return [
+        CheckResult(
+            status=Status.SUCCESS,
+            reason=f"Successfully replaced {model.__name__} object with id {test_obj.id}",
+            data=response,
+        )
+    ]

@@ -43,10 +43,10 @@ def resource_type_tests(
 
     results = []
 
-    results.append(object_creation(context, model))
-    results.append(object_query(context, model))
-    results.append(object_query_without_id(context, model))
-    results.append(object_replacement(context, model))
-    results.append(object_deletion(context, model))
+    results.extend(object_creation(context, model))
+    results.extend(object_query(context, model))
+    results.extend(object_query_without_id(context, model))
+    results.extend(object_replacement(context, model))
+    results.extend(object_deletion(context, model))
 
     return results

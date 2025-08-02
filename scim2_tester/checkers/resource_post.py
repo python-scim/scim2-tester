@@ -9,7 +9,9 @@ from ..utils import checker
 
 
 @checker("crud:create")
-def object_creation(context: CheckContext, model: type[Resource[Any]]) -> CheckResult:
+def object_creation(
+    context: CheckContext, model: type[Resource[Any]]
+) -> list[CheckResult]:
     """Validate SCIM resource creation via POST requests.
 
     Tests that resources can be successfully created using POST method on the
@@ -31,8 +33,10 @@ def object_creation(context: CheckContext, model: type[Resource[Any]]) -> CheckR
     """
     created_obj = context.resource_manager.create_and_register(model)
 
-    return CheckResult(
-        status=Status.SUCCESS,
-        reason=f"Successfully created {model.__name__} object with id {created_obj.id}",
-        data=created_obj,
-    )
+    return [
+        CheckResult(
+            status=Status.SUCCESS,
+            reason=f"Successfully created {model.__name__} object with id {created_obj.id}",
+            data=created_obj,
+        )
+    ]

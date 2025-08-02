@@ -9,7 +9,9 @@ from ..utils import checker
 
 
 @checker("crud:delete")
-def object_deletion(context: CheckContext, model: type[Resource[Any]]) -> CheckResult:
+def object_deletion(
+    context: CheckContext, model: type[Resource[Any]]
+) -> list[CheckResult]:
     """Validate SCIM resource deletion via DELETE requests.
 
     Tests that resources can be successfully deleted using DELETE method and
@@ -39,14 +41,18 @@ def object_deletion(context: CheckContext, model: type[Resource[Any]]) -> CheckR
 
     try:
         context.client.query(model, test_obj.id)
-        return CheckResult(
-            status=Status.ERROR,
-            reason=f"{model.__name__} object with id {test_obj.id} still exists after deletion",
-        )
+        return [
+            CheckResult(
+                status=Status.ERROR,
+                reason=f"{model.__name__} object with id {test_obj.id} still exists after deletion",
+            )
+        ]
     except Exception:
         pass
 
-    return CheckResult(
-        status=Status.SUCCESS,
-        reason=f"Successfully deleted {model.__name__} object with id {test_obj.id}",
-    )
+    return [
+        CheckResult(
+            status=Status.SUCCESS,
+            reason=f"Successfully deleted {model.__name__} object with id {test_obj.id}",
+        )
+    ]

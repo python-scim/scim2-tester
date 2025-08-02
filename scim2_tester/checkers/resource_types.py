@@ -32,16 +32,20 @@ def _resource_types_endpoint(context: CheckContext) -> list[CheckResult]:
        "Service providers MUST provide this endpoint."
 
     """
-    resource_types_result = query_all_resource_types(context)
-    results = [resource_types_result]
+    results = []
+    resource_types_result_list = query_all_resource_types(context)
+    results.extend(resource_types_result_list)
+    resource_types_result = resource_types_result_list[
+        0
+    ]  # Get the first (and only) result
 
     if resource_types_result.status == Status.SUCCESS:
         for resource_type in resource_types_result.data:
-            results.append(query_resource_type_by_id(context, resource_type))
+            results.extend(query_resource_type_by_id(context, resource_type))
 
         results.extend(resource_types_schema_validation(context))
 
-    results.append(access_invalid_resource_type(context))
+    results.extend(access_invalid_resource_type(context))
 
     return results
 
@@ -122,7 +126,7 @@ def resource_types_schema_validation(
 
 
 @checker("discovery", "resource-types")
-def query_all_resource_types(context: CheckContext) -> CheckResult:
+def query_all_resource_types(context: CheckContext) -> list[CheckResult]:
     """Validate retrieval of all available resource types.
 
     Tests that the ``/ResourceTypes`` endpoint returns a list of all supported
@@ -143,13 +147,13 @@ def query_all_resource_types(context: CheckContext) -> CheckResult:
     )
     available = ", ".join([f"'{resource.name}'" for resource in response.resources])
     reason = f"Resource types available are: {available}"
-    return CheckResult(status=Status.SUCCESS, reason=reason, data=response.resources)
+    return [CheckResult(status=Status.SUCCESS, reason=reason, data=response.resources)]
 
 
 @checker("discovery", "resource-types")
 def query_resource_type_by_id(
     context: CheckContext, resource_type: ResourceType
-) -> CheckResult:
+) -> list[CheckResult]:
     """Validate individual ResourceType retrieval by ID.
 
     Tests that specific resource types can be retrieved using GET requests
@@ -171,11 +175,11 @@ def query_resource_type_by_id(
         expected_status_codes=context.conf.expected_status_codes or [200],
     )
     reason = f"Successfully accessed the /ResourceTypes/{resource_type.id} endpoint."
-    return CheckResult(status=Status.SUCCESS, reason=reason, data=response)
+    return [CheckResult(status=Status.SUCCESS, reason=reason, data=response)]
 
 
 @checker("discovery", "resource-types")
-def access_invalid_resource_type(context: CheckContext) -> CheckResult:
+def access_invalid_resource_type(context: CheckContext) -> list[CheckResult]:
     """Validate error handling for non-existent resource type IDs.
 
     Tests that accessing ``/ResourceTypes/{invalid_id}`` with a non-existent resource
@@ -199,21 +203,27 @@ def access_invalid_resource_type(context: CheckContext) -> CheckResult:
     )
 
     if not isinstance(response, Error):
-        return CheckResult(
-            status=Status.ERROR,
-            reason=f"/resource_types/{probably_invalid_id} invalid URL did not return an Error object",
-            data=response,
-        )
+        return [
+            CheckResult(
+                status=Status.ERROR,
+                reason=f"/resource_types/{probably_invalid_id} invalid URL did not return an Error object",
+                data=response,
+            )
+        ]
 
     if response.status != 404:
-        return CheckResult(
-            status=Status.ERROR,
-            reason=f"/resource_types/{probably_invalid_id} invalid URL did return an object, but the status code is {response.status}",
+        return [
+            CheckResult(
+                status=Status.ERROR,
+                reason=f"/resource_types/{probably_invalid_id} invalid URL did return an object, but the status code is {response.status}",
+                data=response,
+            )
+        ]
+
+    return [
+        CheckResult(
+            status=Status.SUCCESS,
+            reason=f"/resource_types/{probably_invalid_id} invalid URL correctly returned a 404 error",
             data=response,
         )
-
-    return CheckResult(
-        status=Status.SUCCESS,
-        reason=f"/resource_types/{probably_invalid_id} invalid URL correctly returned a 404 error",
-        data=response,
-    )
+    ]

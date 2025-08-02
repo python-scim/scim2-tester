@@ -84,28 +84,32 @@ def test_bad_content_type(httpserver):
             response = context.client.query(
                 obj.__class__, obj.id, expected_status_codes=[200]
             )
-            return CheckResult(
-                status=Status.SUCCESS,
-                reason=f"Successful query of {obj.__class__.__name__}",
-                data=response,
-            )
+            return [
+                CheckResult(
+                    status=Status.SUCCESS,
+                    reason=f"Successful query of {obj.__class__.__name__}",
+                    data=response,
+                )
+            ]
         except Exception as e:
-            return CheckResult(
-                status=Status.ERROR,
-                reason=str(e),
-                data=e,
-            )
+            return [
+                CheckResult(
+                    status=Status.ERROR,
+                    reason=str(e),
+                    data=e,
+                )
+            ]
 
     result = simple_query_test(context, scim_user)
-    assert result.status == Status.SUCCESS
+    assert result[0].status == Status.SUCCESS
 
     result = simple_query_test(context, json_user)
-    assert result.status == Status.SUCCESS
+    assert result[0].status == Status.SUCCESS
 
     result = simple_query_test(context, invalid_user)
-    assert result.status == Status.ERROR
-    assert result.reason == "Unexpected content type: application/invalid"
+    assert result[0].status == Status.ERROR
+    assert result[0].reason == "Unexpected content type: application/invalid"
 
     result = simple_query_test(context, missing_user)
-    assert result.status == Status.ERROR
-    assert result.reason == "Unexpected content type: "
+    assert result[0].status == Status.ERROR
+    assert result[0].reason == "Unexpected content type: "

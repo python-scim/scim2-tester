@@ -72,8 +72,9 @@ def check_server(
     context = CheckContext(client, conf)
     results = []
 
-    result_spc = service_provider_config_endpoint(context)
-    results.append(result_spc)
+    result_spc_list = service_provider_config_endpoint(context)
+    results.extend(result_spc_list)
+    result_spc = result_spc_list[0]  # Get the first (and only) result
     if result_spc.status != Status.SKIPPED and not client.service_provider_config:
         client.service_provider_config = result_spc.data
 
@@ -103,7 +104,7 @@ def check_server(
         return results
 
     result_random = random_url(context)
-    results.append(result_random)
+    results.extend(result_random)
 
     for resource_type in client.resource_types or []:
         if conf.resource_types and resource_type.name not in conf.resource_types:

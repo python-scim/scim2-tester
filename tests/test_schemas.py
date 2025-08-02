@@ -75,9 +75,9 @@ def test_invalid_schema_returns_non_error_response(httpserver, testing_context):
 
     result = access_invalid_schema(testing_context)
 
-    assert result.status == Status.ERROR
+    assert result[0].status == Status.ERROR
     # The client throws an exception when it gets unexpected status code
-    assert "Unexpected response status code: 200" in result.reason
+    assert "Unexpected response status code: 200" in result[0].reason
 
 
 def test_invalid_schema_returns_wrong_error_status(httpserver, testing_context):
@@ -90,9 +90,9 @@ def test_invalid_schema_returns_wrong_error_status(httpserver, testing_context):
 
     result = access_invalid_schema(testing_context)
 
-    assert result.status == Status.ERROR
-    assert "did return an Error object, but the status code is 400" in result.reason
-    assert result.data == error_response
+    assert result[0].status == Status.ERROR
+    assert "did return an Error object, but the status code is 400" in result[0].reason
+    assert result[0].data == error_response
 
 
 def test_schema_access_with_partial_failures(httpserver, testing_context):
@@ -191,11 +191,11 @@ def test_core_schemas_missing(httpserver, testing_context):
 
     result = core_schemas_validation(testing_context)
 
-    assert result.status == Status.ERROR
-    assert "Missing mandatory core schemas:" in result.reason
-    assert "ServiceProviderConfig" in result.reason
-    assert "Schema" in result.reason
-    assert "ResourceType" not in result.reason
+    assert result[0].status == Status.ERROR
+    assert "Missing mandatory core schemas:" in result[0].reason
+    assert "ServiceProviderConfig" in result[0].reason
+    assert "Schema" in result[0].reason
+    assert "ResourceType" not in result[0].reason
 
 
 def test_core_schemas_all_present(httpserver, testing_context):
@@ -220,10 +220,10 @@ def test_core_schemas_all_present(httpserver, testing_context):
 
     result = core_schemas_validation(testing_context)
 
-    assert result.status == Status.SUCCESS
+    assert result[0].status == Status.SUCCESS
     assert (
         "All mandatory core schemas (ResourceType, ServiceProviderConfig, Schema) are present"
-        in result.reason
+        in result[0].reason
     )
 
 
@@ -244,9 +244,9 @@ def test_invalid_schema_returns_non_error_object_404(httpserver, testing_context
 
     result = access_invalid_schema(testing_context)
 
-    assert result.status == Status.ERROR
-    assert "invalid URL did not return an Error object" in result.reason
-    assert result.data == mock_schema
+    assert result[0].status == Status.ERROR
+    assert "invalid URL did not return an Error object" in result[0].reason
+    assert result[0].data == mock_schema
 
 
 def test_schemas_endpoint_http_methods(httpserver, testing_context):

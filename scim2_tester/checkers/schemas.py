@@ -31,19 +31,21 @@ def _schemas_endpoint(context: CheckContext) -> list[CheckResult]:
        "Service providers MUST provide this endpoint."
 
     """
-    schemas_result = query_all_schemas(context)
-    results = [schemas_result]
+    schemas_result_list = query_all_schemas(context)
+    results = []
+    results.extend(schemas_result_list)
+    schemas_result = schemas_result_list[0]  # Get the first (and only) result
 
     if schemas_result.status == Status.SUCCESS:
         results.extend(access_schema_by_id(context))
 
-    results.append(access_invalid_schema(context))
+    results.extend(access_invalid_schema(context))
 
     return results
 
 
 @checker("discovery", "schemas")
-def query_all_schemas(context: CheckContext) -> CheckResult:
+def query_all_schemas(context: CheckContext) -> list[CheckResult]:
     """Validate retrieval of all available schemas.
 
     Tests that the ``/Schemas`` endpoint returns a complete list of all supported
@@ -63,15 +65,17 @@ def query_all_schemas(context: CheckContext) -> CheckResult:
         Schema, expected_status_codes=context.conf.expected_status_codes or [200]
     )
     available = ", ".join([f"'{resource.name}'" for resource in response.resources])
-    return CheckResult(
-        status=Status.SUCCESS,
-        reason=f"Schemas available are: {available}",
-        data=response.resources,
-    )
+    return [
+        CheckResult(
+            status=Status.SUCCESS,
+            reason=f"Schemas available are: {available}",
+            data=response.resources,
+        )
+    ]
 
 
 @checker("discovery", "schemas")
-def access_invalid_schema(context: CheckContext) -> CheckResult:
+def access_invalid_schema(context: CheckContext) -> list[CheckResult]:
     """Validate error handling for non-existent schema IDs.
 
     Tests that accessing ``/Schemas/{invalid_id}`` with a non-existent schema
@@ -96,24 +100,30 @@ def access_invalid_schema(context: CheckContext) -> CheckResult:
     )
 
     if not isinstance(response, Error):
-        return CheckResult(
-            status=Status.ERROR,
-            reason=f"/Schemas/{probably_invalid_id} invalid URL did not return an Error object",
-            data=response,
-        )
+        return [
+            CheckResult(
+                status=Status.ERROR,
+                reason=f"/Schemas/{probably_invalid_id} invalid URL did not return an Error object",
+                data=response,
+            )
+        ]
 
     if response.status != 404:
-        return CheckResult(
-            status=Status.ERROR,
-            reason=f"/Schemas/{probably_invalid_id} invalid URL did return an Error object, but the status code is {response.status}",
+        return [
+            CheckResult(
+                status=Status.ERROR,
+                reason=f"/Schemas/{probably_invalid_id} invalid URL did return an Error object, but the status code is {response.status}",
+                data=response,
+            )
+        ]
+
+    return [
+        CheckResult(
+            status=Status.SUCCESS,
+            reason=f"/Schemas/{probably_invalid_id} invalid URL correctly returned a 404 error",
             data=response,
         )
-
-    return CheckResult(
-        status=Status.SUCCESS,
-        reason=f"/Schemas/{probably_invalid_id} invalid URL correctly returned a 404 error",
-        data=response,
-    )
+    ]
 
 
 @checker("discovery", "schemas")
@@ -201,7 +211,7 @@ def access_schema_by_id(
 @checker("discovery", "schemas")
 def core_schemas_validation(
     context: CheckContext,
-) -> CheckResult:
+) -> list[CheckResult]:
     """Validate that mandatory core schemas are provided.
 
     Tests that the ``/Schemas`` endpoint provides the three mandatory core schemas:
@@ -237,14 +247,18 @@ def core_schemas_validation(
     missing_schemas = [name for name, found in required_schemas.items() if not found]
 
     if missing_schemas:
-        return CheckResult(
-            status=Status.ERROR,
-            reason=f"Missing mandatory core schemas: {', '.join(missing_schemas)}",
+        return [
+            CheckResult(
+                status=Status.ERROR,
+                reason=f"Missing mandatory core schemas: {', '.join(missing_schemas)}",
+                data=response,
+            )
+        ]
+
+    return [
+        CheckResult(
+            status=Status.SUCCESS,
+            reason="All mandatory core schemas (ResourceType, ServiceProviderConfig, Schema) are present",
             data=response,
         )
-
-    return CheckResult(
-        status=Status.SUCCESS,
-        reason="All mandatory core schemas (ResourceType, ServiceProviderConfig, Schema) are present",
-        data=response,
-    )
+    ]

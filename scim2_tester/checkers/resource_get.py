@@ -25,7 +25,9 @@ def _model_from_resource_type(
 
 
 @checker("crud:read")
-def object_query(context: CheckContext, model: type[Resource[Any]]) -> CheckResult:
+def object_query(
+    context: CheckContext, model: type[Resource[Any]]
+) -> list[CheckResult]:
     """Validate SCIM resource retrieval by ID via GET requests.
 
     Tests that individual resources can be successfully retrieved using GET method
@@ -52,17 +54,19 @@ def object_query(context: CheckContext, model: type[Resource[Any]]) -> CheckResu
         expected_status_codes=context.conf.expected_status_codes or [200],
     )
 
-    return CheckResult(
-        status=Status.SUCCESS,
-        reason=f"Successfully queried {model.__name__} object with id {test_obj.id}",
-        data=response,
-    )
+    return [
+        CheckResult(
+            status=Status.SUCCESS,
+            reason=f"Successfully queried {model.__name__} object with id {test_obj.id}",
+            data=response,
+        )
+    ]
 
 
 @checker("crud:read")
 def object_query_without_id(
     context: CheckContext, model: type[Resource[Any]]
-) -> CheckResult:
+) -> list[CheckResult]:
     """Validate SCIM resource listing via GET requests without ID.
 
     Tests that resources can be successfully listed using GET method on the
@@ -87,14 +91,18 @@ def object_query_without_id(
 
     found = any(test_obj.id == resource.id for resource in response.resources)
     if not found:
-        return CheckResult(
-            status=Status.ERROR,
-            reason=f"Could not find {model.__name__} object with id {test_obj.id} in list response",
+        return [
+            CheckResult(
+                status=Status.ERROR,
+                reason=f"Could not find {model.__name__} object with id {test_obj.id} in list response",
+                data=response,
+            )
+        ]
+
+    return [
+        CheckResult(
+            status=Status.SUCCESS,
+            reason=f"Successfully found {model.__name__} object with id {test_obj.id} in list response",
             data=response,
         )
-
-    return CheckResult(
-        status=Status.SUCCESS,
-        reason=f"Successfully found {model.__name__} object with id {test_obj.id} in list response",
-        data=response,
-    )
+    ]

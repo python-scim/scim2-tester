@@ -10,7 +10,7 @@ from ..utils import checker
 
 
 @checker("misc")
-def random_url(context: CheckContext) -> CheckResult:
+def random_url(context: CheckContext) -> list[CheckResult]:
     """Validate server error handling for non-existent endpoints.
 
     Tests that the server properly returns a :class:`~scim2_models.Error` object with HTTP 404 status
@@ -37,21 +37,27 @@ def random_url(context: CheckContext) -> CheckResult:
     )
 
     if not isinstance(response, Error):
-        return CheckResult(
-            status=Status.ERROR,
-            reason=f"{probably_invalid_url} did not return an Error object",
-            data=response,
-        )
+        return [
+            CheckResult(
+                status=Status.ERROR,
+                reason=f"{probably_invalid_url} did not return an Error object",
+                data=response,
+            )
+        ]
 
     if response.status != 404:
-        return CheckResult(
-            status=Status.ERROR,
-            reason=f"{probably_invalid_url} did return an object, but the status code is {response.status}",
+        return [
+            CheckResult(
+                status=Status.ERROR,
+                reason=f"{probably_invalid_url} did return an object, but the status code is {response.status}",
+                data=response,
+            )
+        ]
+
+    return [
+        CheckResult(
+            status=Status.SUCCESS,
+            reason=f"{probably_invalid_url} correctly returned a 404 error",
             data=response,
         )
-
-    return CheckResult(
-        status=Status.SUCCESS,
-        reason=f"{probably_invalid_url} correctly returned a 404 error",
-        data=response,
-    )
+    ]

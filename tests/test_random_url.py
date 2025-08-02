@@ -17,8 +17,8 @@ def test_random_url(httpserver, testing_context):
 
     result = random_url(testing_context)
 
-    assert result.status == Status.SUCCESS
-    assert "correctly returned a 404 error" in result.reason
+    assert result[0].status == Status.SUCCESS
+    assert "correctly returned a 404 error" in result[0].reason
 
 
 def test_random_url_valid_object(httpserver, testing_context):
@@ -33,8 +33,8 @@ def test_random_url_valid_object(httpserver, testing_context):
 
     result = random_url(testing_context)
 
-    assert result.status == Status.ERROR
-    assert "did not return an Error object" in result.reason
+    assert result[0].status == Status.ERROR
+    assert "did not return an Error object" in result[0].reason
 
 
 def test_random_url_not_404(httpserver, testing_context):
@@ -47,5 +47,5 @@ def test_random_url_not_404(httpserver, testing_context):
 
     result = random_url(testing_context)
 
-    assert result.status == Status.ERROR
-    assert "did return an object, but the status code is 200" in result.reason
+    assert result[0].status == Status.ERROR
+    assert "did return an object, but the status code is 200" in result[0].reason

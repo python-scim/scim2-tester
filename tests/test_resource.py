@@ -150,9 +150,10 @@ def test_object_query_without_id_when_object_missing_from_list(
 
     result = object_query_without_id(testing_context, User)
 
-    assert result.status == Status.ERROR
+    assert result[0].status == Status.ERROR
     assert (
-        "Could not find User object with id test-id in list response" in result.reason
+        "Could not find User object with id test-id in list response"
+        in result[0].reason
     )
 
 
@@ -177,8 +178,8 @@ def test_object_deletion_with_null_id(testing_context):
 
     try:
         result = object_deletion(testing_context, User)
-        assert result.status == Status.SUCCESS
-        assert "Successfully deleted User object with id None" in result.reason
+        assert result[0].status == Status.SUCCESS
+        assert "Successfully deleted User object with id None" in result[0].reason
     finally:
         testing_context.resource_manager = original_rm
 
@@ -209,8 +210,10 @@ def test_object_deletion_when_object_persists(httpserver, testing_context):
 
     result = object_deletion(testing_context, User)
 
-    assert result.status == Status.ERROR
-    assert f"User object with id {user_id} still exists after deletion" in result.reason
+    assert result[0].status == Status.ERROR
+    assert (
+        f"User object with id {user_id} still exists after deletion" in result[0].reason
+    )
 
 
 def test_object_deletion_successful(httpserver, testing_context):
@@ -237,8 +240,8 @@ def test_object_deletion_successful(httpserver, testing_context):
 
     result = object_deletion(testing_context, User)
 
-    assert result.status == Status.SUCCESS
-    assert f"Successfully deleted User object with id {user_id}" in result.reason
+    assert result[0].status == Status.SUCCESS
+    assert f"Successfully deleted User object with id {user_id}" in result[0].reason
 
 
 def test_object_replacement_fails_when_no_mutable_fields():
@@ -264,6 +267,6 @@ def test_object_replacement_fails_when_no_mutable_fields():
         result = object_replacement(context, User)
 
         # The @checker decorator catches ValueError and returns CheckResult with ERROR status
-        assert result.status == Status.ERROR
-        assert "Could not modify User object with mutable fields" in result.reason
-        assert isinstance(result.data, ValueError)
+        assert result[0].status == Status.ERROR
+        assert "Could not modify User object with mutable fields" in result[0].reason
+        assert isinstance(result[0].data, ValueError)
