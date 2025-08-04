@@ -274,8 +274,7 @@ def test_get_registered_tags():
     """Test get_registered_tags function returns a copy of registered tags."""
 
     @checker("test_tag1", "test_tag2")
-    def dummy_check(context):
-        pass
+    def dummy_check(context): ...
 
     tags = get_registered_tags()
     assert isinstance(tags, set)
@@ -391,8 +390,7 @@ def test_checker_skip_with_include_tags():
     """Test checker skips execution when include_tags don't match."""
 
     @checker("crud:write")
-    def write_check(context):
-        return [CheckResult(status=Status.SUCCESS)]
+    def write_check(context): ...
 
     conf = CheckConfig(include_tags={"crud:read", "schemas"})
     context = CheckContext(client=None, conf=conf)
