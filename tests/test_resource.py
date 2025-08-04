@@ -5,6 +5,7 @@ from unittest.mock import patch
 from pydantic import Field
 from scim2_models import ComplexAttribute
 from scim2_models import Context
+from scim2_models import EnterpriseUser
 from scim2_models import ListResponse
 from scim2_models import Reference
 from scim2_models import Resource
@@ -124,7 +125,7 @@ def test_model_resolution_from_resource_type(testing_context):
     )
 
     model = _model_from_resource_type(testing_context, user_resource_type)
-    assert model == User
+    assert model == User[EnterpriseUser]
 
 
 def test_object_query_without_id_when_object_missing_from_list(

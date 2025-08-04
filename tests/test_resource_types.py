@@ -122,7 +122,7 @@ def test_access_resource_type_by_id_success(httpserver, testing_context):
         f"Successfully accessed the /ResourceTypes/{resource_type.id} endpoint."
         == result[0].reason
     )
-    assert result[0].data == resource_type
+    assert result[0].data.model_dump() == resource_type.model_dump()
 
 
 def test_access_invalid_resource_type_non_error_response(httpserver, testing_context):
