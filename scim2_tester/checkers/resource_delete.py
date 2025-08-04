@@ -1,5 +1,6 @@
 from typing import Any
 
+from scim2_client import SCIMClientError
 from scim2_models import Resource
 
 from ..utils import CheckContext
@@ -47,7 +48,7 @@ def object_deletion(
                 reason=f"{model.__name__} object with id {test_obj.id} still exists after deletion",
             )
         ]
-    except Exception:
+    except SCIMClientError:
         pass
 
     return [
