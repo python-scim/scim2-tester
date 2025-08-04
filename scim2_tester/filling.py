@@ -1,4 +1,3 @@
-import base64
 import random
 import uuid
 from enum import Enum
@@ -82,9 +81,6 @@ def generate_random_value(
 
     elif field_type is bool:
         value = random.choice([True, False])
-
-    elif field_type is bytes:
-        value = base64.b64encode(str(uuid.uuid4()).encode("utf-8"))
 
     elif get_origin(field_type) is Reference:
         ref_type = get_args(field_type)[0]

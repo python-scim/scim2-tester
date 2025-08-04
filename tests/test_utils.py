@@ -1,13 +1,20 @@
 import sys
+from unittest.mock import Mock
+from unittest.mock import patch
 
 import pytest
+from scim2_client import SCIMClientError
+from scim2_models import User
 
 from scim2_tester.utils import CheckConfig
 from scim2_tester.utils import CheckContext
 from scim2_tester.utils import CheckResult
+from scim2_tester.utils import ResourceManager
 from scim2_tester.utils import SCIMTesterError
 from scim2_tester.utils import Status
+from scim2_tester.utils import _matches_hierarchical_tags
 from scim2_tester.utils import checker
+from scim2_tester.utils import get_registered_tags
 
 
 def test_checker_decorator_with_tags():
@@ -261,3 +268,137 @@ def test_hierarchical_tag_matching():
     context_exclude = CheckContext(client=None, conf=conf_exclude)
     result = test_func(context_exclude)  # Call with decorator signature
     assert result[0].status.name == "SKIPPED"
+
+
+def test_get_registered_tags():
+    """Test get_registered_tags function returns a copy of registered tags."""
+
+    @checker("test_tag1", "test_tag2")
+    def dummy_check(context):
+        pass
+
+    tags = get_registered_tags()
+    assert isinstance(tags, set)
+    assert "test_tag1" in tags
+    assert "test_tag2" in tags
+
+
+def test_hierarchical_tag_exact_match():
+    """Test exact tag matching without hierarchy."""
+    func_tags = {"crud:read", "schemas"}
+    filter_tags = {"crud:read"}
+
+    assert _matches_hierarchical_tags(func_tags, filter_tags) is True
+
+
+def test_hierarchical_tag_no_match():
+    """Test when tags don't match."""
+    func_tags = {"crud:read", "schemas"}
+    filter_tags = {"auth", "other"}
+
+    assert _matches_hierarchical_tags(func_tags, filter_tags) is False
+
+
+def test_scim_client_error_handling():
+    """Test SCIMClientError handling in checker decorator."""
+
+    @checker("test")
+    def scim_error_check(context):
+        raise SCIMClientError("SCIM error", source={"detail": "test data"})
+
+    conf = CheckConfig(raise_exceptions=False)
+    context = CheckContext(client=None, conf=conf)
+
+    result = scim_error_check(context)
+    assert result[0].status == Status.ERROR
+    assert "SCIM error" in result[0].reason
+    assert result[0].data == {"detail": "test data"}
+
+
+def test_resource_manager_create_and_cleanup():
+    """Test ResourceManager create_and_register and cleanup."""
+    mock_client = Mock()
+    mock_created_user = User(id="123", user_name="test_user")
+    mock_client.create.return_value = mock_created_user
+    mock_client.delete.return_value = None
+
+    conf = CheckConfig()
+    context = CheckContext(client=mock_client, conf=conf)
+    resource_manager = ResourceManager(context)
+
+    with patch("scim2_tester.filling.fill_with_random_values") as mock_fill:
+        mock_fill.return_value = User(user_name="test_user")
+        created = resource_manager.create_and_register(User)
+
+    assert created == mock_created_user
+    assert len(resource_manager.resources) == 1
+    assert resource_manager.resources[0] == mock_created_user
+
+    # Test cleanup
+    resource_manager.cleanup()
+    mock_client.delete.assert_called_once_with(User, "123")
+
+
+def test_resource_manager_cleanup_with_errors():
+    """Test ResourceManager cleanup ignores errors."""
+    mock_client = Mock()
+    mock_created_user = User(id="123", user_name="test_user")
+    mock_client.delete.side_effect = Exception("Delete failed")
+
+    conf = CheckConfig()
+    context = CheckContext(client=mock_client, conf=conf)
+    resource_manager = ResourceManager(context)
+
+    resource_manager.resources.append(mock_created_user)
+
+    resource_manager.cleanup()
+    mock_client.delete.assert_called_once_with(User, "123")
+
+
+def test_resource_manager_cleanup_no_id():
+    """Test ResourceManager cleanup skips resources without ID."""
+    mock_client = Mock()
+
+    conf = CheckConfig()
+    context = CheckContext(client=mock_client, conf=conf)
+    resource_manager = ResourceManager(context)
+
+    resource_no_id = User(user_name="test_user")
+    resource_manager.resources.append(resource_no_id)
+
+    resource_manager.cleanup()
+    mock_client.delete.assert_not_called()
+
+
+def test_resource_manager_create_failure():
+    """Test ResourceManager create_and_register handles non-Resource response."""
+    mock_client = Mock()
+    mock_client.create.return_value = {"error": "Creation failed"}
+
+    conf = CheckConfig()
+    context = CheckContext(client=mock_client, conf=conf)
+    resource_manager = ResourceManager(context)
+
+    with patch("scim2_tester.filling.fill_with_random_values") as mock_fill:
+        mock_fill.return_value = User(user_name="test_user")
+        with pytest.raises(ValueError) as exc_info:
+            resource_manager.create_and_register(User)
+
+    assert "Failed to create resource" in str(exc_info.value)
+
+
+def test_checker_skip_with_include_tags():
+    """Test checker skips execution when include_tags don't match."""
+
+    @checker("crud:write")
+    def write_check(context):
+        return [CheckResult(status=Status.SUCCESS)]
+
+    conf = CheckConfig(include_tags={"crud:read", "schemas"})
+    context = CheckContext(client=None, conf=conf)
+
+    result = write_check(context)
+    assert len(result) == 1
+    assert result[0].status == Status.SKIPPED
+    assert result[0].reason == "Skipped due to tag filtering"
+    assert result[0].title == "write_check"

@@ -72,7 +72,7 @@ omit = [".tox/*"]
 branch = true
 
 [tool.coverage.report]
-fail_under = 99
+fail_under = 100
 exclude_lines = [
     "@pytest.mark.skip",
     "pragma: no cover",
@@ -80,6 +80,7 @@ exclude_lines = [
     "except ImportError",
     "if TYPE_CHECKING:",
     "if app.debug",
+    "...",
 ]
 
 [tool.ruff.lint]

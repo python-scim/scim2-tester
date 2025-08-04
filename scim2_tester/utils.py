@@ -177,20 +177,6 @@ class ResourceManager:
             # This shouldn't happen with valid inputs, but handle for type safety
             raise ValueError(f"Failed to create resource: {created}")
 
-    def register(self, resource: Resource[Any]) -> None:
-        """Manually register a resource for cleanup.
-
-        :param resource: The Resource instance to register for cleanup
-        """
-        self.resources.append(resource)
-
-    def register_dependencies(self, dependencies: list[Resource[Any]]) -> None:
-        """Register multiple dependencies for cleanup.
-
-        :param dependencies: List of Resource instances to register for cleanup
-        """
-        self.resources.extend(dependencies)
-
     def cleanup(self) -> None:
         """Clean up all registered resources in reverse order."""
         for resource in reversed(self.resources):
