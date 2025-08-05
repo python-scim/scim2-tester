@@ -82,7 +82,7 @@ def generate_random_value(
     elif field_type is bool:
         value = random.choice([True, False])
 
-    elif get_origin(field_type) is Reference:
+    elif get_origin(field_type) is Reference and get_args(field_type)[0] != Any:
         ref_type = get_args(field_type)[0]
         if ref_type not in (ExternalReference, URIReference):
             model = model_from_ref_type(context, ref_type, different_than=obj.__class__)
