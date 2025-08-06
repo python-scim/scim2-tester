@@ -7,6 +7,7 @@ from scim2_models import ComplexAttribute
 from scim2_models import Context
 from scim2_models import EnterpriseUser
 from scim2_models import ListResponse
+from scim2_models import Mutability
 from scim2_models import Reference
 from scim2_models import Resource
 from scim2_models import ResourceType
@@ -77,7 +78,7 @@ def test_fill_with_random_values_generates_valid_data():
     )
 
     for field_name in obj.__class__.model_fields:
-        if field_name == "meta":
+        if obj.get_field_annotation(field_name, Mutability) == Mutability.read_only:
             continue
 
         assert getattr(obj, field_name) is not None

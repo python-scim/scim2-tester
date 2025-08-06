@@ -10,7 +10,7 @@ from typing import get_origin
 from scim2_models import ComplexAttribute
 from scim2_models import Extension
 from scim2_models import ExternalReference
-from scim2_models import Meta
+from scim2_models import Mutability
 from scim2_models import Reference
 from scim2_models import Resource
 from scim2_models import URIReference
@@ -54,7 +54,7 @@ def generate_random_value(
     field_type = obj.get_field_root_type(field_name)
 
     value: Any
-    if field_type is Meta:
+    if obj.get_field_annotation(field_name, Mutability) == Mutability.read_only:
         value = None
 
     elif field.examples:
