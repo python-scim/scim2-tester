@@ -2,7 +2,6 @@ from enum import Enum
 from unittest.mock import MagicMock
 from unittest.mock import patch
 
-from pydantic import Field
 from scim2_models import ComplexAttribute
 from scim2_models import Context
 from scim2_models import EnterpriseUser
@@ -19,8 +18,6 @@ from scim2_tester.checkers.resource_get import _model_from_resource_type
 from scim2_tester.checkers.resource_get import object_query_without_id
 from scim2_tester.checkers.resource_put import object_replacement
 from scim2_tester.filling import fill_with_random_values
-from scim2_tester.utils import CheckConfig
-from scim2_tester.utils import CheckContext
 from scim2_tester.utils import Status
 
 
@@ -57,21 +54,13 @@ class CustomModel(Resource):
     complex_unique: Complex | None = None
     complex_multiple: list[Complex] | None = None
 
-    example_unique: str | None = Field(None, examples=["foo", "bar"])
-    example_multiple: list[str] | None = Field(None, examples=["foo", "bar"])
 
-
-def test_fill_with_random_values_generates_valid_data():
+def test_fill_with_random_values_generates_valid_data(testing_context):
     """Test that fill_with_random_values populates all fields with valid data."""
-
-    class MockClient:
-        pass
-
-    conf = CheckConfig()
-    context = CheckContext(MockClient(), conf)
-
     obj = CustomModel()
-    obj = fill_with_random_values(context, obj, context.resource_manager)
+    obj = fill_with_random_values(
+        testing_context, obj, testing_context.resource_manager
+    )
 
     assert obj is not None, (
         "fill_with_random_values should not return None for test object"
@@ -82,9 +71,6 @@ def test_fill_with_random_values_generates_valid_data():
             continue
 
         assert getattr(obj, field_name) is not None
-
-    assert obj.example_unique in ["foo", "bar"]
-    assert all(val in ["foo", "bar"] for val in obj.example_multiple)
 
 
 def test_resource_type_tests_with_unknown_schema(testing_context):
@@ -246,27 +232,19 @@ def test_object_deletion_successful(httpserver, testing_context):
     assert f"Successfully deleted User object with id {user_id}" in result[0].reason
 
 
-def test_object_replacement_fails_when_no_mutable_fields():
+def test_object_replacement_fails_when_no_mutable_fields(testing_context):
     """Test object replacement failure when object cannot be modified."""
-
-    # Create a context with mock resource manager
-    class MockClient:
-        pass
-
-    conf = CheckConfig()
-    context = CheckContext(MockClient(), conf)
-
     # Mock resource manager to avoid HTTP calls
     mock_rm = MagicMock()
     mock_rm.create_and_register.return_value = User(id="test-id", user_name="test")
-    context.resource_manager = mock_rm
+    testing_context.resource_manager = mock_rm
 
     with patch(
         "scim2_tester.checkers.resource_put.fill_with_random_values"
     ) as mock_fill:
         mock_fill.return_value = None
 
-        result = object_replacement(context, User)
+        result = object_replacement(testing_context, User)
 
         # The @checker decorator catches ValueError and returns CheckResult with ERROR status
         assert result[0].status == Status.ERROR

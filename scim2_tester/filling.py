@@ -50,15 +50,11 @@ def generate_random_value(
     resource_manager: "ResourceManager",
     field_name: str,
 ) -> Any:
-    field = obj.__class__.model_fields[field_name]
     field_type = obj.get_field_root_type(field_name)
 
     value: Any
     if obj.get_field_annotation(field_name, Mutability) == Mutability.read_only:
         value = None
-
-    elif field.examples:
-        value = random.choice(field.examples)
 
     # RFC7643 §4.1.2 provides the following indications, however
     # there is no way to guess the existence of such requirements
