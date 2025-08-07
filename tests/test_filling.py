@@ -31,7 +31,7 @@ def test_generate_random_value_bytes_field():
 
     cert = X509Certificate(value=base64.b64encode(b"placeholder"))
 
-    value = generate_random_value(context, cert, context.resource_manager, "value")
+    value = generate_random_value(context, cert, "value")
 
     assert isinstance(value, str)
     assert len(value) == 36  # UUID string length
@@ -61,7 +61,7 @@ def test_fill_with_empty_field_list():
     with patch(
         "scim2_tester.filling.generate_random_value", return_value="mock_value"
     ) as mock_generate:
-        result = fill_with_random_values(context, user, context.resource_manager, [])
+        result = fill_with_random_values(context, user, [])
         mock_generate.assert_not_called()
 
     assert result is user
@@ -78,9 +78,7 @@ def test_fill_with_nonexistent_field():
     with patch(
         "scim2_tester.filling.generate_random_value", return_value="mock_value"
     ) as mock_generate:
-        result = fill_with_random_values(
-            context, user, context.resource_manager, ["nonexistent_field"]
-        )
+        result = fill_with_random_values(context, user, ["nonexistent_field"])
         mock_generate.assert_not_called()
 
     assert result is user

@@ -58,9 +58,7 @@ class CustomModel(Resource):
 def test_fill_with_random_values_generates_valid_data(testing_context):
     """Test that fill_with_random_values populates all fields with valid data."""
     obj = CustomModel()
-    obj = fill_with_random_values(
-        testing_context, obj, testing_context.resource_manager
-    )
+    obj = fill_with_random_values(testing_context, obj)
 
     assert obj is not None, (
         "fill_with_random_values should not return None for test object"

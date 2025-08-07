@@ -41,9 +41,7 @@ def object_replacement(
         in (Mutability.read_write, Mutability.write_only)
     ]
 
-    modified_obj = fill_with_random_values(
-        context, test_obj, context.resource_manager, mutable_fields
-    )
+    modified_obj = fill_with_random_values(context, test_obj, mutable_fields)
 
     if modified_obj is None:
         raise ValueError(
