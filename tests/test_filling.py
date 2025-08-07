@@ -1,11 +1,14 @@
 """Test automatic field filling functionality."""
 
 import base64
+import uuid
 from typing import Literal
 from unittest.mock import patch
 
 from scim2_models import Group
+from scim2_models import Meta
 from scim2_models import User
+from scim2_models.resources.resource_type import ResourceType
 from scim2_models.resources.user import X509Certificate
 
 from scim2_tester.filling import fill_with_random_values
@@ -23,6 +26,14 @@ class MockClient:
         model_map = {"User": User, "Group": Group}
         return model_map.get(model_name)
 
+    def create(self, obj):
+        obj.id = str(uuid.uuid4())
+        obj.meta = Meta(
+            location=f"http://scim-tester.test/{obj.id}",
+            resource_type=ResourceType.from_resource(obj).name,
+        )
+        return obj
+
 
 def test_generate_random_value_bytes_field():
     """Validates random value generation for bytes fields."""
@@ -31,7 +42,7 @@ def test_generate_random_value_bytes_field():
 
     cert = X509Certificate(value=base64.b64encode(b"placeholder"))
 
-    value = generate_random_value(context, cert, "value")
+    value = generate_random_value(context, cert, "value", {})
 
     assert isinstance(value, str)
     assert len(value) == 36  # UUID string length
@@ -48,6 +59,19 @@ def test_model_resolution_from_reference_type():
     result = model_from_ref_type(context, ref_type, different_than)
 
     assert result == User
+
+
+def test_generate_random_value_for_reference():
+    """Validates random value generation for reference fields."""
+    config = CheckConfig()
+    context = CheckContext(MockClient(), config)
+
+    group = Group()
+
+    result = fill_with_random_values(context, group)
+
+    assert len(result.members) == 1
+    assert result.members[0].value == result.members[0].ref.rsplit("/", 1)[-1]
 
 
 def test_fill_with_empty_field_list():

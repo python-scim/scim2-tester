@@ -48,6 +48,7 @@ def generate_random_value(
     context: CheckContext,
     obj: Resource[Any],
     field_name: str,
+    ref_objs: dict[str, Resource[Any]],
 ) -> Any:
     field_type = obj.get_field_root_type(field_name)
 
@@ -71,6 +72,17 @@ def generate_random_value(
     elif field_name == "value" and "phone" in obj.__class__.__name__.lower():
         value = "".join(str(random.choice(range(10))) for _ in range(10))
 
+    elif field_name == "value" and obj.__class__.__name__.lower() in ref_objs:
+        value = ref_objs[obj.__class__.__name__.lower()].id
+
+    elif field_name == "type" and obj.__class__.__name__.lower() in ref_objs:
+        value = ref_objs[obj.__class__.__name__.lower()].meta.resource_type
+
+    elif (
+        field_name == "display" or field_name == "display_name"
+    ) and obj.__class__.__name__.lower() in ref_objs:
+        value = ref_objs[obj.__class__.__name__.lower()].display_name
+
     elif field_type is int:
         value = uuid.uuid4().int
 
@@ -80,9 +92,8 @@ def generate_random_value(
     elif get_origin(field_type) is Reference and get_args(field_type)[0] != Any:
         ref_type = get_args(field_type)[0]
         if ref_type not in (ExternalReference, URIReference):
-            model = model_from_ref_type(context, ref_type, different_than=obj.__class__)
-            ref_obj = context.resource_manager.create_and_register(model)
-            value = ref_obj.meta.location
+            if obj.__class__.__name__.lower() in ref_objs:
+                value = ref_objs[obj.__class__.__name__.lower()].meta.location
 
         else:
             value = f"https://{str(uuid.uuid4())}.test"
@@ -102,6 +113,21 @@ def generate_random_value(
     return value
 
 
+def create_ref_object(
+    context: CheckContext,
+    obj: Resource[Any],
+    field_name: str,
+) -> dict[str, Resource[Any]] | None:
+    field_type = obj.get_field_root_type(field_name)
+    if get_origin(field_type) is Reference and get_args(field_type)[0] != Any:
+        ref_type = get_args(field_type)[0]
+        if ref_type not in (ExternalReference, URIReference):
+            model = model_from_ref_type(context, ref_type, different_than=obj.__class__)
+            return context.resource_manager.create_and_register(model)
+
+    return None
+
+
 def fill_with_random_values(
     context: CheckContext,
     obj: Resource[Any],
@@ -114,6 +140,7 @@ def fill_with_random_values(
     :param field_names: Optional list of field names to fill (defaults to all)
     :returns: The filled object or None if the object ends up empty
     """
+    ref_objs = {}
     for field_name in (
         field_names if field_names is not None else obj.__class__.model_fields.keys()
     ):
@@ -124,7 +151,21 @@ def fill_with_random_values(
         if field.default:
             continue
 
-        value = generate_random_value(context, obj, field_name)
+        ref_obj = create_ref_object(context, obj, field_name)
+        if ref_obj is not None:
+            ref_objs[obj.__class__.__name__.lower()] = ref_obj
+
+    for field_name in (
+        field_names if field_names is not None else obj.__class__.model_fields.keys()
+    ):
+        if field_name not in obj.__class__.model_fields:
+            continue
+
+        field = obj.__class__.model_fields[field_name]
+        if field.default:
+            continue
+
+        value = generate_random_value(context, obj, field_name, ref_objs)
 
         is_multiple = obj.get_field_multiplicity(field_name)
         if is_multiple:
