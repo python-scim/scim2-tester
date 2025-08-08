@@ -1,6 +1,5 @@
 """Test automatic field filling functionality."""
 
-import base64
 from typing import Literal
 from unittest.mock import patch
 
@@ -10,17 +9,14 @@ from scim2_models.resources.user import X509Certificate
 
 from scim2_tester.filling import fill_with_random_values
 from scim2_tester.filling import generate_random_value
-from scim2_tester.filling import model_from_ref_type
+from scim2_tester.filling import get_model_from_ref_type
 
 
 def test_generate_random_value_bytes_field(testing_context):
     """Validates random value generation for bytes fields."""
-    cert = X509Certificate(value=base64.b64encode(b"placeholder"))
-
-    value = generate_random_value(testing_context, cert, "value")
+    value = generate_random_value(testing_context, urn="value", model=X509Certificate)
 
     assert isinstance(value, str)
-    assert len(value) == 36  # UUID string length
 
 
 def test_model_resolution_from_reference_type(testing_context):
@@ -30,9 +26,8 @@ def test_model_resolution_from_reference_type(testing_context):
     ref_type = Literal["User"] | Literal["Group"]
     different_than = Group
 
-    result = model_from_ref_type(testing_context, ref_type, different_than)
+    result = get_model_from_ref_type(testing_context, ref_type, different_than)
 
-    # The result should be User[EnterpriseUser] from the testing context
     assert result == User[EnterpriseUser]
     assert result != Group
 
@@ -59,7 +54,7 @@ def test_fill_with_nonexistent_field(testing_context):
     with patch(
         "scim2_tester.filling.generate_random_value", return_value="mock_value"
     ) as mock_generate:
-        result = fill_with_random_values(testing_context, user, ["nonexistent_field"])
-        mock_generate.assert_not_called()
+        result = fill_with_random_values(testing_context, user, ["nonexistent_urn"])
+        mock_generate.assert_called_once()
 
     assert result is user

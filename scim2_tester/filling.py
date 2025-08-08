@@ -1,3 +1,4 @@
+import base64
 import random
 import uuid
 from enum import Enum
@@ -15,22 +16,27 @@ from scim2_models import Reference
 from scim2_models import Resource
 from scim2_models import URIReference
 from scim2_models.utils import UNION_TYPES
+from scim2_models.utils import Base64Bytes
+from scim2_models.utils import _find_field_name
 
-from scim2_tester.utils import CheckContext
+from scim2_tester.urns import get_attribute_type_by_urn
+from scim2_tester.urns import get_multiplicity_by_urn
+from scim2_tester.urns import iter_all_urns
+from scim2_tester.urns import set_value_by_urn
 
 if TYPE_CHECKING:
-    pass
+    from scim2_tester.utils import CheckContext
 
 
-def model_from_ref_type(
-    context: CheckContext, ref_type: type, different_than: type[Resource[Any]]
+def get_model_from_ref_type(
+    context: "CheckContext", ref_type: type, different_than: type[Resource[Any]] | None
 ) -> type[Resource[Any]]:
     """Return "User" from "Union[Literal['User'], Literal['Group']]"."""
 
-    def model_from_ref_type_(ref_type: type) -> Any:
+    def get_model_from_ref_type_(ref_type: type) -> Any:
         if get_origin(ref_type) in UNION_TYPES:
             return [
-                model_from_ref_type_(sub_ref_type)
+                get_model_from_ref_type_(sub_ref_type)
                 for sub_ref_type in get_args(ref_type)
             ]
 
@@ -38,28 +44,43 @@ def model_from_ref_type(
         model = context.client.get_resource_model(model_name)
         return model
 
-    models = model_from_ref_type_(ref_type)
+    models = get_model_from_ref_type_(ref_type)
     models = models if isinstance(models, list) else [models]
     acceptable_models = [model for model in models if model != different_than]
     return acceptable_models[0]
 
 
 def generate_random_value(
-    context: CheckContext,
-    obj: Resource[Any],
-    field_name: str,
+    context: "CheckContext",
+    urn: str,
+    model: type[Resource],
 ) -> Any:
-    field_type = obj.get_field_root_type(field_name)
+    field_name = _find_field_name(model, urn)
+    field_type = get_attribute_type_by_urn(model, urn)
+    is_multiple = get_multiplicity_by_urn(model, urn)
+
+    is_email = urn and (
+        urn.endswith("emails.value")
+        or (
+            field_name == "value"
+            and (field_type and "email" in field_type.__name__.lower())
+        )
+    )
+    is_phone = urn and (
+        urn.endswith("phoneNumbers.value")
+        or (
+            field_name == "value"
+            and (field_type and "phone" in field_type.__name__.lower())
+        )
+    )
 
     value: Any
-    if obj.get_field_annotation(field_name, Mutability) == Mutability.read_only:
-        value = None
 
     # RFC7643 §4.1.2 provides the following indications, however
     # there is no way to guess the existence of such requirements
     # just by looking at the object schema.
     #     The value SHOULD be specified according to [RFC5321].
-    elif field_name == "value" and "email" in obj.__class__.__name__.lower():
+    if is_email:
         value = f"{uuid.uuid4()}@{uuid.uuid4()}.com"
 
     # RFC7643 §4.1.2 provides the following indications, however
@@ -68,7 +89,7 @@ def generate_random_value(
     #     The value SHOULD be specified
     #     according to the format defined in [RFC3966], e.g.,
     #     'tel:+1-201-555-0123'.
-    elif field_name == "value" and "phone" in obj.__class__.__name__.lower():
+    elif is_phone:  # pragma: no cover
         value = "".join(str(random.choice(range(10))) for _ in range(10))
 
     elif field_type is int:
@@ -80,9 +101,9 @@ def generate_random_value(
     elif get_origin(field_type) is Reference and get_args(field_type)[0] != Any:
         ref_type = get_args(field_type)[0]
         if ref_type not in (ExternalReference, URIReference):
-            model = model_from_ref_type(context, ref_type, different_than=obj.__class__)
+            model = get_model_from_ref_type(context, ref_type, different_than=model)
             ref_obj = context.resource_manager.create_and_register(model)
-            value = ref_obj.meta.location
+            value = ref_obj.meta.location if ref_obj.meta else None
 
         else:
             value = f"https://{str(uuid.uuid4())}.test"
@@ -91,45 +112,51 @@ def generate_random_value(
         value = random.choice(list(field_type))
 
     elif isclass(field_type) and issubclass(field_type, ComplexAttribute):
-        value = fill_with_random_values(context, field_type())
+        value = fill_with_random_values(context, field_type())  # type: ignore[arg-type]
 
     elif isclass(field_type) and issubclass(field_type, Extension):
-        value = fill_with_random_values(context, field_type())
+        value = fill_with_random_values(context, field_type())  # type: ignore[arg-type]
+
+    elif field_type is Base64Bytes:
+        value = base64.b64encode(uuid.uuid4().bytes).decode("ascii")
 
     else:
-        # Put emails so this will be accepted by EmailStr too
         value = str(uuid.uuid4())
+
+    if is_multiple:
+        value = [value]
+
     return value
 
 
 def fill_with_random_values(
-    context: CheckContext,
+    context: "CheckContext",
     obj: Resource[Any],
-    field_names: list[str] | None = None,
+    urns: list[str] | None = None,
 ) -> Resource[Any] | None:
     """Fill an object with random values generated according the attribute types.
 
     :param context: The check context containing the SCIM client and configuration
     :param obj: The Resource object to fill with random values
-    :param field_names: Optional list of field names to fill (defaults to all)
+    :param urns: Optional list of URNs to fill (defaults to all fields)
     :returns: The filled object or None if the object ends up empty
     """
-    for field_name in (
-        field_names if field_names is not None else obj.__class__.model_fields.keys()
-    ):
-        if field_name not in obj.__class__.model_fields:
-            continue
+    # If no URNs provided, generate URNs for all fields
+    if urns is None:
+        urns = [
+            urn
+            for urn, _ in iter_all_urns(
+                type(obj),
+                mutability=[
+                    Mutability.read_write,
+                    Mutability.write_only,
+                    Mutability.immutable,
+                ],
+            )
+        ]
 
-        field = obj.__class__.model_fields[field_name]
-        if field.default:
-            continue
-
-        value = generate_random_value(context, obj, field_name)
-
-        is_multiple = obj.get_field_multiplicity(field_name)
-        if is_multiple:
-            setattr(obj, field_name, [value])
-        else:
-            setattr(obj, field_name, value)
+    for urn in urns:
+        value = generate_random_value(context, urn=urn, model=type(obj))
+        set_value_by_urn(obj, urn, value)
 
     return obj
