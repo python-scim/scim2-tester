@@ -7,6 +7,7 @@ Changelog
 Added
 ^^^^^
 - Check filtering. :issue:`23`
+- PATCH checks. :pr:`31`
 
 [0.1.14] - 2025-03-28
 ---------------------
