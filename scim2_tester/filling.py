@@ -21,11 +21,26 @@ from scim2_models.utils import _find_field_name
 
 from scim2_tester.urns import get_attribute_type_by_urn
 from scim2_tester.urns import get_multiplicity_by_urn
+from scim2_tester.urns import get_target_model_by_urn
 from scim2_tester.urns import iter_all_urns
 from scim2_tester.urns import set_value_by_urn
 
 if TYPE_CHECKING:
     from scim2_tester.utils import CheckContext
+
+
+def get_random_example_value(model: type[Resource], urn: str) -> Any | None:
+    """Get a random value from pydantic field examples if available."""
+    target_info = get_target_model_by_urn(model, urn)
+    if not target_info:
+        return None
+
+    target_model, target_field_name = target_info
+    field_info = target_model.model_fields.get(target_field_name)
+    if not field_info or not hasattr(field_info, "examples") or not field_info.examples:
+        return None
+
+    return random.choice(field_info.examples)
 
 
 def get_model_from_ref_type(
@@ -76,11 +91,14 @@ def generate_random_value(
 
     value: Any
 
+    if example_value := get_random_example_value(model, urn):
+        value = example_value
+
     # RFC7643 §4.1.2 provides the following indications, however
     # there is no way to guess the existence of such requirements
     # just by looking at the object schema.
     #     The value SHOULD be specified according to [RFC5321].
-    if is_email:
+    elif is_email:
         value = f"{uuid.uuid4()}@{uuid.uuid4()}.com"
 
     # RFC7643 §4.1.2 provides the following indications, however

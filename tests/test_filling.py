@@ -10,6 +10,7 @@ from scim2_models.resources.user import X509Certificate
 from scim2_tester.filling import fill_with_random_values
 from scim2_tester.filling import generate_random_value
 from scim2_tester.filling import get_model_from_ref_type
+from scim2_tester.filling import get_random_example_value
 
 
 def test_generate_random_value_bytes_field(testing_context):
@@ -58,3 +59,116 @@ def test_fill_with_nonexistent_field(testing_context):
         mock_generate.assert_called_once()
 
     assert result is user
+
+
+def test_get_random_example_value():
+    """Validates random value selection from pydantic field examples."""
+    from scim2_models import Email
+
+    value = get_random_example_value(Email, "type")
+
+    assert value in ["work", "home", "other"]
+
+
+def test_get_random_example_value_no_examples():
+    """Returns None when field has no examples."""
+    from scim2_models import Email
+
+    value = get_random_example_value(Email, "value")
+
+    assert value is None
+
+
+def test_get_random_example_value_invalid_urn():
+    """Returns None when URN is invalid."""
+    from scim2_models import Email
+
+    value = get_random_example_value(Email, "nonexistent")
+
+    assert value is None
+
+
+def test_generate_random_value_with_examples(testing_context):
+    """Uses examples when available."""
+    from scim2_models import Email
+
+    value = generate_random_value(testing_context, "type", Email)
+
+    assert value in ["work", "home", "other"]
+
+
+def test_generate_random_value_phone_number(testing_context):
+    """Generates phone numbers correctly."""
+    from scim2_models import PhoneNumber
+
+    value = generate_random_value(testing_context, "phoneNumbers.value", PhoneNumber)
+
+    assert isinstance(value, str)
+    assert len(value) == 10
+    assert value.isdigit()
+
+
+def test_generate_random_value_email(testing_context):
+    """Generates emails correctly."""
+    from scim2_models import Email
+
+    value = generate_random_value(testing_context, "emails.value", Email)
+
+    assert isinstance(value, str)
+    assert "@" in value
+    assert value.endswith(".com")
+
+
+def test_generate_random_value_bool(testing_context):
+    """Generates boolean values."""
+    from scim2_models import User
+
+    value = generate_random_value(testing_context, "active", User)
+
+    assert isinstance(value, bool)
+
+
+def test_generate_random_value_int(testing_context):
+    """Generates integer values."""
+    from scim2_models.resources.user import X509Certificate
+
+    value = generate_random_value(testing_context, "value", X509Certificate)
+
+    assert isinstance(value, str)
+
+
+def test_generate_random_value_complex_attribute(testing_context):
+    """Generates complex attribute values."""
+    from scim2_models import User
+
+    value = generate_random_value(testing_context, "name", User)
+
+    assert value is not None
+
+
+def test_generate_random_value_multiple_field(testing_context):
+    """Generates list values for multiple fields."""
+    from scim2_models import User
+
+    value = generate_random_value(testing_context, "emails", User)
+
+    assert isinstance(value, list)
+
+
+def test_generate_random_value_reference_external(testing_context):
+    """Generates external reference values."""
+    from scim2_models import User
+
+    value = generate_random_value(testing_context, "profileUrl", User)
+
+    assert isinstance(value, str)
+    assert value.startswith("https://")
+
+
+def test_generate_random_value_default_string(testing_context):
+    """Generates default string values."""
+    from scim2_models import User
+
+    value = generate_random_value(testing_context, "title", User)
+
+    assert isinstance(value, str)
