@@ -95,7 +95,7 @@ def test_tag_discovery_utility(scim2_server_app):
         "resource-types",
         "schemas",
     }
-    discovered_core = discovered_tags.intersection(core_tags)
+    discovered_core = set(discovered_tags).intersection(core_tags)
     assert len(discovered_core) >= 8, (
         f"Expected at least 8 core tags, got {len(discovered_core)}: {discovered_core}"
     )

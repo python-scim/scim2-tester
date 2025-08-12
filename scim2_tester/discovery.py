@@ -3,7 +3,7 @@
 from scim2_tester.utils import get_registered_tags
 
 
-def get_all_available_tags() -> set[str]:
+def get_all_available_tags() -> list[str]:
     """Get all available tags from the global registry.
 
     This function returns tags that have been registered by checker decorators
@@ -12,11 +12,9 @@ def get_all_available_tags() -> set[str]:
 
     :returns: Set of all unique tags found in the codebase.
     """
-    # Import all scim2_tester modules to ensure decorators are executed
     import scim2_tester.checkers  # noqa: F401
 
-    # Get registered tags from the global registry
-    registered_tags = get_registered_tags()
+    registered_tags = sorted(get_registered_tags())
 
     return registered_tags
 

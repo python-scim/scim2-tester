@@ -1,8 +1,15 @@
 Changelog
 =========
 
+[0.2.1] - Unreleased
+--------------------
+
+Fixed
+^^^^^
+- Sort results in get_all_available_tags, so it can be used with pytest-xdist.
+
 [0.2.0] - 2025-08-12
----------------------
+--------------------
 
 Added
 ^^^^^
