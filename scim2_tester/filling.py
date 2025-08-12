@@ -76,17 +76,11 @@ def generate_random_value(
 
     is_email = urn and (
         urn.endswith("emails.value")
-        or (
-            field_name == "value"
-            and (field_type and "email" in field_type.__name__.lower())
-        )
+        or (field_name == "value" and "email" in model.__name__.lower())
     )
     is_phone = urn and (
         urn.endswith("phoneNumbers.value")
-        or (
-            field_name == "value"
-            and (field_type and "phone" in field_type.__name__.lower())
-        )
+        or (field_name == "value" and "phone" in model.__name__.lower())
     )
 
     value: Any
