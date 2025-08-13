@@ -35,6 +35,58 @@ jobs:
       - name: Run tests
         run: uv run pytest --showlocals
 
+  coverage:
+    name: py${{ matrix.python }} unit tests
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - name: Install uv
+        uses: astral-sh/setup-uv@v3
+        with:
+          enable-cache: true
+      - name: Install Python ${{ matrix.python }}
+        run: uv python install ${{ matrix.python }}
+      - name: Run tests
+        run: uv run pytest --cov --cov-fail-under=100
+
+  downstream-tests:
+    name: py${{ matrix.python }} ${{ matrix.downstream }} downstream unit tests
+    runs-on: ubuntu-latest
+    strategy:
+      fail-fast: false
+      matrix:
+        python:
+          - '3.13'
+          - '3.12'
+          - '3.11'
+        downstream:
+          - scim2-cli
+    steps:
+      - name: Checkout upstream pyproject
+        uses: actions/checkout@v4
+      - name: Install uv
+        uses: astral-sh/setup-uv@v3
+        with:
+          enable-cache: true
+      - name: Checkout downstream pyproject
+        uses: actions/checkout@v4
+        with:
+          repository: python-scim/${{ matrix.downstream }}
+          path: ${{ matrix.downstream }}
+      - name: Install Python ${{ matrix.python }}
+        run: |
+          cd ${{ matrix.downstream }}
+          uv python install ${{ matrix.python }}
+      - name: Install downstream test environment
+        run: |
+          cd ${{ matrix.downstream }}
+          uv sync --all-extras
+          uv pip install --upgrade --force-reinstall ..
+      - name: Run downstream tests
+        run: |
+          cd ${{ matrix.downstream }}
+          uv run pytest --showlocals
+
   minversions:
     name: minimum dependency versions
     runs-on: ubuntu-latest
