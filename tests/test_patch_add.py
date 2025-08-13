@@ -22,29 +22,41 @@ def test_successful_add(httpserver, testing_context):
         status=201,
     )
 
-    def patch_handler(request):
+    # Track the state of the resource
+    resource_state = {
+        "schemas": ["urn:ietf:params:scim:schemas:core:2.0:User"],
+        "id": "123",
+        "userName": "test@example.com",
+    }
+
+    def get_handler(request):
+        return Response(
+            json.dumps(resource_state),
+            status=200,
+            headers={"Content-Type": "application/scim+json"},
+        )
+
+    def update_patch_handler(request):
+        nonlocal resource_state
         patch_data = json.loads(request.get_data(as_text=True))
         operation = patch_data["Operations"][0]
         path = operation["path"]
         value = operation["value"]
 
-        response_data = {
-            "schemas": ["urn:ietf:params:scim:schemas:core:2.0:User"],
-            "id": "123",
-            "userName": "test@example.com",
-        }
-
-        # Build nested response structure
-        response_data = build_nested_response(response_data, path, value)
+        # Update resource state with the patched value
+        resource_state = build_nested_response(resource_state, path, value)
 
         return Response(
-            json.dumps(response_data),
+            json.dumps(resource_state),
             status=200,
             headers={"Content-Type": "application/scim+json"},
         )
 
     httpserver.expect_request(uri="/Users/123", method="PATCH").respond_with_handler(
-        patch_handler
+        update_patch_handler
+    )
+    httpserver.expect_request(uri="/Users/123", method="GET").respond_with_handler(
+        get_handler
     )
 
     testing_context.conf.raise_exceptions = True
@@ -146,29 +158,41 @@ def test_complex_successful_add(httpserver, testing_context):
         status=201,
     )
 
+    # Track the state of the resource
+    resource_state = {
+        "schemas": ["urn:ietf:params:scim:schemas:core:2.0:User"],
+        "id": "123",
+        "userName": "test@example.com",
+    }
+
+    def get_handler(request):
+        return Response(
+            json.dumps(resource_state),
+            status=200,
+            headers={"Content-Type": "application/scim+json"},
+        )
+
     def patch_handler(request):
+        nonlocal resource_state
         patch_data = json.loads(request.get_data(as_text=True))
         operation = patch_data["Operations"][0]
         path = operation["path"]
         value = operation["value"]
 
-        response_data = {
-            "schemas": ["urn:ietf:params:scim:schemas:core:2.0:User"],
-            "id": "123",
-            "userName": "test@example.com",
-        }
-
-        # Build nested response structure
-        response_data = build_nested_response(response_data, path, value)
+        # Update resource state with the patched value
+        resource_state = build_nested_response(resource_state, path, value)
 
         return Response(
-            json.dumps(response_data),
+            json.dumps(resource_state),
             status=200,
             headers={"Content-Type": "application/scim+json"},
         )
 
     httpserver.expect_request(uri="/Users/123", method="PATCH").respond_with_handler(
         patch_handler
+    )
+    httpserver.expect_request(uri="/Users/123", method="GET").respond_with_handler(
+        get_handler
     )
 
     results = check_add_attribute(testing_context, User)
@@ -271,35 +295,47 @@ def test_user_with_enterprise_extension(httpserver, testing_context):
         status=201,
     )
 
+    # Track the state of the resource
+    resource_state = {
+        "schemas": [
+            "urn:ietf:params:scim:schemas:core:2.0:User",
+            "urn:ietf:params:scim:schemas:extension:enterprise:2.0:User",
+        ],
+        "id": "123",
+        "userName": "test@example.com",
+        "urn:ietf:params:scim:schemas:extension:enterprise:2.0:User": {
+            "employeeNumber": "EMP001"
+        },
+    }
+
+    def get_handler(request):
+        return Response(
+            json.dumps(resource_state),
+            status=200,
+            headers={"Content-Type": "application/scim+json"},
+        )
+
     def patch_handler(request):
+        nonlocal resource_state
         patch_data = json.loads(request.get_data(as_text=True))
         operation = patch_data["Operations"][0]
         path = operation["path"]
         value = operation["value"]
 
-        response_data = {
-            "schemas": [
-                "urn:ietf:params:scim:schemas:core:2.0:User",
-                "urn:ietf:params:scim:schemas:extension:enterprise:2.0:User",
-            ],
-            "id": "123",
-            "userName": "test@example.com",
-            "urn:ietf:params:scim:schemas:extension:enterprise:2.0:User": {
-                "employeeNumber": "EMP001"
-            },
-        }
-
-        # Build nested response structure
-        response_data = build_nested_response(response_data, path, value)
+        # Update resource state with the patched value
+        resource_state = build_nested_response(resource_state, path, value)
 
         return Response(
-            json.dumps(response_data),
+            json.dumps(resource_state),
             status=200,
             headers={"Content-Type": "application/scim+json"},
         )
 
     httpserver.expect_request(uri="/Users/123", method="PATCH").respond_with_handler(
         patch_handler
+    )
+    httpserver.expect_request(uri="/Users/123", method="GET").respond_with_handler(
+        get_handler
     )
 
     results = check_add_attribute(testing_context, User[EnterpriseUser])

@@ -68,6 +68,7 @@ def check_remove_attribute(
 
     for urn, source_model in all_urns:
         initial_value = get_value_by_urn(full_resource, urn)
+        mutability = get_annotation_by_urn(Mutability, urn, source_model)
         if initial_value is None:
             continue
 
@@ -81,7 +82,7 @@ def check_remove_attribute(
         )
 
         try:
-            updated_resource = context.client.modify(
+            modify_result = context.client.modify(
                 resource_model=type(full_resource),
                 id=full_resource.id,
                 patch_op=remove_op,
@@ -101,13 +102,48 @@ def check_remove_attribute(
             )
             continue
 
-        actual_value = get_value_by_urn(updated_resource, urn)
+        if modify_result is not None:
+            if modify_actual_value := get_value_by_urn(modify_result, urn):
+                if (
+                    mutability != Mutability.write_only
+                    and modify_actual_value is not None
+                ):
+                    results.append(
+                        CheckResult(
+                            status=Status.ERROR,
+                            reason=f"PATCH modify() did not remove attribute '{urn}'",
+                            resource_type=model.__name__,
+                            data={
+                                "urn": urn,
+                                "initial_value": initial_value,
+                                "modify_actual": modify_actual_value,
+                            },
+                        )
+                    )
+                    continue
 
-        if (
-            get_annotation_by_urn(Mutability, urn, source_model)
-            == Mutability.write_only
-            or actual_value is None
-        ):
+        try:
+            updated_resource = context.client.query(
+                type(full_resource),
+                full_resource.id,
+            )
+        except SCIMClientError as exc:
+            results.append(
+                CheckResult(
+                    status=Status.ERROR,
+                    reason=f"Failed to query resource after remove on '{urn}': {exc}",
+                    resource_type=model.__name__,
+                    data={
+                        "urn": urn,
+                        "error": exc,
+                        "initial_value": initial_value,
+                    },
+                )
+            )
+            continue
+
+        actual_value = get_value_by_urn(updated_resource, urn)
+        if mutability == Mutability.write_only or actual_value is None:
             results.append(
                 CheckResult(
                     status=Status.SUCCESS,
