@@ -8,6 +8,8 @@ from typing import Any
 
 from scim2_client import SCIMClientError
 from scim2_client.engines.httpx import SyncSCIMClient
+from scim2_models import BaseModel
+from scim2_models import Mutability
 from scim2_models import Required
 from scim2_models import Resource
 
@@ -101,12 +103,13 @@ class CheckConfig:
 class CheckContext:
     """Execution context with client, config and resource management."""
 
+    resource_manager: "ResourceManager"
+
     def __init__(self, client: SyncSCIMClient, conf: CheckConfig):
         self.client = client
         self.conf = conf
-        from scim2_tester.utils import ResourceManager
-
-        self.resource_manager = ResourceManager(self)
+        # ResourceManager is defined later in the file, so we instantiate it here
+        self.resource_manager = ResourceManager(self)  # type: ignore[name-defined]
 
 
 class SCIMTesterError(Exception):
@@ -153,20 +156,42 @@ class ResourceManager:
         self.context = context
         self.resources: list[Resource[Any]] = []
 
-    def create_and_register(self, model: type[Resource[Any]]) -> Resource[Any]:
+    def create_and_register(
+        self, model: type[Resource[Any]], fill_all: bool = False
+    ) -> Resource[Any]:
         """Create an object and automatically register it for cleanup.
 
         :param model: The Resource model class to create
+        :param fill_all: If True, fill all writable attributes (excluding read-only).
+                         If False, fill only required attributes (default behavior).
         :returns: The created Resource instance
         """
+        # Import here to avoid circular imports
         from scim2_tester.filling import fill_with_random_values
 
-        field_names = [
-            field_name
-            for field_name in model.model_fields
-            if model.get_field_annotation(field_name, Required) == Required.true
-        ]
-        obj = fill_with_random_values(self.context, model(), field_names)
+        obj = model()
+
+        if fill_all:
+            # Fill all fields except read-only ones (including extensions)
+            urns = []
+            for field_name in model.model_fields:
+                if field_name in ("meta", "id", "schemas"):
+                    continue
+                if (
+                    model.get_field_annotation(field_name, Mutability)
+                    != Mutability.read_only
+                ):
+                    urns.append(obj.get_attribute_urn(field_name))
+        else:
+            # Default behavior: fill only required fields
+            urns = []
+            for field_name in model.model_fields:
+                if field_name in ("meta", "id", "schemas"):
+                    continue
+                if model.get_field_annotation(field_name, Required) == Required.true:
+                    urns.append(obj.get_attribute_urn(field_name))
+
+        obj = fill_with_random_values(self.context, obj, urns)
         created = self.context.client.create(obj)
 
         # Handle the case where create might return Error or dict
@@ -287,3 +312,13 @@ def checker(*tags: str) -> Any:
         tags = ()
         return decorator(func)
     return decorator
+
+
+def compare_field(expected: Any, actual: Any) -> bool:
+    if expected is None or actual is None:
+        return False
+
+    if isinstance(expected, BaseModel) and isinstance(actual, BaseModel):
+        return expected.model_dump() == actual.model_dump()
+
+    return expected == actual
