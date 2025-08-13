@@ -33,9 +33,23 @@ def test_model_resolution_from_reference_type(testing_context):
     assert result != Group
 
 
-def test_generate_random_value_for_reference(testing_context):
+def test_generate_random_value_for_reference(testing_context, httpserver):
     """Validates random value generation for reference fields."""
     group = Group()
+
+    # Mock HTTP response for user creation
+    user_data = {
+        "schemas": ["urn:ietf:params:scim:schemas:core:2.0:User"],
+        "id": "test-user-id",
+        "userName": "test-user",
+        "meta": {
+            "resourceType": "User",
+            "location": f"http://localhost:{httpserver.port}/Users/test-user-id",
+        },
+    }
+    httpserver.expect_request("/Users", method="POST").respond_with_json(
+        user_data, status=201
+    )
 
     result = fill_with_random_values(testing_context, group)
 
