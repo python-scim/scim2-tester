@@ -11,6 +11,7 @@ from typing import get_origin
 from scim2_models import ComplexAttribute
 from scim2_models import Extension
 from scim2_models import ExternalReference
+from scim2_models import MultiValuedComplexAttribute
 from scim2_models import Mutability
 from scim2_models import Reference
 from scim2_models import Resource
@@ -123,6 +124,9 @@ def generate_random_value(
     elif isclass(field_type) and issubclass(field_type, Enum):
         value = random.choice(list(field_type))
 
+    elif isclass(field_type) and issubclass(field_type, MultiValuedComplexAttribute):
+        value = fill_mvca_with_random_values(context, field_type())  # type: ignore[arg-type]
+
     elif isclass(field_type) and issubclass(field_type, ComplexAttribute):
         value = fill_with_random_values(context, field_type())  # type: ignore[arg-type]
 
@@ -171,4 +175,25 @@ def fill_with_random_values(
         value = generate_random_value(context, urn=urn, model=type(obj))
         set_value_by_urn(obj, urn, value)
 
+    return obj
+
+
+def fill_mvca_with_random_values(
+    context: "CheckContext",
+    obj: MultiValuedComplexAttribute,
+) -> Resource[Any] | None:
+    """Fill a MultiValuedComplexAttribute with random values.
+
+    For SCIM reference fields, correctly sets the value field to match
+    the ID extracted from the reference URL.
+    """
+    fill_with_random_values(context, obj)
+    ref_type = type(obj).get_field_root_type("ref")
+    if (
+        get_origin(ref_type) is Reference
+        and get_args(ref_type)
+        and get_args(ref_type)[0] not in (URIReference, ExternalReference, Any)
+        and (ref := getattr(obj, "ref", None))
+    ):
+        obj.value = ref.rsplit("/", 1)[-1]
     return obj
