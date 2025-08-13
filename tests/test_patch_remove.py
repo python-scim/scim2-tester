@@ -23,7 +23,24 @@ def test_successful_remove(httpserver, testing_context):
         status=201,
     )
 
+    # Track the state of the resource
+    resource_state = {
+        "schemas": ["urn:ietf:params:scim:schemas:core:2.0:User"],
+        "id": "123",
+        "userName": "test@example.com",
+        "displayName": "Test User",
+        "nickName": "testy",
+    }
+
+    def get_handler(request):
+        return Response(
+            json.dumps(resource_state),
+            status=200,
+            headers={"Content-Type": "application/scim+json"},
+        )
+
     def patch_handler(request):
+        nonlocal resource_state
         patch_data = json.loads(request.get_data(as_text=True))
         operation = patch_data["Operations"][0]
         path = operation["path"]
@@ -36,25 +53,21 @@ def test_successful_remove(httpserver, testing_context):
             "preferred_language": "preferredLanguage",
         }
 
-        response_data = {
-            "schemas": ["urn:ietf:params:scim:schemas:core:2.0:User"],
-            "id": "123",
-            "userName": "test@example.com",
-            "displayName": "Test User",
-            "nickName": "testy",
-        }
-
         json_field = field_mapping.get(path, path)
-        del response_data[json_field]
+        if json_field in resource_state:
+            del resource_state[json_field]
 
         return Response(
-            json.dumps(response_data),
+            json.dumps(resource_state),
             status=200,
             headers={"Content-Type": "application/scim+json"},
         )
 
     httpserver.expect_request(uri="/Users/123", method="PATCH").respond_with_handler(
         patch_handler
+    )
+    httpserver.expect_request(uri="/Users/123", method="GET").respond_with_handler(
+        get_handler
     )
 
     results = check_remove_attribute(testing_context, User)
@@ -153,21 +166,45 @@ def test_complex_successful_remove(httpserver, testing_context):
         status=201,
     )
 
+    # Track the state of the resource
+    resource_state = {
+        "schemas": ["urn:ietf:params:scim:schemas:core:2.0:User"],
+        "id": "123",
+        "userName": "test@example.com",
+        "name": {
+            "givenName": "Test",
+            "familyName": "User",
+        },
+    }
+
+    def get_handler(request):
+        return Response(
+            json.dumps(resource_state),
+            status=200,
+            headers={"Content-Type": "application/scim+json"},
+        )
+
     def patch_handler(request):
-        response_data = {
-            "schemas": ["urn:ietf:params:scim:schemas:core:2.0:User"],
-            "id": "123",
-            "userName": "test@example.com",
-        }
+        nonlocal resource_state
+        patch_data = json.loads(request.get_data(as_text=True))
+        operation = patch_data["Operations"][0]
+        path = operation["path"]
+
+        # Remove the field from resource state
+        if path in resource_state:
+            del resource_state[path]
 
         return Response(
-            json.dumps(response_data),
+            json.dumps(resource_state),
             status=200,
             headers={"Content-Type": "application/scim+json"},
         )
 
     httpserver.expect_request(uri="/Users/123", method="PATCH").respond_with_handler(
         patch_handler
+    )
+    httpserver.expect_request(uri="/Users/123", method="GET").respond_with_handler(
+        get_handler
     )
 
     results = check_remove_attribute(testing_context, User)
@@ -225,46 +262,51 @@ def test_user_with_enterprise_extension_remove(httpserver, testing_context):
         create_handler
     )
 
-    def patch_handler(request):
-        resource_id = "123e4567-e89b-12d3-a456-426614174000"
+    # Track the state of the resource
+    resource_state = {
+        "schemas": [
+            "urn:ietf:params:scim:schemas:core:2.0:User",
+            "urn:ietf:params:scim:schemas:extension:enterprise:2.0:User",
+        ],
+        "id": "123e4567-e89b-12d3-a456-426614174000",
+        "meta": {
+            "resourceType": "User",
+            "location": "http://localhost/Users/123e4567-e89b-12d3-a456-426614174000",
+            "created": "2024-01-01T00:00:00Z",
+            "lastModified": "2024-01-01T00:00:00Z",
+            "version": 'W/"2"',
+        },
+        "userName": "test@example.com",
+        "displayName": "Test User",
+        "urn:ietf:params:scim:schemas:extension:enterprise:2.0:User": {
+            "employeeNumber": "EMP001",
+            "department": "Engineering",
+        },
+    }
+
+    def get_handler(request):
+        return Response(
+            json.dumps(resource_state),
+            status=200,
+            headers={"Content-Type": "application/scim+json"},
+        )
+
+    def update_patch_handler(request):
+        nonlocal resource_state
         patch_data = json.loads(request.get_data(as_text=True))
         operation = patch_data["Operations"][0]
         path = operation["path"]
-
-        response_data = {
-            "schemas": [
-                "urn:ietf:params:scim:schemas:core:2.0:User",
-                "urn:ietf:params:scim:schemas:extension:enterprise:2.0:User",
-            ],
-            "id": resource_id,
-            "meta": {
-                "resourceType": "User",
-                "location": f"http://localhost/Users/{resource_id}",
-                "created": "2024-01-01T00:00:00Z",
-                "lastModified": "2024-01-01T00:00:00Z",
-                "version": 'W/"2"',
-            },
-            "userName": "test@example.com",
-            "displayName": "Test User",
-            "urn:ietf:params:scim:schemas:extension:enterprise:2.0:User": {
-                "employeeNumber": "EMP001",
-                "department": "Engineering",
-            },
-        }
 
         if path.startswith(
             "urn:ietf:params:scim:schemas:extension:enterprise:2.0:User:"
         ):
             field_name = path.split(":")[-1]
+            extension_key = "urn:ietf:params:scim:schemas:extension:enterprise:2.0:User"
             if (
-                field_name
-                in response_data[
-                    "urn:ietf:params:scim:schemas:extension:enterprise:2.0:User"
-                ]
+                extension_key in resource_state
+                and field_name in resource_state[extension_key]
             ):
-                del response_data[
-                    "urn:ietf:params:scim:schemas:extension:enterprise:2.0:User"
-                ][field_name]
+                del resource_state[extension_key][field_name]
         else:
             field_mapping = {
                 "display_name": "displayName",
@@ -274,18 +316,22 @@ def test_user_with_enterprise_extension_remove(httpserver, testing_context):
                 "preferred_language": "preferredLanguage",
             }
             json_field = field_mapping.get(path, path)
-            if json_field in response_data:
-                del response_data[json_field]
+            if json_field in resource_state:
+                del resource_state[json_field]
 
         return Response(
-            json.dumps(response_data),
+            json.dumps(resource_state),
             status=200,
             headers={"Content-Type": "application/scim+json"},
         )
 
     httpserver.expect_request(
         uri="/Users/123e4567-e89b-12d3-a456-426614174000", method="PATCH"
-    ).respond_with_handler(patch_handler)
+    ).respond_with_handler(update_patch_handler)
+
+    httpserver.expect_request(
+        uri="/Users/123e4567-e89b-12d3-a456-426614174000", method="GET"
+    ).respond_with_handler(get_handler)
 
     httpserver.expect_request(
         uri="/Users/123e4567-e89b-12d3-a456-426614174000", method="DELETE"

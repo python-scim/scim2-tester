@@ -3,6 +3,9 @@ from scim2_models import ResourceType
 from ..utils import CheckContext
 from ..utils import CheckResult
 from ..utils import Status
+from .patch_add import check_add_attribute
+from .patch_remove import check_remove_attribute
+from .patch_replace import check_replace_attribute
 from .resource_delete import object_deletion
 from .resource_get import _model_from_resource_type
 from .resource_get import object_query
@@ -48,5 +51,10 @@ def resource_type_tests(
     results.extend(object_query_without_id(context, model))
     results.extend(object_replacement(context, model))
     results.extend(object_deletion(context, model))
+
+    # PATCH operations
+    results.extend(check_add_attribute(context, model))
+    results.extend(check_remove_attribute(context, model))
+    results.extend(check_replace_attribute(context, model))
 
     return results

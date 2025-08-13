@@ -8,6 +8,7 @@ Fixed
 ^^^^^
 - Sort results in get_all_available_tags, so it can be used with pytest-xdist.
 - `generate_random_value` generate coherent `ref` and `value` values for complex attributes. :pr:`30` :pr:`37`
+- Include PATCH operations in get_all_available_tags.
 
 [0.2.0] - 2025-08-12
 --------------------

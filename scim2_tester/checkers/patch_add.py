@@ -69,6 +69,7 @@ def check_add_attribute(
 
     for urn, source_model in all_urns:
         patch_value = generate_random_value(context, urn=urn, model=source_model)
+        mutability = get_annotation_by_urn(Mutability, urn, source_model)
 
         patch_op = PatchOp[type(base_resource)](
             operations=[
@@ -81,7 +82,7 @@ def check_add_attribute(
         )
 
         try:
-            updated_resource = context.client.modify(
+            modify_result = context.client.modify(
                 resource_model=type(base_resource),
                 id=base_resource.id,
                 patch_op=patch_op,
@@ -101,11 +102,51 @@ def check_add_attribute(
             )
             continue
 
+        if modify_result is not None:
+            if modify_actual_value := get_value_by_urn(modify_result, urn):
+                if not (
+                    mutability == Mutability.write_only
+                    or compare_field(patch_value, modify_actual_value)
+                ):
+                    results.append(
+                        CheckResult(
+                            status=Status.ERROR,
+                            reason=f"PATCH modify() returned incorrect value for '{urn}'",
+                            resource_type=model.__name__,
+                            data={
+                                "urn": urn,
+                                "expected": patch_value,
+                                "modify_actual": modify_actual_value,
+                            },
+                        )
+                    )
+                    continue
+
+        try:
+            updated_resource = context.client.query(
+                type(base_resource),
+                base_resource.id,
+            )
+        except SCIMClientError as exc:
+            results.append(
+                CheckResult(
+                    status=Status.ERROR,
+                    reason=f"Failed to query resource after add on '{urn}': {exc}",
+                    resource_type=model.__name__,
+                    data={
+                        "urn": urn,
+                        "error": exc,
+                        "patch_value": patch_value,
+                    },
+                )
+            )
+            continue
+
         actual_value = get_value_by_urn(updated_resource, urn)
 
-        if get_annotation_by_urn(
-            Mutability, urn, source_model
-        ) == Mutability.write_only or compare_field(patch_value, actual_value):
+        if mutability == Mutability.write_only or compare_field(
+            patch_value, actual_value
+        ):
             results.append(
                 CheckResult(
                     status=Status.SUCCESS,

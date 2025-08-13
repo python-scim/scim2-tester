@@ -11,6 +11,9 @@ Available checker categories:
 """
 
 from .misc import random_url
+from .patch_add import check_add_attribute
+from .patch_remove import check_remove_attribute
+from .patch_replace import check_replace_attribute
 from .resource import resource_type_tests
 from .resource_delete import object_deletion
 from .resource_get import object_query
@@ -49,5 +52,8 @@ __all__ = [
     "object_replacement",
     "object_deletion",
     "resource_type_tests",
+    "check_add_attribute",
+    "check_remove_attribute",
+    "check_replace_attribute",
     "random_url",
 ]
