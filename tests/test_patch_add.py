@@ -341,3 +341,70 @@ def test_user_with_enterprise_extension(httpserver, testing_context):
     results = check_add_attribute(testing_context, User[EnterpriseUser])
     unexpected = [r for r in results if r.status != Status.SUCCESS]
     assert not unexpected
+
+
+def test_patch_add_modify_result_incorrect_value(testing_context):
+    """Test PATCH add when modify result returns incorrect value."""
+    from unittest.mock import Mock
+
+    mock_client = Mock()
+    mock_user = User(id="123", user_name="test@example.com")
+    mock_client.create.return_value = mock_user
+
+    # Mock modify to return a different value than expected
+    mock_modified_user = User(
+        id="123", user_name="test@example.com", display_name="wrong_value"
+    )
+    mock_client.modify.return_value = mock_modified_user
+    mock_client.query.return_value = mock_modified_user
+
+    testing_context.client = mock_client
+
+    results = check_add_attribute(testing_context, User)
+
+    error_results = [
+        r for r in results if r.status == Status.ERROR and "incorrect value" in r.reason
+    ]
+    assert len(error_results) > 0
+
+
+def test_patch_add_query_failure_after_patch(httpserver, testing_context):
+    """Test PATCH add when query fails after successful patch."""
+    httpserver.expect_request(uri="/Users", method="POST").respond_with_json(
+        {
+            "schemas": ["urn:ietf:params:scim:schemas:core:2.0:User"],
+            "id": "123",
+            "userName": "test@example.com",
+        },
+        status=201,
+    )
+
+    httpserver.expect_request(uri="/Users/123", method="PATCH").respond_with_json(
+        {
+            "schemas": ["urn:ietf:params:scim:schemas:core:2.0:User"],
+            "id": "123",
+            "userName": "test@example.com",
+            "displayName": "test_display",
+        },
+        status=200,
+    )
+
+    httpserver.expect_request(uri="/Users/123", method="GET").respond_with_json(
+        {
+            "schemas": ["urn:ietf:params:scim:schemas:core:2.0:User"],
+            "id": "123",
+            "userName": "test@example.com",
+            # displayName missing - attribute not actually added
+        },
+        status=200,
+    )
+
+    results = check_add_attribute(testing_context, User)
+
+    error_results = [
+        r
+        for r in results
+        if r.status == Status.ERROR
+        and "was not added or has incorrect value" in r.reason
+    ]
+    assert len(error_results) > 0

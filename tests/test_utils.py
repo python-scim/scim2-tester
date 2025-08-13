@@ -14,6 +14,7 @@ from scim2_tester.utils import SCIMTesterError
 from scim2_tester.utils import Status
 from scim2_tester.utils import _matches_hierarchical_tags
 from scim2_tester.utils import checker
+from scim2_tester.utils import compare_field
 from scim2_tester.utils import get_registered_tags
 
 
@@ -400,3 +401,15 @@ def test_checker_skip_with_include_tags():
     assert result[0].status == Status.SKIPPED
     assert result[0].reason == "Skipped due to tag filtering"
     assert result[0].title == "write_check"
+
+
+def test_compare_field_with_none_values():
+    """Test compare_field function with None values."""
+    # Test when expected is None
+    assert compare_field(None, "some_value") is False
+
+    # Test when actual is None
+    assert compare_field("some_value", None) is False
+
+    # Test when both are None
+    assert compare_field(None, None) is False

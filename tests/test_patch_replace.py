@@ -264,3 +264,45 @@ def test_user_with_enterprise_extension_replace(httpserver, testing_context):
     results = check_replace_attribute(testing_context, User[EnterpriseUser])
     unexpected = [r for r in results if r.status != Status.SUCCESS]
     assert not unexpected
+
+
+def test_patch_replace_attribute_not_replaced(httpserver, testing_context):
+    """Test PATCH replace when attribute is not actually replaced."""
+    httpserver.expect_request(uri="/Users", method="POST").respond_with_json(
+        {
+            "schemas": ["urn:ietf:params:scim:schemas:core:2.0:User"],
+            "id": "123",
+            "userName": "test@example.com",
+            "displayName": "original_display",
+        },
+        status=201,
+    )
+
+    httpserver.expect_request(uri="/Users/123", method="PATCH").respond_with_json(
+        {
+            "schemas": ["urn:ietf:params:scim:schemas:core:2.0:User"],
+            "id": "123",
+            "userName": "test@example.com",
+            "displayName": "original_display",
+        },
+        status=200,
+    )
+
+    httpserver.expect_request(uri="/Users/123", method="GET").respond_with_json(
+        {
+            "schemas": ["urn:ietf:params:scim:schemas:core:2.0:User"],
+            "id": "123",
+            "userName": "test@example.com",
+            "displayName": "original_display",
+        },
+        status=200,
+    )
+
+    results = check_replace_attribute(testing_context, User)
+
+    error_results = [
+        r
+        for r in results
+        if r.status == Status.ERROR and "was not replaced" in r.reason
+    ]
+    assert len(error_results) > 0

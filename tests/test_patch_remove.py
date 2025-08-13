@@ -54,8 +54,7 @@ def test_successful_remove(httpserver, testing_context):
         }
 
         json_field = field_mapping.get(path, path)
-        if json_field in resource_state:
-            del resource_state[json_field]
+        del resource_state[json_field]
 
         return Response(
             json.dumps(resource_state),
@@ -190,9 +189,7 @@ def test_complex_successful_remove(httpserver, testing_context):
         operation = patch_data["Operations"][0]
         path = operation["path"]
 
-        # Remove the field from resource state
-        if path in resource_state:
-            del resource_state[path]
+        del resource_state[path]
 
         return Response(
             json.dumps(resource_state),
@@ -297,27 +294,16 @@ def test_user_with_enterprise_extension_remove(httpserver, testing_context):
         operation = patch_data["Operations"][0]
         path = operation["path"]
 
-        if path.startswith(
-            "urn:ietf:params:scim:schemas:extension:enterprise:2.0:User:"
-        ):
-            field_name = path.split(":")[-1]
-            extension_key = "urn:ietf:params:scim:schemas:extension:enterprise:2.0:User"
-            if (
-                extension_key in resource_state
-                and field_name in resource_state[extension_key]
-            ):
-                del resource_state[extension_key][field_name]
-        else:
-            field_mapping = {
-                "display_name": "displayName",
-                "nick_name": "nickName",
-                "profile_url": "profileUrl",
-                "user_type": "userType",
-                "preferred_language": "preferredLanguage",
-            }
-            json_field = field_mapping.get(path, path)
-            if json_field in resource_state:
-                del resource_state[json_field]
+        field_mapping = {
+            "display_name": "displayName",
+            "nick_name": "nickName",
+            "profile_url": "profileUrl",
+            "user_type": "userType",
+            "preferred_language": "preferredLanguage",
+        }
+        json_field = field_mapping.get(path, path)
+        if json_field in resource_state:
+            del resource_state[json_field]
 
         return Response(
             json.dumps(resource_state),
@@ -343,3 +329,111 @@ def test_user_with_enterprise_extension_remove(httpserver, testing_context):
     assert not unexpected, (
         f"All results should be SUCCESS, got: {[r.reason for r in results if r.status != Status.SUCCESS]}"
     )
+
+
+def test_patch_remove_query_failure_after_patch(httpserver, testing_context):
+    """Test PATCH remove when query fails after successful patch."""
+    httpserver.expect_request(uri="/Users", method="POST").respond_with_json(
+        {
+            "schemas": ["urn:ietf:params:scim:schemas:core:2.0:User"],
+            "id": "123",
+            "userName": "test@example.com",
+            "displayName": "test_display",
+        },
+        status=201,
+    )
+
+    httpserver.expect_request(uri="/Users/123", method="PATCH").respond_with_json(
+        {
+            "schemas": ["urn:ietf:params:scim:schemas:core:2.0:User"],
+            "id": "123",
+            "userName": "test@example.com",
+        },
+        status=200,
+    )
+
+    httpserver.expect_request(uri="/Users/123", method="GET").respond_with_json(
+        {
+            "schemas": ["urn:ietf:params:scim:api:messages:2.0:Error"],
+            "detail": "Resource not found after remove",
+            "status": "404",
+        },
+        status=404,
+    )
+
+    httpserver.expect_request(uri="/Users/123", method="DELETE").respond_with_data(
+        "", status=204
+    )
+
+    results = check_remove_attribute(testing_context, User)
+
+    error_results = [
+        r
+        for r in results
+        if r.status == Status.ERROR
+        and "Failed to query resource after remove" in r.reason
+    ]
+    assert len(error_results) > 0
+
+
+def test_patch_remove_attribute_not_removed(testing_context):
+    """Test PATCH remove when modify result shows attribute was not removed."""
+    from unittest.mock import Mock
+
+    mock_client = Mock()
+    mock_user = User(id="123", user_name="test@example.com", display_name="persistent")
+    mock_client.create.return_value = mock_user
+
+    # Mock modify to return a resource where the attribute is still present
+    mock_modified_user = User(
+        id="123",
+        user_name="test@example.com",
+        display_name="persistent",  # Still there after remove attempt
+    )
+    mock_client.modify.return_value = mock_modified_user
+    mock_client.query.return_value = mock_modified_user
+
+    testing_context.client = mock_client
+
+    results = check_remove_attribute(testing_context, User)
+
+    error_results = [
+        r
+        for r in results
+        if r.status == Status.ERROR and "did not remove attribute" in r.reason
+    ]
+    assert len(error_results) > 0
+
+
+def test_patch_remove_writeonly_attribute(testing_context):
+    """Test PATCH remove when modify result has writeOnly attribute value."""
+    from unittest.mock import Mock
+
+    mock_client = Mock()
+    mock_user = User(id="123", user_name="test@example.com", password="secret123")
+    mock_client.create.return_value = mock_user
+
+    # Mock modify to return a resource with writeOnly attribute still present
+    mock_modified_user = User(
+        id="123",
+        user_name="test@example.com",
+        password="secret123",  # writeOnly attribute still present
+    )
+    mock_client.modify.return_value = mock_modified_user
+    mock_client.query.return_value = User(
+        id="123",
+        user_name="test@example.com",
+        # password not returned in query (writeOnly)
+    )
+
+    testing_context.client = mock_client
+
+    results = check_remove_attribute(testing_context, User)
+
+    # For writeOnly attributes, should continue to query step
+    success_results = [
+        r
+        for r in results
+        if r.status == Status.SUCCESS and "password" in r.data.get("urn", "")
+    ]
+    assert len(success_results) > 0
