@@ -7,6 +7,7 @@ Changelog
 Fixed
 ^^^^^
 - Discovery checkers are always executed, even with tag filtering.
+- Don't execute PATCH tests when the ServiceProviderConfig advises patch is not supported.
 
 [0.2.1] - 2025-08-13
 --------------------

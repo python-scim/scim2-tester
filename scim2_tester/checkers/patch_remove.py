@@ -36,7 +36,7 @@ def check_remove_attribute(
     **Status:**
     - :attr:`~scim2_tester.Status.SUCCESS`: Attribute successfully removed
     - :attr:`~scim2_tester.Status.ERROR`: Failed to remove attribute or attribute still exists
-    - :attr:`~scim2_tester.Status.SKIPPED`: No removable attributes found
+    - :attr:`~scim2_tester.Status.SKIPPED`: No removable attributes found or PATCH not supported
 
     .. pull-quote:: :rfc:`RFC 7644 Section 3.5.2.2 - Remove Operation <7644#section-3.5.2.2>`
 
@@ -44,6 +44,18 @@ def check_remove_attribute(
        by the required attribute 'path'. The operation performs the following
        functions, depending on the target location specified by 'path'."
     """
+    if (
+        context.client.service_provider_config
+        and not context.client.service_provider_config.patch.supported
+    ):
+        return [
+            CheckResult(
+                status=Status.SKIPPED,
+                reason="PATCH operations not supported by server",
+                resource_type=model.__name__,
+            )
+        ]
+
     results = []
     all_urns = list(
         iter_all_urns(

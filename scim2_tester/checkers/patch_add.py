@@ -38,13 +38,25 @@ def check_add_attribute(
     **Status:**
     - :attr:`~scim2_tester.Status.SUCCESS`: Attribute successfully added
     - :attr:`~scim2_tester.Status.ERROR`: Failed to add attribute
-    - :attr:`~scim2_tester.Status.SKIPPED`: No addable attributes found
+    - :attr:`~scim2_tester.Status.SKIPPED`: No addable attributes found or PATCH not supported
 
     .. pull-quote:: :rfc:`RFC 7644 Section 3.5.2.1 - Add Operation <7644#section-3.5.2.1>`
 
        "The 'add' operation is used to add a new attribute and/or values to
        an existing resource."
     """
+    if (
+        context.client.service_provider_config
+        and not context.client.service_provider_config.patch.supported
+    ):
+        return [
+            CheckResult(
+                status=Status.SKIPPED,
+                reason="PATCH operations not supported by server",
+                resource_type=model.__name__,
+            )
+        ]
+
     results = []
     all_urns = list(
         iter_all_urns(

@@ -437,3 +437,20 @@ def test_patch_remove_writeonly_attribute(testing_context):
         if r.status == Status.SUCCESS and "password" in r.data.get("urn", "")
     ]
     assert len(success_results) > 0
+
+
+def test_patch_not_supported(testing_context):
+    """Test PATCH remove returns SKIPPED when PATCH is not supported."""
+    from unittest.mock import Mock
+
+    # Mock ServiceProviderConfig with patch.supported = False
+    mock_service_provider_config = Mock()
+    mock_service_provider_config.patch.supported = False
+    testing_context.client.service_provider_config = mock_service_provider_config
+
+    results = check_remove_attribute(testing_context, User)
+
+    assert len(results) == 1
+    assert results[0].status == Status.SKIPPED
+    assert "PATCH operations not supported by server" in results[0].reason
+    assert results[0].resource_type == "User"

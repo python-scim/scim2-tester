@@ -408,3 +408,20 @@ def test_patch_add_query_failure_after_patch(httpserver, testing_context):
         and "was not added or has incorrect value" in r.reason
     ]
     assert len(error_results) > 0
+
+
+def test_patch_not_supported(testing_context):
+    """Test PATCH add returns SKIPPED when PATCH is not supported."""
+    from unittest.mock import Mock
+
+    # Mock ServiceProviderConfig with patch.supported = False
+    mock_service_provider_config = Mock()
+    mock_service_provider_config.patch.supported = False
+    testing_context.client.service_provider_config = mock_service_provider_config
+
+    results = check_add_attribute(testing_context, User)
+
+    assert len(results) == 1
+    assert results[0].status == Status.SKIPPED
+    assert "PATCH operations not supported by server" in results[0].reason
+    assert results[0].resource_type == "User"
