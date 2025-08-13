@@ -125,7 +125,7 @@ def resource_types_schema_validation(
     return results
 
 
-@checker("discovery", "resource-types")
+@checker("*", "discovery", "resource-types")
 def query_all_resource_types(context: CheckContext) -> list[CheckResult]:
     """Validate retrieval of all available resource types.
 

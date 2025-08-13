@@ -7,7 +7,7 @@ from ..utils import checker
 from ._discovery_utils import _test_discovery_endpoint_methods
 
 
-@checker("discovery", "service-provider-config")
+@checker("*", "discovery", "service-provider-config")
 def service_provider_config_endpoint(
     context: CheckContext,
 ) -> list[CheckResult]:

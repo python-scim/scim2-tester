@@ -37,18 +37,19 @@ def _matches_hierarchical_tags(func_tags: set[str], filter_tags: set[str]) -> bo
     Supports patterns like:
     - "crud" matches "crud:read", "crud:create", etc.
     - "crud:read" matches exactly "crud:read"
+    - "*" matches any function with tags (always executed)
 
     :param func_tags: Tags on the function
     :param filter_tags: Tags to filter by
     :returns: True if there's a match
     """
+    if "*" in func_tags:
+        return True
+
     for filter_tag in filter_tags:
         for func_tag in func_tags:
-            # Exact match
             if filter_tag == func_tag:
                 return True
-
-            # Hierarchical match: filter "crud" matches func "crud:read"
             if ":" in func_tag and filter_tag in func_tag.split(":"):
                 return True
 
@@ -232,7 +233,6 @@ def checker(*tags: str) -> Any:
         def wrapped(context: CheckContext, *args: Any, **kwargs: Any) -> Any:
             func_tags = set(tags) if tags else set()
 
-            # Check if function should be skipped based on tag filtering
             if context.conf.include_tags and not _matches_hierarchical_tags(
                 func_tags, context.conf.include_tags
             ):

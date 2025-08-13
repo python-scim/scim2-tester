@@ -16,6 +16,8 @@ def get_all_available_tags() -> list[str]:
 
     registered_tags = sorted(get_registered_tags())
 
+    registered_tags = [tag for tag in registered_tags if tag != "*"]
+
     return registered_tags
 
 

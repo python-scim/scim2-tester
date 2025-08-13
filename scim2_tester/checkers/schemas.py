@@ -44,7 +44,7 @@ def _schemas_endpoint(context: CheckContext) -> list[CheckResult]:
     return results
 
 
-@checker("discovery", "schemas")
+@checker("*", "discovery", "schemas")
 def query_all_schemas(context: CheckContext) -> list[CheckResult]:
     """Validate retrieval of all available schemas.
 

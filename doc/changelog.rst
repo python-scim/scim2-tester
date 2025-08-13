@@ -1,6 +1,13 @@
 Changelog
 =========
 
+[0.2.2] - Unreleased
+--------------------
+
+Fixed
+^^^^^
+- Discovery checkers are always executed, even with tag filtering.
+
 [0.2.1] - 2025-08-13
 --------------------
 
