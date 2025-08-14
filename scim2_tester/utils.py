@@ -149,6 +149,21 @@ class CheckResult:
     resource_type: str | None = None
     """The resource type name if this check is related to a specific resource."""
 
+    def __repr__(self):
+        """Return string representation without verbose description field."""
+        parts = [f"CheckResult(status={self.status!r}"]
+        if self.title:
+            parts.append(f"title={self.title!r}")
+        if self.reason:
+            parts.append(f"reason={self.reason!r}")
+        if self.data is not None:
+            parts.append(f"data={self.data!r}")
+        if self.tags:
+            parts.append(f"tags={self.tags!r}")
+        if self.resource_type:
+            parts.append(f"resource_type={self.resource_type!r}")
+        return ", ".join(parts) + ")"
+
 
 class ResourceManager:
     """Manages SCIM resources with automatic cleanup for tests."""

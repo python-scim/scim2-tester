@@ -413,3 +413,35 @@ def test_compare_field_with_none_values():
 
     # Test when both are None
     assert compare_field(None, None) is False
+
+
+def test_check_result_repr():
+    """Test CheckResult __repr__ excludes description field."""
+    result = CheckResult(
+        status=Status.SUCCESS,
+        title="Test",
+        description="Long verbose description that should not appear",
+    )
+    repr_str = repr(result)
+    assert "description" not in repr_str
+    assert "Status.SUCCESS" in repr_str
+    assert "title='Test'" in repr_str
+
+    result = CheckResult(
+        status=Status.ERROR,
+        title="Complex Check",
+        description="Very long description",
+        reason="Failed",
+        data={"key": "value"},
+        tags={"crud:read"},
+        resource_type="User",
+    )
+    repr_str = repr(result)
+    assert "description" not in repr_str
+    assert "Status.ERROR" in repr_str
+    assert "title='Complex Check'" in repr_str
+    assert "reason='Failed'" in repr_str
+    assert "data={'key': 'value'}" in repr_str
+    assert "tags={'crud:read'}" in repr_str
+    assert "resource_type='User'" in repr_str
+    assert result.description == "Very long description"
