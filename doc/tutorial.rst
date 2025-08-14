@@ -143,14 +143,12 @@ For comprehensive test coverage, you can create parametrized tests that exercise
     @pytest.mark.parametrize("tag", get_all_available_tags())
     @pytest.mark.parametrize("resource_type", [None] + get_standard_resource_types())
     def test_individual_filters(scim_client, tag, resource_type):
-        results = check_server(
+        for result in check_server(
             scim_client,
-            raise_exceptions=False,
+            raise_exceptions=True,
             include_tags={tag},
             resource_types=resource_type
-        )
-
-        for result in results:
+        ):
             assert result.status in (Status.SKIPPED, Status.SUCCESS)
 
 This parametrized approach automatically discovers all available tags and resource types, ensuring that your test suite covers all possible combinations as your SCIM implementation evolves. Each test verifies that results have either :attr:`~scim2_tester.Status.SUCCESS` or :attr:`~scim2_tester.Status.SKIPPED` status.
