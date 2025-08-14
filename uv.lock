@@ -1047,6 +1047,7 @@ source = { editable = "." }
 dependencies = [
     { name = "exceptiongroup", marker = "python_full_version < '3.11'" },
     { name = "scim2-client" },
+    { name = "scim2-models" },
 ]
 
 [package.optional-dependencies]
@@ -1082,6 +1083,7 @@ requires-dist = [
     { name = "exceptiongroup", marker = "python_full_version < '3.11'", specifier = ">=1.0.0" },
     { name = "scim2-client", specifier = ">=0.6.1" },
     { name = "scim2-client", extras = ["httpx"], marker = "extra == 'httpx'", specifier = ">=0.4.0" },
+    { name = "scim2-models", specifier = ">=0.4.2" },
 ]
 provides-extras = ["httpx"]
 
