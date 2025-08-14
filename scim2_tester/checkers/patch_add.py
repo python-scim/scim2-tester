@@ -62,7 +62,11 @@ def check_add_attribute(
         iter_all_urns(
             model,
             required=[Required.false],
-            mutability=[Mutability.read_write, Mutability.write_only],
+            mutability=[
+                Mutability.read_write,
+                Mutability.write_only,
+                Mutability.immutable,
+            ],
             # Not supported until filters are implemented in scim2_models
             include_subattributes=False,
         )
