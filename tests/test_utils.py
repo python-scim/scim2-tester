@@ -325,3 +325,13 @@ def test_check_result_repr():
     assert "tags={'crud:read'}" in repr_str
     assert "resource_type='User'" in repr_str
     assert result.description == "Very long description"
+
+    # Test without title to cover the missing branch
+    result = CheckResult(
+        status=Status.SUCCESS,
+        reason="Success without name",
+    )
+    repr_str = repr(result)
+    assert "title=" not in repr_str
+    assert "reason='Success without name'" in repr_str
+    assert "Status.SUCCESS" in repr_str
