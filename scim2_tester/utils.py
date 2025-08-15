@@ -1,5 +1,4 @@
 import functools
-import sys
 from dataclasses import dataclass
 from dataclasses import field
 from enum import Enum
@@ -12,12 +11,6 @@ from scim2_models import BaseModel
 from scim2_models import Mutability
 from scim2_models import Required
 from scim2_models import Resource
-
-# Import ExceptionGroup for Python < 3.11 compatibility
-if sys.version_info >= (3, 11):
-    from builtins import ExceptionGroup
-else:  # pragma: no cover
-    from exceptiongroup import ExceptionGroup
 
 # Global registry for all tags discovered by checker decorators
 _REGISTERED_TAGS: set[str] = set()
@@ -165,6 +158,47 @@ class CheckResult:
         return ", ".join(parts) + ")"
 
 
+def check_result(
+    context: CheckContext,
+    status: Status,
+    title: str | None = None,
+    description: str | None = None,
+    reason: str | None = None,
+    data: Any | None = None,
+    tags: set[str] | None = None,
+    resource_type: str | None = None,
+) -> CheckResult:
+    """Create a CheckResult that raises SCIMTesterError immediately if configured.
+
+    This factory function creates a CheckResult and immediately raises a
+    SCIMTesterError if raise_exceptions is True and the status is ERROR or CRITICAL.
+    This ensures the exception is raised at the exact location where the check fails.
+
+    :param context: The check context containing configuration
+    :param status: The status of the check result
+    :param title: Optional title of the check
+    :param description: Optional description of what the check does
+    :param reason: Optional reason for the result
+    :param data: Optional related data for debugging
+    :param tags: Optional tags for filtering
+    :param resource_type: Optional resource type name
+    :returns: The created CheckResult
+    :raises SCIMTesterError: If raise_exceptions is True and status is ERROR or CRITICAL
+    """
+    if context.conf.raise_exceptions and status in (Status.ERROR, Status.CRITICAL):
+        raise SCIMTesterError(reason or "Check failed", context.conf)
+
+    return CheckResult(
+        status=status,
+        title=title,
+        description=description,
+        reason=reason,
+        data=data,
+        tags=tags or set(),
+        resource_type=resource_type,
+    )
+
+
 class ResourceManager:
     """Manages SCIM resources with automatic cleanup for tests."""
 
@@ -294,18 +328,6 @@ def checker(*tags: str) -> Any:
 
             finally:
                 context.resource_manager.cleanup()
-
-            # Check for ERROR results and raise SCIMTesterError if configured
-            if context.conf.raise_exceptions:
-                errors = [
-                    SCIMTesterError(r.reason or "Check failed", context.conf)
-                    for r in result
-                    if r.status in (Status.ERROR, Status.CRITICAL)
-                ]
-                if len(errors) == 1:
-                    raise errors[0]
-                elif len(errors) > 1:
-                    raise ExceptionGroup("Multiple check failures", errors)
 
             # All checkers now return list[CheckResult]
             for r in result:

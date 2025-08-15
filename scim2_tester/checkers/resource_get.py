@@ -6,6 +6,7 @@ from scim2_models import ResourceType
 from ..utils import CheckContext
 from ..utils import CheckResult
 from ..utils import Status
+from ..utils import check_result
 from ..utils import checker
 
 
@@ -55,7 +56,8 @@ def object_query(
     )
 
     return [
-        CheckResult(
+        check_result(
+            context,
             status=Status.SUCCESS,
             reason=f"Successfully queried {model.__name__} object with id {test_obj.id}",
             data=response,
@@ -92,7 +94,8 @@ def object_query_without_id(
     found = any(test_obj.id == resource.id for resource in response.resources)
     if not found:
         return [
-            CheckResult(
+            check_result(
+                context,
                 status=Status.ERROR,
                 reason=f"Could not find {model.__name__} object with id {test_obj.id} in list response",
                 data=response,
@@ -100,7 +103,8 @@ def object_query_without_id(
         ]
 
     return [
-        CheckResult(
+        check_result(
+            context,
             status=Status.SUCCESS,
             reason=f"Successfully found {model.__name__} object with id {test_obj.id} in list response",
             data=response,

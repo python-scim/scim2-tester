@@ -8,6 +8,7 @@ from scim2_models import Schema
 from ..utils import CheckContext
 from ..utils import CheckResult
 from ..utils import Status
+from ..utils import check_result
 from ..utils import checker
 from ._discovery_utils import _test_discovery_endpoint_methods
 
@@ -108,7 +109,8 @@ def resource_types_schema_validation(
                 expected_status_codes=context.conf.expected_status_codes or [200],
             )
             results.append(
-                CheckResult(
+                check_result(
+                    context,
                     status=Status.SUCCESS,
                     reason=f"ResourceType '{resource_type.name}' schema '{schema_id}' is accessible",
                     data=schema_response,
@@ -116,7 +118,8 @@ def resource_types_schema_validation(
             )
         except SCIMClientError as e:
             results.append(
-                CheckResult(
+                check_result(
+                    context,
                     status=Status.ERROR,
                     reason=f"ResourceType '{resource_type.name}' schema '{schema_id}' is not accessible: {str(e)}",
                 )
@@ -147,7 +150,14 @@ def query_all_resource_types(context: CheckContext) -> list[CheckResult]:
     )
     available = ", ".join([f"'{resource.name}'" for resource in response.resources])
     reason = f"Resource types available are: {available}"
-    return [CheckResult(status=Status.SUCCESS, reason=reason, data=response.resources)]
+    return [
+        check_result(
+            context,
+            status=Status.SUCCESS,
+            reason=reason,
+            data=response.resources,
+        )
+    ]
 
 
 @checker("discovery", "resource-types")
@@ -175,7 +185,14 @@ def query_resource_type_by_id(
         expected_status_codes=context.conf.expected_status_codes or [200],
     )
     reason = f"Successfully accessed the /ResourceTypes/{resource_type.id} endpoint."
-    return [CheckResult(status=Status.SUCCESS, reason=reason, data=response)]
+    return [
+        check_result(
+            context,
+            status=Status.SUCCESS,
+            reason=reason,
+            data=response,
+        )
+    ]
 
 
 @checker("discovery", "resource-types")
@@ -204,7 +221,8 @@ def access_invalid_resource_type(context: CheckContext) -> list[CheckResult]:
 
     if not isinstance(response, Error):
         return [
-            CheckResult(
+            check_result(
+                context,
                 status=Status.ERROR,
                 reason=f"/resource_types/{probably_invalid_id} invalid URL did not return an Error object",
                 data=response,
@@ -213,7 +231,8 @@ def access_invalid_resource_type(context: CheckContext) -> list[CheckResult]:
 
     if response.status != 404:
         return [
-            CheckResult(
+            check_result(
+                context,
                 status=Status.ERROR,
                 reason=f"/resource_types/{probably_invalid_id} invalid URL did return an object, but the status code is {response.status}",
                 data=response,
@@ -221,7 +240,8 @@ def access_invalid_resource_type(context: CheckContext) -> list[CheckResult]:
         ]
 
     return [
-        CheckResult(
+        check_result(
+            context,
             status=Status.SUCCESS,
             reason=f"/resource_types/{probably_invalid_id} invalid URL correctly returned a 404 error",
             data=response,

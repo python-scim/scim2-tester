@@ -7,6 +7,7 @@ from ..filling import fill_with_random_values
 from ..utils import CheckContext
 from ..utils import CheckResult
 from ..utils import Status
+from ..utils import check_result
 from ..utils import checker
 
 
@@ -56,7 +57,8 @@ def object_replacement(
     )
 
     return [
-        CheckResult(
+        check_result(
+            context,
             status=Status.SUCCESS,
             reason=f"Successfully replaced {model.__name__} object with id {test_obj.id}",
             data=response,

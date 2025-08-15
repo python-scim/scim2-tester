@@ -5,6 +5,7 @@ from scim2_models import Resource
 from ..utils import CheckContext
 from ..utils import CheckResult
 from ..utils import Status
+from ..utils import check_result
 from ..utils import checker
 
 
@@ -34,7 +35,8 @@ def object_creation(
     created_obj = context.resource_manager.create_and_register(model)
 
     return [
-        CheckResult(
+        check_result(
+            context,
             status=Status.SUCCESS,
             reason=f"Successfully created {model.__name__} object with id {created_obj.id}",
             data=created_obj,

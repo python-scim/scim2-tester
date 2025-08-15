@@ -15,6 +15,7 @@ from ..urns import iter_all_urns
 from ..utils import CheckContext
 from ..utils import CheckResult
 from ..utils import Status
+from ..utils import check_result
 from ..utils import checker
 
 
@@ -49,7 +50,8 @@ def check_remove_attribute(
         and not context.client.service_provider_config.patch.supported
     ):
         return [
-            CheckResult(
+            check_result(
+                context,
                 status=Status.SKIPPED,
                 reason="PATCH operations not supported by server",
                 resource_type=model.__name__,
@@ -69,7 +71,8 @@ def check_remove_attribute(
 
     if not all_urns:
         return [
-            CheckResult(
+            check_result(
+                context,
                 status=Status.SKIPPED,
                 reason=f"No removable attributes found for {model.__name__}",
                 resource_type=model.__name__,
@@ -101,7 +104,8 @@ def check_remove_attribute(
             )
         except SCIMClientError as exc:
             results.append(
-                CheckResult(
+                check_result(
+                    context,
                     status=Status.ERROR,
                     reason=f"Failed to remove attribute '{urn}': {exc}",
                     resource_type=model.__name__,
@@ -121,7 +125,8 @@ def check_remove_attribute(
                     and modify_actual_value is not None
                 ):
                     results.append(
-                        CheckResult(
+                        check_result(
+                            context,
                             status=Status.ERROR,
                             reason=f"PATCH modify() did not remove attribute '{urn}'",
                             resource_type=model.__name__,
@@ -141,7 +146,8 @@ def check_remove_attribute(
             )
         except SCIMClientError as exc:
             results.append(
-                CheckResult(
+                check_result(
+                    context,
                     status=Status.ERROR,
                     reason=f"Failed to query resource after remove on '{urn}': {exc}",
                     resource_type=model.__name__,
@@ -157,7 +163,8 @@ def check_remove_attribute(
         actual_value = get_value_by_urn(updated_resource, urn)
         if mutability == Mutability.write_only or actual_value is None:
             results.append(
-                CheckResult(
+                check_result(
+                    context,
                     status=Status.SUCCESS,
                     reason=f"Successfully removed attribute '{urn}'",
                     resource_type=model.__name__,
@@ -169,7 +176,8 @@ def check_remove_attribute(
             )
         else:
             results.append(
-                CheckResult(
+                check_result(
+                    context,
                     status=Status.ERROR,
                     reason=f"Attribute '{urn}' was not removed",
                     resource_type=model.__name__,

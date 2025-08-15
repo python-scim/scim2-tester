@@ -1,6 +1,13 @@
 Changelog
 =========
 
+[0.2.3] - Unreleased
+--------------------
+
+Fixed
+^^^^^
+- Error and critical check results directly raise an exception when ``raise_exceptions=True``.
+
 [0.2.2] - 2025-08-13
 --------------------
 

@@ -6,6 +6,7 @@ from scim2_models import Resource
 from ..utils import CheckContext
 from ..utils import CheckResult
 from ..utils import Status
+from ..utils import check_result
 from ..utils import checker
 
 
@@ -43,7 +44,8 @@ def object_deletion(
     try:
         context.client.query(model, test_obj.id)
         return [
-            CheckResult(
+            check_result(
+                context,
                 status=Status.ERROR,
                 reason=f"{model.__name__} object with id {test_obj.id} still exists after deletion",
             )
@@ -52,7 +54,8 @@ def object_deletion(
         pass
 
     return [
-        CheckResult(
+        check_result(
+            context,
             status=Status.SUCCESS,
             reason=f"Successfully deleted {model.__name__} object with id {test_obj.id}",
         )

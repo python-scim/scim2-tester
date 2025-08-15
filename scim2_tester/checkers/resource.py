@@ -3,6 +3,7 @@ from scim2_models import ResourceType
 from ..utils import CheckContext
 from ..utils import CheckResult
 from ..utils import Status
+from ..utils import check_result
 from .patch_add import check_add_attribute
 from .patch_remove import check_remove_attribute
 from .patch_replace import check_replace_attribute
@@ -38,7 +39,8 @@ def resource_type_tests(
     model = _model_from_resource_type(context, resource_type)
     if not model:
         return [
-            CheckResult(
+            check_result(
+                context,
                 status=Status.ERROR,
                 reason=f"No Schema matching the ResourceType {resource_type.id}",
             )

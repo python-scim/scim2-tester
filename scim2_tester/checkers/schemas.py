@@ -7,6 +7,7 @@ from scim2_models import Schema
 from ..utils import CheckContext
 from ..utils import CheckResult
 from ..utils import Status
+from ..utils import check_result
 from ..utils import checker
 from ._discovery_utils import _test_discovery_endpoint_methods
 
@@ -66,7 +67,8 @@ def query_all_schemas(context: CheckContext) -> list[CheckResult]:
     )
     available = ", ".join([f"'{resource.name}'" for resource in response.resources])
     return [
-        CheckResult(
+        check_result(
+            context,
             status=Status.SUCCESS,
             reason=f"Schemas available are: {available}",
             data=response.resources,
@@ -101,7 +103,8 @@ def access_invalid_schema(context: CheckContext) -> list[CheckResult]:
 
     if not isinstance(response, Error):
         return [
-            CheckResult(
+            check_result(
+                context,
                 status=Status.ERROR,
                 reason=f"/Schemas/{probably_invalid_id} invalid URL did not return an Error object",
                 data=response,
@@ -110,7 +113,8 @@ def access_invalid_schema(context: CheckContext) -> list[CheckResult]:
 
     if response.status != 404:
         return [
-            CheckResult(
+            check_result(
+                context,
                 status=Status.ERROR,
                 reason=f"/Schemas/{probably_invalid_id} invalid URL did return an Error object, but the status code is {response.status}",
                 data=response,
@@ -118,7 +122,8 @@ def access_invalid_schema(context: CheckContext) -> list[CheckResult]:
         ]
 
     return [
-        CheckResult(
+        check_result(
+            context,
             status=Status.SUCCESS,
             reason=f"/Schemas/{probably_invalid_id} invalid URL correctly returned a 404 error",
             data=response,
@@ -183,7 +188,8 @@ def access_schema_by_id(
                     expected_status_codes=context.conf.expected_status_codes or [200],
                 )
                 results.append(
-                    CheckResult(
+                    check_result(
+                        context,
                         status=Status.SUCCESS,
                         reason=f"Successfully accessed schema: {schema.id}",
                         data=response,
@@ -191,7 +197,8 @@ def access_schema_by_id(
                 )
             except SCIMClientError as e:
                 results.append(
-                    CheckResult(
+                    check_result(
+                        context,
                         status=Status.ERROR,
                         reason=f"Failed to access schema {schema.id}: {str(e)}",
                     )
@@ -199,7 +206,8 @@ def access_schema_by_id(
 
     if not results:
         results.append(
-            CheckResult(
+            check_result(
+                context,
                 status=Status.SUCCESS,
                 reason="No schemas with IDs found to test",
             )
@@ -248,7 +256,8 @@ def core_schemas_validation(
 
     if missing_schemas:
         return [
-            CheckResult(
+            check_result(
+                context,
                 status=Status.ERROR,
                 reason=f"Missing mandatory core schemas: {', '.join(missing_schemas)}",
                 data=response,
@@ -256,7 +265,8 @@ def core_schemas_validation(
         ]
 
     return [
-        CheckResult(
+        check_result(
+            context,
             status=Status.SUCCESS,
             reason="All mandatory core schemas (ResourceType, ServiceProviderConfig, Schema) are present",
             data=response,

@@ -3,6 +3,7 @@ from scim2_models import ServiceProviderConfig
 from ..utils import CheckContext
 from ..utils import CheckResult
 from ..utils import Status
+from ..utils import check_result
 from ..utils import checker
 from ._discovery_utils import _test_discovery_endpoint_methods
 
@@ -34,7 +35,13 @@ def service_provider_config_endpoint(
         ServiceProviderConfig,
         expected_status_codes=context.conf.expected_status_codes or [200],
     )
-    return [CheckResult(status=Status.SUCCESS, data=response)]
+    return [
+        check_result(
+            context,
+            status=Status.SUCCESS,
+            data=response,
+        )
+    ]
 
 
 @checker("discovery", "service-provider-config")

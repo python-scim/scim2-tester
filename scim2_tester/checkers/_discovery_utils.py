@@ -5,6 +5,7 @@ from scim2_client import SCIMClientError
 from ..utils import CheckContext
 from ..utils import CheckResult
 from ..utils import Status
+from ..utils import check_result
 
 
 def _test_discovery_endpoint_methods(
@@ -36,7 +37,8 @@ def _test_discovery_endpoint_methods(
             )
             if response.status_code == 405:
                 results.append(
-                    CheckResult(
+                    check_result(
+                        context,
                         status=Status.SUCCESS,
                         reason=f"{method} {endpoint} correctly returned 405 Method Not Allowed",
                         data=response,
@@ -44,7 +46,8 @@ def _test_discovery_endpoint_methods(
                 )
             else:
                 results.append(
-                    CheckResult(
+                    check_result(
+                        context,
                         status=Status.ERROR,
                         reason=f"{method} {endpoint} returned {response.status_code} instead of 405",
                         data=response,
@@ -52,7 +55,8 @@ def _test_discovery_endpoint_methods(
                 )
         except SCIMClientError as e:
             results.append(
-                CheckResult(
+                check_result(
+                    context,
                     status=Status.ERROR,
                     reason=f"{method} {endpoint} failed: {str(e)}",
                 )

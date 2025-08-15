@@ -1,4 +1,3 @@
-import sys
 from unittest.mock import Mock
 from unittest.mock import patch
 
@@ -10,7 +9,6 @@ from scim2_tester.utils import CheckConfig
 from scim2_tester.utils import CheckContext
 from scim2_tester.utils import CheckResult
 from scim2_tester.utils import ResourceManager
-from scim2_tester.utils import SCIMTesterError
 from scim2_tester.utils import Status
 from scim2_tester.utils import _matches_hierarchical_tags
 from scim2_tester.utils import checker
@@ -128,124 +126,6 @@ def test_check_result_no_exception_on_success():
     result = successful_check(context)
     assert result[0].status == Status.SUCCESS
     assert result[0].reason == "Success"
-
-
-def test_check_result_error_should_raise_when_configured():
-    """Test that CheckResult with ERROR status should raise exception when configured."""
-    """Test that CheckResult with ERROR status should raise exception when configured."""
-    from scim2_tester.utils import checker
-
-    @checker("test")
-    def error_check(context):
-        # Function returns an error result instead of raising exception
-        return [CheckResult(status=Status.ERROR, reason="Check failed")]
-
-    conf = CheckConfig(raise_exceptions=True)
-    context = CheckContext(client=None, conf=conf)
-
-    # This should now raise an exception
-    with pytest.raises(SCIMTesterError) as exc_info:
-        error_check(context)
-
-    assert str(exc_info.value) == "Check failed"
-
-
-def test_check_result_list_error_should_raise_when_configured():
-    """Test that list of CheckResult with ERROR status should raise exception when configured."""
-    """Test that list of CheckResult with ERROR status should raise exception when configured."""
-    from scim2_tester.utils import checker
-
-    @checker("test")
-    def error_check_list(context):
-        # Function returns a list with one error result
-        return [
-            CheckResult(status=Status.SUCCESS, reason="Success"),
-            CheckResult(status=Status.ERROR, reason="List check failed"),
-        ]
-
-    conf = CheckConfig(raise_exceptions=True)
-    context = CheckContext(client=None, conf=conf)
-
-    with pytest.raises(SCIMTesterError):
-        error_check_list(context)
-
-
-def test_check_result_multiple_errors_should_raise_exception_group():
-    """Test that multiple CheckResult with ERROR status should raise ExceptionGroup when configured."""
-    """Test that multiple CheckResult with ERROR status should raise ExceptionGroup when configured."""
-    from scim2_tester.utils import checker
-
-    # Import ExceptionGroup for compatibility
-    if sys.version_info >= (3, 11):
-        from builtins import ExceptionGroup
-    else:  # pragma: no cover
-        from exceptiongroup import ExceptionGroup
-
-    @checker("test")
-    def multiple_error_check(context):
-        # Function returns a list with multiple error results
-        return [
-            CheckResult(status=Status.ERROR, reason="First check failed"),
-            CheckResult(status=Status.SUCCESS, reason="Success"),
-            CheckResult(status=Status.ERROR, reason="Second check failed"),
-        ]
-
-    conf = CheckConfig(raise_exceptions=True)
-    context = CheckContext(client=None, conf=conf)
-
-    # This should raise an ExceptionGroup for multiple errors
-    with pytest.raises(ExceptionGroup) as exc_info:
-        multiple_error_check(context)
-
-    # Verify the ExceptionGroup contains the expected errors
-    assert "Multiple check failures" in str(exc_info.value)
-    assert len(exc_info.value.exceptions) == 2
-    assert all(isinstance(e, SCIMTesterError) for e in exc_info.value.exceptions)
-    assert str(exc_info.value.exceptions[0]) == "First check failed"
-    assert str(exc_info.value.exceptions[1]) == "Second check failed"
-
-
-def test_exception_group_usage_example():
-    """Demonstrate how to handle ExceptionGroup in practice."""
-    """Demonstrate how to handle ExceptionGroup in practice."""
-    from scim2_tester.utils import checker
-
-    # Import ExceptionGroup for compatibility
-    if sys.version_info >= (3, 11):
-        from builtins import ExceptionGroup
-    else:  # pragma: no cover
-        from exceptiongroup import ExceptionGroup
-
-    @checker("integration-test")
-    def complex_check(context):
-        # Simulate a complex check that validates multiple things
-        return [
-            CheckResult(status=Status.SUCCESS, reason="Schema validation passed"),
-            CheckResult(status=Status.ERROR, reason="Authentication failed"),
-            CheckResult(status=Status.SUCCESS, reason="Rate limiting works"),
-            CheckResult(status=Status.ERROR, reason="Invalid response format"),
-            CheckResult(status=Status.ERROR, reason="Missing required headers"),
-        ]
-
-    conf = CheckConfig(raise_exceptions=True)
-    context = CheckContext(client=None, conf=conf)
-
-    # Verify we can catch and handle multiple errors at once
-    with pytest.raises(ExceptionGroup) as exc_info:
-        complex_check(context)
-
-    # Verify structure
-    exception_group = exc_info.value
-    assert "Multiple check failures" in str(exception_group)
-    assert len(exception_group.exceptions) == 3  # Three errors
-
-    error_messages = [str(e) for e in exception_group.exceptions]
-    expected_messages = [
-        "Authentication failed",
-        "Invalid response format",
-        "Missing required headers",
-    ]
-    assert error_messages == expected_messages
 
 
 def test_hierarchical_tag_matching():

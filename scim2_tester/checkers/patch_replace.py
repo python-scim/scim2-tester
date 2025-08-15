@@ -15,6 +15,7 @@ from ..urns import iter_all_urns
 from ..utils import CheckContext
 from ..utils import CheckResult
 from ..utils import Status
+from ..utils import check_result
 from ..utils import checker
 from ..utils import compare_field
 
@@ -49,7 +50,8 @@ def check_replace_attribute(
         and not context.client.service_provider_config.patch.supported
     ):
         return [
-            CheckResult(
+            check_result(
+                context,
                 status=Status.SKIPPED,
                 reason="PATCH operations not supported by server",
                 resource_type=model.__name__,
@@ -68,7 +70,8 @@ def check_replace_attribute(
 
     if not all_urns:
         return [
-            CheckResult(
+            check_result(
+                context,
                 status=Status.SKIPPED,
                 reason=f"No replaceable attributes found for {model.__name__}",
                 resource_type=model.__name__,
@@ -99,7 +102,8 @@ def check_replace_attribute(
             )
         except SCIMClientError as exc:
             results.append(
-                CheckResult(
+                check_result(
+                    context,
                     status=Status.ERROR,
                     reason=f"Failed to replace attribute '{urn}': {exc}",
                     resource_type=model.__name__,
@@ -119,7 +123,8 @@ def check_replace_attribute(
                     or compare_field(patch_value, modify_actual_value)
                 ):
                     results.append(
-                        CheckResult(
+                        check_result(
+                            context,
                             status=Status.ERROR,
                             reason=f"PATCH modify() returned incorrect value for '{urn}'",
                             resource_type=model.__name__,
@@ -139,7 +144,8 @@ def check_replace_attribute(
             )
         except SCIMClientError as exc:
             results.append(
-                CheckResult(
+                check_result(
+                    context,
                     status=Status.ERROR,
                     reason=f"Failed to query resource after replace on '{urn}': {exc}",
                     resource_type=model.__name__,
@@ -157,7 +163,8 @@ def check_replace_attribute(
             patch_value, actual_value
         ):
             results.append(
-                CheckResult(
+                check_result(
+                    context,
                     status=Status.SUCCESS,
                     reason=f"Successfully replaced attribute '{urn}'",
                     resource_type=model.__name__,
@@ -169,7 +176,8 @@ def check_replace_attribute(
             )
         else:
             results.append(
-                CheckResult(
+                check_result(
+                    context,
                     status=Status.ERROR,
                     reason=f"Attribute '{urn}' was not replaced or has incorrect value",
                     resource_type=model.__name__,

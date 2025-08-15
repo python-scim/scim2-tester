@@ -6,6 +6,7 @@ from scim2_models import Error
 from ..utils import CheckContext
 from ..utils import CheckResult
 from ..utils import Status
+from ..utils import check_result
 from ..utils import checker
 
 
@@ -38,7 +39,8 @@ def random_url(context: CheckContext) -> list[CheckResult]:
 
     if not isinstance(response, Error):
         return [
-            CheckResult(
+            check_result(
+                context,
                 status=Status.ERROR,
                 reason=f"{probably_invalid_url} did not return an Error object",
                 data=response,
@@ -47,7 +49,8 @@ def random_url(context: CheckContext) -> list[CheckResult]:
 
     if response.status != 404:
         return [
-            CheckResult(
+            check_result(
+                context,
                 status=Status.ERROR,
                 reason=f"{probably_invalid_url} did return an object, but the status code is {response.status}",
                 data=response,
@@ -55,7 +58,8 @@ def random_url(context: CheckContext) -> list[CheckResult]:
         ]
 
     return [
-        CheckResult(
+        check_result(
+            context,
             status=Status.SUCCESS,
             reason=f"{probably_invalid_url} correctly returned a 404 error",
             data=response,
