@@ -1,4 +1,6 @@
 import functools
+import sys
+import types
 from dataclasses import dataclass
 from dataclasses import field
 from enum import Enum
@@ -118,6 +120,18 @@ class SCIMTesterError(Exception):
         return self.message
 
 
+def raise_on_caller(exc: Exception) -> None:
+    """Raise exception appearing from caller's frame."""
+    frame = sys._getframe(2)
+    tb = types.TracebackType(
+        tb_next=None,
+        tb_frame=frame,
+        tb_lasti=frame.f_lasti,
+        tb_lineno=frame.f_lineno,
+    )
+    raise exc.with_traceback(tb)
+
+
 @dataclass
 class CheckResult:
     """Store a check result."""
@@ -186,7 +200,8 @@ def check_result(
     :raises SCIMTesterError: If raise_exceptions is True and status is ERROR or CRITICAL
     """
     if context.conf.raise_exceptions and status in (Status.ERROR, Status.CRITICAL):
-        raise SCIMTesterError(reason or "Check failed", context.conf)
+        exc = SCIMTesterError(reason or "Check failed", context.conf)
+        raise_on_caller(exc)
 
     return CheckResult(
         status=status,
