@@ -370,7 +370,7 @@ def compare_field(expected: Any, actual: Any) -> bool:
     if expected is None or actual is None:
         return False
 
-    if isinstance(expected, BaseModel) and isinstance(actual, BaseModel):
-        return expected.model_dump() == actual.model_dump()
+    expected = expected.model_dump() if isinstance(expected, BaseModel) else expected
+    actual = actual.model_dump() if isinstance(actual, BaseModel) else actual
 
     return expected == actual
