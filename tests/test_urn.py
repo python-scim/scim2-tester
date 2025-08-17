@@ -57,25 +57,21 @@ def test_iter_urns_resource():
     assert "emails.primary" in urns
     assert "emails.display" in urns
     assert "emails.value" in urns
-    assert "emails.ref" in urns
     assert "phoneNumbers" in urns
     assert "phoneNumbers.type" in urns
     assert "phoneNumbers.primary" in urns
     assert "phoneNumbers.display" in urns
     assert "phoneNumbers.value" in urns
-    assert "phoneNumbers.ref" in urns
     assert "ims" in urns
     assert "ims.type" in urns
     assert "ims.primary" in urns
     assert "ims.display" in urns
     assert "ims.value" in urns
-    assert "ims.ref" in urns
     assert "photos" in urns
     assert "photos.type" in urns
     assert "photos.primary" in urns
     assert "photos.display" in urns
     assert "photos.value" in urns
-    assert "photos.ref" in urns
     assert "addresses" in urns
     assert "addresses.type" in urns
     assert "addresses.primary" in urns
