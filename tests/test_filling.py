@@ -222,3 +222,21 @@ def test_fix_primary_attributes_multiple_objects():
     assert len(user.emails) == 3
     primary_count = sum(1 for email in user.emails if email.primary)
     assert primary_count == 1
+
+
+def test_fill_with_random_values_emails_primary_constraint(testing_context):
+    """Ensures fill_with_random_values maintains primary=True constraint for emails."""
+    user = User(user_name="test")
+    filled_user = fill_with_random_values(testing_context, user, ["emails"])
+
+    primary_count = sum(1 for email in filled_user.emails if email.primary)
+    assert primary_count == 1
+
+
+def test_fill_with_random_values_phone_numbers_primary_constraint(testing_context):
+    """Ensures fill_with_random_values maintains primary=True constraint for phone numbers."""
+    user = User(user_name="test")
+    filled_user = fill_with_random_values(testing_context, user, ["phoneNumbers"])
+
+    primary_count = sum(1 for phone in filled_user.phone_numbers if phone.primary)
+    assert primary_count == 1
