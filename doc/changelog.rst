@@ -8,6 +8,7 @@ Fixed
 ^^^^^
 - Error and critical check results directly raise an exception when ``raise_exceptions=True``.
 - Use ``ComplexAttribute`` instead of ``MultiValuedComplexAttribute`` to generate data.
+- Respect the ``primary`` attribute unique truthy value when generating random values.
 
 [0.2.2] - 2025-08-13
 --------------------

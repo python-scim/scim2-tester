@@ -3,11 +3,14 @@
 from typing import Literal
 from unittest.mock import patch
 
+from scim2_models import Email
 from scim2_models import Group
+from scim2_models import PhoneNumber
 from scim2_models import User
 from scim2_models.resources.user import X509Certificate
 
 from scim2_tester.filling import fill_with_random_values
+from scim2_tester.filling import fix_primary_attributes
 from scim2_tester.filling import generate_random_value
 from scim2_tester.filling import get_model_from_ref_type
 from scim2_tester.filling import get_random_example_value
@@ -123,8 +126,6 @@ def test_generate_random_value_with_examples(testing_context):
 
 def test_generate_random_value_phone_number(testing_context):
     """Generates phone numbers correctly."""
-    from scim2_models import PhoneNumber
-
     value = generate_random_value(testing_context, "phoneNumbers.value", PhoneNumber)
 
     assert isinstance(value, str)
@@ -191,8 +192,33 @@ def test_generate_random_value_reference_external(testing_context):
 
 def test_generate_random_value_default_string(testing_context):
     """Generates default string values."""
-    from scim2_models import User
-
     value = generate_random_value(testing_context, "title", User)
 
     assert isinstance(value, str)
+
+
+def test_fix_primary_attributes_single_object():
+    """Ensures single email gets primary=True."""
+    user = User(user_name="test")
+    user.emails = [Email(value="test@example.com", type=Email.Type.work)]
+
+    fix_primary_attributes(user)
+
+    assert len(user.emails) == 1
+    assert user.emails[0].primary is True
+
+
+def test_fix_primary_attributes_multiple_objects():
+    """Ensures exactly one email has primary=True when multiple exist."""
+    user = User(user_name="test")
+    user.emails = [
+        Email(value="work@example.com", type=Email.Type.work),
+        Email(value="home@example.com", type=Email.Type.home),
+        Email(value="other@example.com", type=Email.Type.other),
+    ]
+
+    fix_primary_attributes(user)
+
+    assert len(user.emails) == 3
+    primary_count = sum(1 for email in user.emails if email.primary)
+    assert primary_count == 1

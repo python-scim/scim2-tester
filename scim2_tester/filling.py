@@ -171,6 +171,8 @@ def fill_with_random_values(
         value = generate_random_value(context, urn=urn, model=type(obj))
         set_value_by_urn(obj, urn, value)
 
+    fix_primary_attributes(obj)
+
     return obj
 
 
@@ -194,3 +196,30 @@ def fill_complex_attribute_with_random_values(
         ):
             obj.value = ref.rsplit("/", 1)[-1]
     return obj
+
+
+def fix_primary_attributes(obj: Resource[Any]) -> None:
+    """Fix primary attributes to respect RFC 7643 constraints.
+
+    Ensures that for multi-valued attributes with 'primary' sub-attributes:
+    - If the list has one item, sets primary=True
+    - If the list has multiple items, exactly one has primary=True and others primary=False
+    - If the list is empty, does nothing
+
+    According to RFC 7643 §2.4: The primary attribute value "true" MUST appear no more than once.
+    """
+    for field_name, _field_info in type(obj).model_fields.items():
+        attr_value = getattr(obj, field_name, None)
+        if not attr_value or not isinstance(attr_value, list) or len(attr_value) == 0:
+            continue
+
+        first_item = attr_value[0]
+        if not hasattr(first_item, "primary"):
+            continue
+
+        if len(attr_value) == 1:
+            attr_value[0].primary = True
+        else:
+            primary_index = random.randint(0, len(attr_value) - 1)
+            for i, item in enumerate(attr_value):
+                item.primary = i == primary_index
