@@ -363,7 +363,9 @@ def test_patch_add_modify_result_incorrect_value(testing_context):
     results = check_add_attribute(testing_context, User)
 
     error_results = [
-        r for r in results if r.status == Status.ERROR and "incorrect value" in r.reason
+        r
+        for r in results
+        if r.status == Status.ERROR and "unexpected value" in r.reason
     ]
     assert len(error_results) > 0
 
@@ -405,7 +407,7 @@ def test_patch_add_query_failure_after_patch(httpserver, testing_context):
         r
         for r in results
         if r.status == Status.ERROR
-        and "was not added or has incorrect value" in r.reason
+        and "was not added or has unexpected value" in r.reason
     ]
     assert len(error_results) > 0
 

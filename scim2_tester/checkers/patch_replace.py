@@ -126,7 +126,11 @@ def check_replace_attribute(
                         check_result(
                             context,
                             status=Status.ERROR,
-                            reason=f"PATCH modify() returned incorrect value for '{urn}'",
+                            reason=(
+                                f"PATCH modify() returned unexpected value for '{urn}'.\n"
+                                f"Patched value: {patch_value}\n"
+                                f"Returned value: {modify_actual_value}"
+                            ),
                             resource_type=model.__name__,
                             data={
                                 "urn": urn,
@@ -179,7 +183,11 @@ def check_replace_attribute(
                 check_result(
                     context,
                     status=Status.ERROR,
-                    reason=f"Attribute '{urn}' was not replaced or has incorrect value",
+                    reason=(
+                        f"Attribute '{urn}' was not replaced or has unexpected value"
+                        f"Patched value: {patch_value}\n"
+                        f"Returned value: {actual_value}"
+                    ),
                     resource_type=model.__name__,
                     data={
                         "urn": urn,
