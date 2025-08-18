@@ -8,6 +8,7 @@ from scim2_models import Email
 from scim2_models import Group
 from scim2_models import Mutability
 from scim2_models import PhoneNumber
+from scim2_models import Required
 from scim2_models import User
 from scim2_models.attributes import ComplexAttribute
 from scim2_models.resources.resource import Resource
@@ -265,3 +266,23 @@ def test_fill_with_random_values_ignores_mutability_filter(testing_context):
     assert filled_resource.test_attr.readonly_field is None, (
         f"readonly_field should be None but got {filled_resource.test_attr.readonly_field}"
     )
+
+
+def test_resource_manager_complex_attribute_required_subfields(testing_context):
+    """Test that ResourceManager doesn't collect URNs for required sub-attributes of complex fields."""
+
+    class TestName(ComplexAttribute):
+        formatted: Annotated[str | None, Required.true] = None
+        given_name: str | None = None
+
+    class TestUser(Resource):
+        schemas: Annotated[list[str], Required.true] = ["urn:test:TestUser"]
+        name: Annotated[TestName | None, Required.true] = None
+
+    obj = TestUser()
+    urns = ["urn:test:TestUser:name"]
+    filled = fill_with_random_values(testing_context, obj, urns)
+
+    assert filled.name is not None
+    assert filled.name.formatted is not None
+    assert filled.name.given_name is None

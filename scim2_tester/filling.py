@@ -13,6 +13,7 @@ from scim2_models import Extension
 from scim2_models import ExternalReference
 from scim2_models import Mutability
 from scim2_models import Reference
+from scim2_models import Required
 from scim2_models import Resource
 from scim2_models import URIReference
 from scim2_models.utils import UNION_TYPES
@@ -208,6 +209,15 @@ def fill_complex_attribute_with_random_values(
     For SCIM reference fields, correctly sets the value field to match
     the ID extracted from the reference URL.
     """
+    if not urns:
+        urns = []
+        for field_name in type(obj).model_fields:
+            if type(obj).get_field_annotation(field_name, Required) == Required.true:
+                alias = (
+                    type(obj).model_fields[field_name].serialization_alias or field_name
+                )
+                urns.append(alias)
+
     fill_with_random_values(context, obj, urns)
     if "ref" in type(obj).model_fields and "value" in type(obj).model_fields:
         ref_type = type(obj).get_field_root_type("ref")
