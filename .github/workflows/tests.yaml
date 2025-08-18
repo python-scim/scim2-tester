@@ -36,7 +36,7 @@ jobs:
         run: uv run pytest --showlocals
 
   coverage:
-    name: py${{ matrix.python }} unit tests
+    name: coverage
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v4
