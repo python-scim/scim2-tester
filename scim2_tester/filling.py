@@ -25,6 +25,21 @@ from scim2_tester.urns import get_target_model_by_urn
 from scim2_tester.urns import iter_all_urns
 from scim2_tester.urns import set_value_by_urn
 
+
+def filter_sub_urns(parent_urn: str, allowed_urns: list[str]) -> list[str]:
+    """Extract and normalize sub-URNs for a parent complex attribute.
+
+    Converts "parent.child" URNs to "child" URNs for use in the complex attribute context.
+    """
+    prefix = f"{parent_urn}."
+    sub_urns = []
+    for urn in allowed_urns:
+        if urn.startswith(prefix):
+            sub_urn = urn.removeprefix(prefix)
+            sub_urns.append(sub_urn)
+    return sub_urns
+
+
 if TYPE_CHECKING:
     from scim2_tester.utils import CheckContext
 
@@ -69,6 +84,7 @@ def generate_random_value(
     context: "CheckContext",
     urn: str,
     model: type[Resource],
+    allowed_urns: list[str] | None = None,
 ) -> Any:
     field_name = _find_field_name(model, urn)
     field_type = get_attribute_type_by_urn(model, urn)
@@ -124,10 +140,14 @@ def generate_random_value(
         value = random.choice(list(field_type))
 
     elif isclass(field_type) and issubclass(field_type, ComplexAttribute):
-        value = fill_complex_attribute_with_random_values(context, field_type())  # type: ignore[arg-type]
+        sub_urns = filter_sub_urns(urn, allowed_urns) if allowed_urns else None
+        value = fill_complex_attribute_with_random_values(
+            context, field_type(), sub_urns
+        )  # type: ignore[arg-type]
 
     elif isclass(field_type) and issubclass(field_type, Extension):
-        value = fill_with_random_values(context, field_type())  # type: ignore[arg-type]
+        sub_urns = filter_sub_urns(urn, allowed_urns) if allowed_urns else None
+        value = fill_with_random_values(context, field_type(), sub_urns)  # type: ignore[arg-type]
 
     elif field_type is Base64Bytes:
         value = base64.b64encode(uuid.uuid4().bytes).decode("ascii")
@@ -168,7 +188,9 @@ def fill_with_random_values(
         ]
 
     for urn in urns:
-        value = generate_random_value(context, urn=urn, model=type(obj))
+        value = generate_random_value(
+            context, urn=urn, model=type(obj), allowed_urns=urns
+        )
         set_value_by_urn(obj, urn, value)
 
     fix_primary_attributes(obj)
@@ -179,13 +201,14 @@ def fill_with_random_values(
 def fill_complex_attribute_with_random_values(
     context: "CheckContext",
     obj: ComplexAttribute,
+    urns: list[str] | None = None,
 ) -> Resource[Any] | None:
     """Fill a ComplexAttribute with random values.
 
     For SCIM reference fields, correctly sets the value field to match
     the ID extracted from the reference URL.
     """
-    fill_with_random_values(context, obj)
+    fill_with_random_values(context, obj, urns)
     if "ref" in type(obj).model_fields and "value" in type(obj).model_fields:
         ref_type = type(obj).get_field_root_type("ref")
         if (

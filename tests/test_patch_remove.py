@@ -239,12 +239,7 @@ def test_user_with_enterprise_extension_remove(httpserver, testing_context):
             "userType",
             "preferredLanguage",
         ]:
-            if key in request_data:
-                response_data[key] = request_data[key]
-
-        extension_key = "urn:ietf:params:scim:schemas:extension:enterprise:2.0:User"
-        if extension_key in request_data:
-            response_data[extension_key] = request_data[extension_key]
+            response_data[key] = request_data[key]
 
         return Response(
             json.dumps(response_data),
