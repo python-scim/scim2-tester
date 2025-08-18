@@ -1,12 +1,16 @@
 """Test automatic field filling functionality."""
 
+from typing import Annotated
 from typing import Literal
 from unittest.mock import patch
 
 from scim2_models import Email
 from scim2_models import Group
+from scim2_models import Mutability
 from scim2_models import PhoneNumber
 from scim2_models import User
+from scim2_models.attributes import ComplexAttribute
+from scim2_models.resources.resource import Resource
 from scim2_models.resources.user import X509Certificate
 
 from scim2_tester.filling import fill_with_random_values
@@ -240,3 +244,24 @@ def test_fill_with_random_values_phone_numbers_primary_constraint(testing_contex
 
     primary_count = sum(1 for phone in filled_user.phone_numbers if phone.primary)
     assert primary_count == 1
+
+
+def test_fill_with_random_values_ignores_mutability_filter(testing_context):
+    """Demonstrates that complex attribute generation fills read-only sub-attributes incorrectly."""
+
+    class TestComplexAttr(ComplexAttribute):
+        writable_field: str | None = None
+        readonly_field: Annotated[str | None, Mutability.read_only] = None
+
+    class TestResource(Resource):
+        test_attr: TestComplexAttr | None = None
+
+    resource = TestResource(schemas=["urn:test:schema"])
+
+    filled_resource = fill_with_random_values(
+        testing_context, resource, ["test_attr.writable_field"]
+    )
+
+    assert filled_resource.test_attr.readonly_field is None, (
+        f"readonly_field should be None but got {filled_resource.test_attr.readonly_field}"
+    )
