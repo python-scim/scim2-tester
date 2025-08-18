@@ -191,7 +191,7 @@ def check_add_attribute(
                     context,
                     status=Status.ERROR,
                     reason=(
-                        f"Attribute '{urn}' was not added or has unexpected value"
+                        f"Attribute '{urn}' was not added or has unexpected value\n"
                         f"Patched value: {patch_value}\n"
                         f"Returned value: {actual_value}"
                     ),
