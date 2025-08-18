@@ -1,4 +1,3 @@
-from typing import Any
 from typing import Literal
 
 from pydantic import EmailStr
@@ -75,10 +74,6 @@ def test_iter_urns_resource():
     assert "addresses" in urns
     assert "addresses.type" in urns
     assert "addresses.primary" in urns
-    assert "addresses.display" in urns
-    # TODO: this should not exist
-    assert "addresses.value" in urns
-    assert "addresses.ref" in urns
     assert "addresses.formatted" in urns
     assert "addresses.streetAddress" in urns
     assert "addresses.locality" in urns
@@ -87,7 +82,6 @@ def test_iter_urns_resource():
     assert "addresses.country" in urns
     assert "groups" in urns
     assert "groups.type" in urns
-    assert "groups.primary" in urns
     assert "groups.display" in urns
     assert "groups.value" in urns
     assert "groups.ref" in urns
@@ -95,22 +89,17 @@ def test_iter_urns_resource():
     assert "entitlements.type" in urns
     assert "entitlements.primary" in urns
     assert "entitlements.display" in urns
-    # TODO: this should be str ?
     assert "entitlements.value" in urns
-    assert "entitlements.ref" in urns
     assert "roles" in urns
     assert "roles.type" in urns
     assert "roles.primary" in urns
     assert "roles.display" in urns
-    # TODO: this should be str?
     assert "roles.value" in urns
-    assert "roles.ref" in urns
     assert "x509Certificates" in urns
     assert "x509Certificates.type" in urns
     assert "x509Certificates.primary" in urns
     assert "x509Certificates.display" in urns
     assert "x509Certificates.value" in urns
-    assert "x509Certificates.ref" in urns
 
 
 def test_iter_urns_extension():
@@ -170,32 +159,24 @@ def test_iter_all_urns():
     assert ("emails.primary", User[EnterpriseUser]) in urns
     assert ("emails.display", User[EnterpriseUser]) in urns
     assert ("emails.value", User[EnterpriseUser]) in urns
-    assert ("emails.ref", User[EnterpriseUser]) in urns
     assert ("phoneNumbers", User[EnterpriseUser]) in urns
     assert ("phoneNumbers.type", User[EnterpriseUser]) in urns
     assert ("phoneNumbers.primary", User[EnterpriseUser]) in urns
     assert ("phoneNumbers.display", User[EnterpriseUser]) in urns
     assert ("phoneNumbers.value", User[EnterpriseUser]) in urns
-    assert ("phoneNumbers.ref", User[EnterpriseUser]) in urns
     assert ("ims", User[EnterpriseUser]) in urns
     assert ("ims.type", User[EnterpriseUser]) in urns
     assert ("ims.primary", User[EnterpriseUser]) in urns
     assert ("ims.display", User[EnterpriseUser]) in urns
     assert ("ims.value", User[EnterpriseUser]) in urns
-    assert ("ims.ref", User[EnterpriseUser]) in urns
     assert ("photos", User[EnterpriseUser]) in urns
     assert ("photos.type", User[EnterpriseUser]) in urns
     assert ("photos.primary", User[EnterpriseUser]) in urns
     assert ("photos.display", User[EnterpriseUser]) in urns
     assert ("photos.value", User[EnterpriseUser]) in urns
-    assert ("photos.ref", User[EnterpriseUser]) in urns
     assert ("addresses", User[EnterpriseUser]) in urns
     assert ("addresses.type", User[EnterpriseUser]) in urns
     assert ("addresses.primary", User[EnterpriseUser]) in urns
-    assert ("addresses.display", User[EnterpriseUser]) in urns
-    # TODO: this should not exist
-    assert ("addresses.value", User[EnterpriseUser]) in urns
-    assert ("addresses.ref", User[EnterpriseUser]) in urns
     assert ("addresses.formatted", User[EnterpriseUser]) in urns
     assert ("addresses.streetAddress", User[EnterpriseUser]) in urns
     assert ("addresses.locality", User[EnterpriseUser]) in urns
@@ -204,7 +185,6 @@ def test_iter_all_urns():
     assert ("addresses.country", User[EnterpriseUser]) in urns
     assert ("groups", User[EnterpriseUser]) in urns
     assert ("groups.type", User[EnterpriseUser]) in urns
-    assert ("groups.primary", User[EnterpriseUser]) in urns
     assert ("groups.display", User[EnterpriseUser]) in urns
     assert ("groups.value", User[EnterpriseUser]) in urns
     assert ("groups.ref", User[EnterpriseUser]) in urns
@@ -212,22 +192,17 @@ def test_iter_all_urns():
     assert ("entitlements.type", User[EnterpriseUser]) in urns
     assert ("entitlements.primary", User[EnterpriseUser]) in urns
     assert ("entitlements.display", User[EnterpriseUser]) in urns
-    # TODO: this should be str ?
     assert ("entitlements.value", User[EnterpriseUser]) in urns
-    assert ("entitlements.ref", User[EnterpriseUser]) in urns
     assert ("roles", User[EnterpriseUser]) in urns
     assert ("roles.type", User[EnterpriseUser]) in urns
     assert ("roles.primary", User[EnterpriseUser]) in urns
     assert ("roles.display", User[EnterpriseUser]) in urns
-    # TODO: this should be str?
     assert ("roles.value", User[EnterpriseUser]) in urns
-    assert ("roles.ref", User[EnterpriseUser]) in urns
     assert ("x509Certificates", User[EnterpriseUser]) in urns
     assert ("x509Certificates.type", User[EnterpriseUser]) in urns
     assert ("x509Certificates.primary", User[EnterpriseUser]) in urns
     assert ("x509Certificates.display", User[EnterpriseUser]) in urns
     assert ("x509Certificates.value", User[EnterpriseUser]) in urns
-    assert ("x509Certificates.ref", User[EnterpriseUser]) in urns
     assert (
         "urn:ietf:params:scim:schemas:extension:enterprise:2.0:User:costCenter",
         EnterpriseUser,
@@ -282,10 +257,6 @@ def test_get_target_model_by_urn():
             Address,
             "country",
         ),
-        "addresses.display": (
-            Address,
-            "display",
-        ),
         "addresses.formatted": (
             Address,
             "formatted",
@@ -302,10 +273,6 @@ def test_get_target_model_by_urn():
             Address,
             "primary",
         ),
-        "addresses.ref": (
-            Address,
-            "ref",
-        ),
         "addresses.region": (
             Address,
             "region",
@@ -317,10 +284,6 @@ def test_get_target_model_by_urn():
         "addresses.type": (
             Address,
             "type",
-        ),
-        "addresses.value": (
-            Address,
-            "value",
         ),
         "displayName": (
             User[EnterpriseUser],
@@ -337,10 +300,6 @@ def test_get_target_model_by_urn():
         "emails.primary": (
             Email,
             "primary",
-        ),
-        "emails.ref": (
-            Email,
-            "ref",
         ),
         "emails.type": (
             Email,
@@ -362,10 +321,6 @@ def test_get_target_model_by_urn():
             Entitlement,
             "primary",
         ),
-        "entitlements.ref": (
-            Entitlement,
-            "ref",
-        ),
         "entitlements.type": (
             Entitlement,
             "type",
@@ -385,10 +340,6 @@ def test_get_target_model_by_urn():
         "groups.display": (
             GroupMembership,
             "display",
-        ),
-        "groups.primary": (
-            GroupMembership,
-            "primary",
         ),
         "groups.ref": (
             GroupMembership,
@@ -413,10 +364,6 @@ def test_get_target_model_by_urn():
         "ims.primary": (
             Im,
             "primary",
-        ),
-        "ims.ref": (
-            Im,
-            "ref",
         ),
         "ims.type": (
             Im,
@@ -478,10 +425,6 @@ def test_get_target_model_by_urn():
             PhoneNumber,
             "primary",
         ),
-        "phoneNumbers.ref": (
-            PhoneNumber,
-            "ref",
-        ),
         "phoneNumbers.type": (
             PhoneNumber,
             "type",
@@ -501,10 +444,6 @@ def test_get_target_model_by_urn():
         "photos.primary": (
             Photo,
             "primary",
-        ),
-        "photos.ref": (
-            Photo,
-            "ref",
         ),
         "photos.type": (
             Photo,
@@ -533,10 +472,6 @@ def test_get_target_model_by_urn():
         "roles.primary": (
             Role,
             "primary",
-        ),
-        "roles.ref": (
-            Role,
-            "ref",
         ),
         "roles.type": (
             Role,
@@ -614,10 +549,6 @@ def test_get_target_model_by_urn():
             X509Certificate,
             "primary",
         ),
-        "x509Certificates.ref": (
-            X509Certificate,
-            "ref",
-        ),
         "x509Certificates.type": (
             X509Certificate,
             "type",
@@ -636,40 +567,33 @@ def test_get_attribute_type_by_urn():
         "active": bool,
         "addresses": Address,
         "addresses.country": str,
-        "addresses.display": str,
         "addresses.formatted": str,
         "addresses.locality": str,
         "addresses.postalCode": str,
         "addresses.primary": bool,
-        "addresses.ref": Reference[Any],
         "addresses.region": str,
         "addresses.streetAddress": str,
         "addresses.type": Address.Type,
-        "addresses.value": Any,
         "displayName": str,
         "emails": Email,
         "emails.display": str,
         "emails.primary": bool,
-        "emails.ref": Reference[Any],
         "emails.type": Email.Type,
         "emails.value": EmailStr,
         "entitlements": Entitlement,
         "entitlements.display": str,
         "entitlements.primary": bool,
-        "entitlements.ref": Reference[Any],
         "entitlements.type": str,
-        "entitlements.value": Any,
+        "entitlements.value": str,
         "externalId": str,
         "groups": GroupMembership,
         "groups.display": str,
-        "groups.primary": bool,
         "groups.ref": Reference[Literal["User"] | Literal["Group"]],
         "groups.type": str,
         "groups.value": str,
         "ims": Im,
         "ims.display": str,
         "ims.primary": bool,
-        "ims.ref": Reference[Any],
         "ims.type": Im.Type,
         "ims.value": str,
         "locale": str,
@@ -685,13 +609,11 @@ def test_get_attribute_type_by_urn():
         "phoneNumbers": PhoneNumber,
         "phoneNumbers.display": str,
         "phoneNumbers.primary": bool,
-        "phoneNumbers.ref": Reference[Any],
         "phoneNumbers.type": PhoneNumber.Type,
         "phoneNumbers.value": str,
         "photos": Photo,
         "photos.display": str,
         "photos.primary": bool,
-        "photos.ref": Reference[Any],
         "photos.type": Photo.Type,
         "photos.value": Reference[ExternalReference],
         "preferredLanguage": str,
@@ -699,9 +621,8 @@ def test_get_attribute_type_by_urn():
         "roles": Role,
         "roles.display": str,
         "roles.primary": bool,
-        "roles.ref": Reference[Any],
         "roles.type": str,
-        "roles.value": Any,
+        "roles.value": str,
         "timezone": str,
         "title": str,
         "urn:ietf:params:scim:schemas:extension:enterprise:2.0:User": EnterpriseUser,
@@ -721,7 +642,6 @@ def test_get_attribute_type_by_urn():
         "x509Certificates": X509Certificate,
         "x509Certificates.display": str,
         "x509Certificates.primary": bool,
-        "x509Certificates.ref": Reference[Any],
         "x509Certificates.type": str,
         "x509Certificates.value": Base64Bytes,
     }
@@ -736,40 +656,33 @@ def test_get_annotation_by_urn():
         "active": Mutability.read_write,
         "addresses": Mutability.read_write,
         "addresses.country": Mutability.read_write,
-        "addresses.display": Mutability.immutable,
         "addresses.formatted": Mutability.read_write,
         "addresses.locality": Mutability.read_write,
         "addresses.postalCode": Mutability.read_write,
         "addresses.primary": Mutability.read_write,
-        "addresses.ref": Mutability.read_write,
         "addresses.region": Mutability.read_write,
         "addresses.streetAddress": Mutability.read_write,
         "addresses.type": Mutability.read_write,
-        "addresses.value": Mutability.read_write,
         "displayName": Mutability.read_write,
         "emails": Mutability.read_write,
         "emails.display": Mutability.read_write,
         "emails.primary": Mutability.read_write,
-        "emails.ref": Mutability.read_write,
         "emails.type": Mutability.read_write,
         "emails.value": Mutability.read_write,
         "entitlements": Mutability.read_write,
-        "entitlements.display": Mutability.immutable,
+        "entitlements.display": Mutability.read_write,
         "entitlements.primary": Mutability.read_write,
-        "entitlements.ref": Mutability.read_write,
         "entitlements.type": Mutability.read_write,
         "entitlements.value": Mutability.read_write,
         "externalId": Mutability.read_write,
         "groups": Mutability.read_only,
         "groups.display": Mutability.read_only,
-        "groups.primary": Mutability.read_write,
         "groups.ref": Mutability.read_only,
         "groups.type": Mutability.read_only,
         "groups.value": Mutability.read_only,
         "ims": Mutability.read_write,
         "ims.display": Mutability.read_write,
         "ims.primary": Mutability.read_write,
-        "ims.ref": Mutability.read_write,
         "ims.type": Mutability.read_write,
         "ims.value": Mutability.read_write,
         "locale": Mutability.read_write,
@@ -785,21 +698,18 @@ def test_get_annotation_by_urn():
         "phoneNumbers": Mutability.read_write,
         "phoneNumbers.display": Mutability.read_write,
         "phoneNumbers.primary": Mutability.read_write,
-        "phoneNumbers.ref": Mutability.read_write,
         "phoneNumbers.type": Mutability.read_write,
         "phoneNumbers.value": Mutability.read_write,
         "photos": Mutability.read_write,
         "photos.display": Mutability.read_write,
         "photos.primary": Mutability.read_write,
-        "photos.ref": Mutability.read_write,
         "photos.type": Mutability.read_write,
         "photos.value": Mutability.read_write,
         "preferredLanguage": Mutability.read_write,
         "profileUrl": Mutability.read_write,
         "roles": Mutability.read_write,
-        "roles.display": Mutability.immutable,
+        "roles.display": Mutability.read_write,
         "roles.primary": Mutability.read_write,
-        "roles.ref": Mutability.read_write,
         "roles.type": Mutability.read_write,
         "roles.value": Mutability.read_write,
         "timezone": Mutability.read_write,
@@ -817,9 +727,8 @@ def test_get_annotation_by_urn():
         "userName": Mutability.read_write,
         "userType": Mutability.read_write,
         "x509Certificates": Mutability.read_write,
-        "x509Certificates.display": Mutability.immutable,
+        "x509Certificates.display": Mutability.read_write,
         "x509Certificates.primary": Mutability.read_write,
-        "x509Certificates.ref": Mutability.read_write,
         "x509Certificates.type": Mutability.read_write,
         "x509Certificates.value": Mutability.read_write,
     }
@@ -907,7 +816,6 @@ def test_get_value_by_urn():
                 country="USA",
                 type=Address.Type.work,
                 primary=True,
-                display="Work Address",
             ),
             Address(
                 formatted="789 Oak Ave, New York, NY 10001, USA",
@@ -918,7 +826,6 @@ def test_get_value_by_urn():
                 country="USA",
                 type=Address.Type.home,
                 primary=False,
-                display="Home Address",
             ),
         ],
         groups=[
@@ -1117,7 +1024,6 @@ def test_get_value_by_urn():
             country="USA",
             type=Address.Type.work,
             primary=True,
-            display="Work Address",
         ),
         Address(
             formatted="789 Oak Ave, New York, NY 10001, USA",
@@ -1128,7 +1034,6 @@ def test_get_value_by_urn():
             country="USA",
             type=Address.Type.home,
             primary=False,
-            display="Home Address",
         ),
     ]
     # assert get_value_by_urn(user, "addresses.formatted") == [
@@ -1148,10 +1053,6 @@ def test_get_value_by_urn():
     #    Address.Type.home,
     # ]
     # assert get_value_by_urn(user, "addresses.primary") == [True, False]
-    # assert get_value_by_urn(user, "addresses.display") == [
-    #    "Work Address",
-    #    "Home Address",
-    # ]
 
     # Test groups - not possible until filters are supported
     assert get_value_by_urn(user, "groups") == [
