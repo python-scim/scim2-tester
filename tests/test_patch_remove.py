@@ -239,7 +239,8 @@ def test_user_with_enterprise_extension_remove(httpserver, testing_context):
             "userType",
             "preferredLanguage",
         ]:
-            response_data[key] = request_data[key]
+            if key in request_data:
+                response_data[key] = request_data[key]
 
         return Response(
             json.dumps(response_data),

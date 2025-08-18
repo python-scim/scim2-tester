@@ -5,6 +5,7 @@ from typing import Literal
 from unittest.mock import patch
 
 from scim2_models import Email
+from scim2_models import EnterpriseUser
 from scim2_models import Group
 from scim2_models import Mutability
 from scim2_models import PhoneNumber
@@ -30,8 +31,6 @@ def test_generate_random_value_bytes_field(testing_context):
 
 def test_model_resolution_from_reference_type(testing_context):
     """Ensures model resolution from reference type excludes specified models."""
-    from scim2_models import EnterpriseUser
-
     ref_type = Literal["User"] | Literal["Group"]
     different_than = Group
 
@@ -95,8 +94,6 @@ def test_fill_with_nonexistent_field(testing_context):
 
 def test_get_random_example_value():
     """Validates random value selection from pydantic field examples."""
-    from scim2_models import Email
-
     value = get_random_example_value(Email, "type")
 
     assert value in ["work", "home", "other"]
@@ -104,8 +101,6 @@ def test_get_random_example_value():
 
 def test_get_random_example_value_no_examples():
     """Returns None when field has no examples."""
-    from scim2_models import Email
-
     value = get_random_example_value(Email, "value")
 
     assert value is None
@@ -113,8 +108,6 @@ def test_get_random_example_value_no_examples():
 
 def test_get_random_example_value_invalid_urn():
     """Returns None when URN is invalid."""
-    from scim2_models import Email
-
     value = get_random_example_value(Email, "nonexistent")
 
     assert value is None
@@ -122,8 +115,6 @@ def test_get_random_example_value_invalid_urn():
 
 def test_generate_random_value_with_examples(testing_context):
     """Uses examples when available."""
-    from scim2_models import Email
-
     value = generate_random_value(testing_context, "type", Email)
 
     assert value in ["work", "home", "other"]
@@ -140,8 +131,6 @@ def test_generate_random_value_phone_number(testing_context):
 
 def test_generate_random_value_email(testing_context):
     """Generates emails correctly."""
-    from scim2_models import Email
-
     value = generate_random_value(testing_context, "emails.value", Email)
 
     assert isinstance(value, str)
@@ -151,8 +140,6 @@ def test_generate_random_value_email(testing_context):
 
 def test_generate_random_value_bool(testing_context):
     """Generates boolean values."""
-    from scim2_models import User
-
     value = generate_random_value(testing_context, "active", User)
 
     assert isinstance(value, bool)
@@ -160,8 +147,6 @@ def test_generate_random_value_bool(testing_context):
 
 def test_generate_random_value_int(testing_context):
     """Generates integer values."""
-    from scim2_models.resources.user import X509Certificate
-
     value = generate_random_value(testing_context, "value", X509Certificate)
 
     assert isinstance(value, str)
@@ -169,8 +154,6 @@ def test_generate_random_value_int(testing_context):
 
 def test_generate_random_value_complex_attribute(testing_context):
     """Generates complex attribute values."""
-    from scim2_models import User
-
     value = generate_random_value(testing_context, "name", User)
 
     assert value is not None
@@ -178,17 +161,14 @@ def test_generate_random_value_complex_attribute(testing_context):
 
 def test_generate_random_value_multiple_field(testing_context):
     """Generates list values for multiple fields."""
-    from scim2_models import User
-
     value = generate_random_value(testing_context, "emails", User)
 
     assert isinstance(value, list)
+    assert len(value)
 
 
 def test_generate_random_value_reference_external(testing_context):
     """Generates external reference values."""
-    from scim2_models import User
-
     value = generate_random_value(testing_context, "profileUrl", User)
 
     assert isinstance(value, str)
@@ -247,42 +227,52 @@ def test_fill_with_random_values_phone_numbers_primary_constraint(testing_contex
     assert primary_count == 1
 
 
-def test_fill_with_random_values_ignores_mutability_filter(testing_context):
-    """Demonstrates that complex attribute generation fills read-only sub-attributes incorrectly."""
-
+def test_sub_attributes_mutability_filter(testing_context):
     class TestComplexAttr(ComplexAttribute):
         writable_field: str | None = None
         readonly_field: Annotated[str | None, Mutability.read_only] = None
+        immutable_field: Annotated[str | None, Mutability.immutable] = None
 
     class TestResource(Resource):
+        schemas: list[str] = ["urn:test:TestResource"]
         test_attr: TestComplexAttr | None = None
 
-    resource = TestResource(schemas=["urn:test:schema"])
+    filled = fill_with_random_values(testing_context, TestResource())
 
-    filled_resource = fill_with_random_values(
-        testing_context, resource, ["test_attr.writable_field"]
+    assert filled.test_attr is not None
+    assert filled.test_attr.writable_field is not None
+    assert filled.test_attr.readonly_field is None
+    assert filled.test_attr.immutable_field is not None
+
+    filled = fill_with_random_values(
+        testing_context, TestResource(), mutability=[Mutability.read_write]
     )
 
-    assert filled_resource.test_attr.readonly_field is None, (
-        f"readonly_field should be None but got {filled_resource.test_attr.readonly_field}"
+    assert filled.test_attr is not None
+    assert filled.test_attr.writable_field is not None
+    assert filled.test_attr.readonly_field is None
+    assert filled.test_attr.immutable_field is None
+
+
+def test_get_model_from_ref_type_fallback_when_no_acceptable_models(testing_context):
+    """Ensures fallback to first model when all models are excluded by different_than."""
+    ref_type = Literal["User"]
+    result = get_model_from_ref_type(
+        testing_context, ref_type, different_than=User[EnterpriseUser]
     )
 
+    assert result == User[EnterpriseUser]
 
-def test_resource_manager_complex_attribute_required_subfields(testing_context):
-    """Test that ResourceManager doesn't collect URNs for required sub-attributes of complex fields."""
 
-    class TestName(ComplexAttribute):
-        formatted: Annotated[str | None, Required.true] = None
-        given_name: str | None = None
+def test_generate_random_value_required_filter(testing_context):
+    """Tests required filter returns None when field is not in required list."""
+    result = generate_random_value(
+        testing_context, "displayName", User, required=[Required.true]
+    )
 
-    class TestUser(Resource):
-        schemas: Annotated[list[str], Required.true] = ["urn:test:TestUser"]
-        name: Annotated[TestName | None, Required.true] = None
+    assert result is None
 
-    obj = TestUser()
-    urns = ["urn:test:TestUser:name"]
-    filled = fill_with_random_values(testing_context, obj, urns)
-
-    assert filled.name is not None
-    assert filled.name.formatted is not None
-    assert filled.name.given_name is None
+    result = generate_random_value(
+        testing_context, "userName", User, required=[Required.true]
+    )
+    assert result

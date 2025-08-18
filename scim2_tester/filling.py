@@ -20,26 +20,12 @@ from scim2_models.utils import UNION_TYPES
 from scim2_models.utils import Base64Bytes
 from scim2_models.utils import _find_field_name
 
+from scim2_tester.urns import get_annotation_by_urn
 from scim2_tester.urns import get_attribute_type_by_urn
 from scim2_tester.urns import get_multiplicity_by_urn
 from scim2_tester.urns import get_target_model_by_urn
 from scim2_tester.urns import iter_all_urns
 from scim2_tester.urns import set_value_by_urn
-
-
-def filter_sub_urns(parent_urn: str, allowed_urns: list[str]) -> list[str]:
-    """Extract and normalize sub-URNs for a parent complex attribute.
-
-    Converts "parent.child" URNs to "child" URNs for use in the complex attribute context.
-    """
-    prefix = f"{parent_urn}."
-    sub_urns = []
-    for urn in allowed_urns:
-        if urn.startswith(prefix):
-            sub_urn = urn.removeprefix(prefix)
-            sub_urns.append(sub_urn)
-    return sub_urns
-
 
 if TYPE_CHECKING:
     from scim2_tester.utils import CheckContext
@@ -78,6 +64,10 @@ def get_model_from_ref_type(
     models = get_model_from_ref_type_(ref_type)
     models = models if isinstance(models, list) else [models]
     acceptable_models = [model for model in models if model != different_than]
+
+    if not acceptable_models:
+        return models[0]
+
     return acceptable_models[0]
 
 
@@ -85,8 +75,19 @@ def generate_random_value(
     context: "CheckContext",
     urn: str,
     model: type[Resource],
-    allowed_urns: list[str] | None = None,
+    mutability: list[Mutability] | None = None,
+    required: list[Required] | None = None,
 ) -> Any:
+    if mutability is not None:
+        field_mutability = get_annotation_by_urn(Mutability, urn, model)
+        if field_mutability not in mutability:
+            return None
+
+    if required is not None:
+        field_required = get_annotation_by_urn(Required, urn, model)
+        if field_required not in required:
+            return None
+
     field_name = _find_field_name(model, urn)
     field_type = get_attribute_type_by_urn(model, urn)
     is_multiple = get_multiplicity_by_urn(model, urn)
@@ -141,14 +142,14 @@ def generate_random_value(
         value = random.choice(list(field_type))
 
     elif isclass(field_type) and issubclass(field_type, ComplexAttribute):
-        sub_urns = filter_sub_urns(urn, allowed_urns) if allowed_urns else None
-        value = fill_complex_attribute_with_random_values(
-            context, field_type(), sub_urns
+        value = fill_with_random_values(
+            context, field_type(), mutability=mutability, required=required
         )  # type: ignore[arg-type]
 
     elif isclass(field_type) and issubclass(field_type, Extension):
-        sub_urns = filter_sub_urns(urn, allowed_urns) if allowed_urns else None
-        value = fill_with_random_values(context, field_type(), sub_urns)  # type: ignore[arg-type]
+        value = fill_with_random_values(
+            context, field_type(), mutability=mutability, required=required
+        )  # type: ignore[arg-type]
 
     elif field_type is Base64Bytes:
         value = base64.b64encode(uuid.uuid4().bytes).decode("ascii")
@@ -166,69 +167,62 @@ def fill_with_random_values(
     context: "CheckContext",
     obj: Resource[Any],
     urns: list[str] | None = None,
+    mutability: list[Mutability] | None = None,
+    required: list[Required] | None = None,
 ) -> Resource[Any] | None:
     """Fill an object with random values generated according the attribute types.
 
     :param context: The check context containing the SCIM client and configuration
     :param obj: The Resource object to fill with random values
-    :param urns: Optional list of URNs to fill (defaults to all fields)
+    :param urns: Optional list of URNs to fill (for backward compatibility)
+    :param mutability: Optional list of mutability constraints to filter fields
+    :param required: Optional list of required constraints to filter fields
     :returns: The filled object or None if the object ends up empty
     """
-    # If no URNs provided, generate URNs for all fields
+    mutability = mutability or [
+        Mutability.read_write,
+        Mutability.write_only,
+        Mutability.immutable,
+    ]
     if urns is None:
         urns = [
             urn
             for urn, _ in iter_all_urns(
                 type(obj),
-                mutability=[
-                    Mutability.read_write,
-                    Mutability.write_only,
-                    Mutability.immutable,
-                ],
+                mutability=mutability,
+                required=required,
             )
         ]
 
     for urn in urns:
         value = generate_random_value(
-            context, urn=urn, model=type(obj), allowed_urns=urns
+            context, urn=urn, model=type(obj), mutability=mutability, required=required
         )
-        set_value_by_urn(obj, urn, value)
+        if value is not None:
+            set_value_by_urn(obj, urn, value)
 
     fix_primary_attributes(obj)
+    fix_reference_values(obj)
 
     return obj
 
 
-def fill_complex_attribute_with_random_values(
-    context: "CheckContext",
-    obj: ComplexAttribute,
-    urns: list[str] | None = None,
-) -> Resource[Any] | None:
-    """Fill a ComplexAttribute with random values.
+def fix_reference_values(obj: Resource[Any]) -> None:
+    """Fix reference values to extract IDs from reference URLs.
 
     For SCIM reference fields, correctly sets the value field to match
     the ID extracted from the reference URL.
     """
-    if not urns:
-        urns = []
-        for field_name in type(obj).model_fields:
-            if type(obj).get_field_annotation(field_name, Required) == Required.true:
-                alias = (
-                    type(obj).model_fields[field_name].serialization_alias or field_name
-                )
-                urns.append(alias)
+    for field_name, _field_info in type(obj).model_fields.items():
+        attr_value = getattr(obj, field_name, None)
+        if not attr_value or not isinstance(attr_value, list):
+            continue
 
-    fill_with_random_values(context, obj, urns)
-    if "ref" in type(obj).model_fields and "value" in type(obj).model_fields:
-        ref_type = type(obj).get_field_root_type("ref")
-        if (
-            get_origin(ref_type) is Reference
-            and get_args(ref_type)
-            and get_args(ref_type)[0] not in (URIReference, ExternalReference, Any)
-            and (ref := getattr(obj, "ref", None))
-        ):
-            obj.value = ref.rsplit("/", 1)[-1]
-    return obj
+        for item in attr_value:
+            if not (ref := getattr(item, "ref", None)) or not hasattr(item, "value"):
+                continue
+
+            item.value = ref.rsplit("/", 1)[-1]
 
 
 def fix_primary_attributes(obj: Resource[Any]) -> None:
@@ -241,7 +235,7 @@ def fix_primary_attributes(obj: Resource[Any]) -> None:
 
     According to RFC 7643 §2.4: The primary attribute value "true" MUST appear no more than once.
     """
-    for field_name, _field_info in type(obj).model_fields.items():
+    for field_name in type(obj).model_fields:
         attr_value = getattr(obj, field_name, None)
         if not attr_value or not isinstance(attr_value, list) or len(attr_value) == 0:
             continue
@@ -250,9 +244,6 @@ def fix_primary_attributes(obj: Resource[Any]) -> None:
         if not hasattr(first_item, "primary"):
             continue
 
-        if len(attr_value) == 1:
-            attr_value[0].primary = True
-        else:
-            primary_index = random.randint(0, len(attr_value) - 1)
-            for i, item in enumerate(attr_value):
-                item.primary = i == primary_index
+        primary_index = random.randint(0, len(attr_value) - 1)
+        for i, item in enumerate(attr_value):
+            item.primary = i == primary_index

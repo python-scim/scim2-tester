@@ -237,26 +237,17 @@ class ResourceManager:
         obj = model()
 
         if fill_all:
-            # Fill all fields except read-only ones (including extensions)
-            urns = []
-            for field_name in model.model_fields:
-                if field_name in ("meta", "id", "schemas"):
-                    continue
-                if (
-                    model.get_field_annotation(field_name, Mutability)
-                    != Mutability.read_only
-                ):
-                    urns.append(obj.get_attribute_urn(field_name))
+            obj = fill_with_random_values(
+                self.context,
+                obj,
+                mutability=[
+                    Mutability.read_write,
+                    Mutability.write_only,
+                    Mutability.immutable,
+                ],
+            )
         else:
-            # Default behavior: fill only required fields
-            urns = []
-            for field_name in model.model_fields:
-                if field_name in ("meta", "id", "schemas"):
-                    continue
-                if model.get_field_annotation(field_name, Required) == Required.true:
-                    urns.append(obj.get_attribute_urn(field_name))
-
-        obj = fill_with_random_values(self.context, obj, urns)
+            obj = fill_with_random_values(self.context, obj, required=[Required.true])
         created = self.context.client.create(obj)
 
         # Handle the case where create might return Error or dict

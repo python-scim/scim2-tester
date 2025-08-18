@@ -35,17 +35,9 @@ def object_replacement(
     """
     test_obj = context.resource_manager.create_and_register(model)
 
-    mutable_urns = []
-    for field_name in model.model_fields.keys():
-        if field_name in ("meta", "id", "schemas"):
-            continue
-        if model.get_field_annotation(field_name, Mutability) in (
-            Mutability.read_write,
-            Mutability.write_only,
-        ):
-            mutable_urns.append(test_obj.get_attribute_urn(field_name))
-
-    modified_obj = fill_with_random_values(context, test_obj, mutable_urns)
+    modified_obj = fill_with_random_values(
+        context, test_obj, mutability=[Mutability.read_write, Mutability.write_only]
+    )
 
     if modified_obj is None:
         raise ValueError(
