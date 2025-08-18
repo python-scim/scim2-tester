@@ -8,14 +8,19 @@ from scim2_tester.discovery import get_all_available_tags
 from scim2_tester.discovery import get_standard_resource_types
 
 
+@pytest.fixture
+def scim_client(scim2_server_app):
+    client = TestSCIMClient(Client(scim2_server_app))
+    client.discover()
+    return client
+
+
 @pytest.mark.xfail(
     reason="scim2-server don't correctly handle patch operation on extension roots"
 )
-def test_discovered_scim2_server(scim2_server_app):
+def test_discovered_scim2_server(scim_client):
     """Test the complete SCIM server with discovery."""
-    client = TestSCIMClient(Client(scim2_server_app))
-    client.discover()
-    results = check_server(client, raise_exceptions=False)
+    results = check_server(scim_client, raise_exceptions=False)
 
     executed_results = [r for r in results if r.status != Status.SKIPPED]
     assert len(executed_results) > 0
@@ -44,12 +49,13 @@ def test_undiscovered_scim2_server(scim2_server_app):
 )
 @pytest.mark.parametrize("tag", get_all_available_tags())
 @pytest.mark.parametrize("resource_type", [None] + get_standard_resource_types())
-def test_individual_filters(scim2_server_app, tag, resource_type):
+def test_individual_filters(scim_client, tag, resource_type):
     """Test individual tags and resource types."""
-    client = TestSCIMClient(Client(scim2_server_app))
-    client.discover()
     results = check_server(
-        client, raise_exceptions=True, include_tags={tag}, resource_types=resource_type
+        scim_client,
+        raise_exceptions=True,
+        include_tags={tag},
+        resource_types=resource_type,
     )
     for result in results:
         assert result.status in (Status.SUCCESS, Status.SKIPPED), (
