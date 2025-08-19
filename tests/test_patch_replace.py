@@ -278,24 +278,42 @@ def test_patch_replace_attribute_not_replaced(httpserver, testing_context):
         status=201,
     )
 
-    httpserver.expect_request(uri="/Users/123", method="PATCH").respond_with_json(
-        {
-            "schemas": ["urn:ietf:params:scim:schemas:core:2.0:User"],
-            "id": "123",
-            "userName": "test@example.com",
-            "displayName": "original_display",
-        },
-        status=200,
-    )
+    original_state = {
+        "schemas": ["urn:ietf:params:scim:schemas:core:2.0:User"],
+        "id": "123",
+        "userName": "test@example.com",
+        "displayName": "original_display",
+    }
 
-    httpserver.expect_request(uri="/Users/123", method="GET").respond_with_json(
-        {
-            "schemas": ["urn:ietf:params:scim:schemas:core:2.0:User"],
-            "id": "123",
-            "userName": "test@example.com",
-            "displayName": "original_display",
-        },
-        status=200,
+    def patch_handler(request):
+        patch_data = json.loads(request.get_data(as_text=True))
+        operation = patch_data["Operations"][0]
+
+        if operation["path"] == "displayName" and operation["op"] == "replace":
+            return Response(
+                json.dumps(original_state),
+                status=200,
+                headers={"Content-Type": "application/scim+json"},
+            )
+
+        return Response(
+            json.dumps(original_state),
+            status=200,
+            headers={"Content-Type": "application/scim+json"},
+        )
+
+    def get_handler(request):
+        return Response(
+            json.dumps(original_state),
+            status=200,
+            headers={"Content-Type": "application/scim+json"},
+        )
+
+    httpserver.expect_request(uri="/Users/123", method="PATCH").respond_with_handler(
+        patch_handler
+    )
+    httpserver.expect_request(uri="/Users/123", method="GET").respond_with_handler(
+        get_handler
     )
 
     results = check_replace_attribute(testing_context, User)
@@ -303,9 +321,153 @@ def test_patch_replace_attribute_not_replaced(httpserver, testing_context):
     error_results = [
         r
         for r in results
-        if r.status == Status.ERROR and "was not replaced" in r.reason
+        if r.status == Status.ERROR
+        and (
+            "was not replaced" in r.reason
+            or "PATCH modify() returned unexpected value" in r.reason
+        )
+        and hasattr(r, "data")
+        and r.data
+        and r.data.get("urn") == "displayName"
     ]
     assert len(error_results) > 0
+
+
+def test_patch_replace_get_returns_different_value(httpserver, testing_context):
+    """Test PATCH replace when GET returns a different value than what was patched."""
+    httpserver.expect_request(uri="/Users", method="POST").respond_with_json(
+        {
+            "schemas": ["urn:ietf:params:scim:schemas:core:2.0:User"],
+            "id": "123",
+            "userName": "test@example.com",
+            "displayName": "original_display",
+        },
+        status=201,
+    )
+
+    def patch_handler(request):
+        patch_data = json.loads(request.get_data(as_text=True))
+        operation = patch_data["Operations"][0]
+
+        if operation["path"] == "displayName" and operation["op"] == "replace":
+            return Response(
+                json.dumps(
+                    {
+                        "schemas": ["urn:ietf:params:scim:schemas:core:2.0:User"],
+                        "id": "123",
+                        "userName": "test@example.com",
+                        "displayName": operation["value"],
+                    }
+                ),
+                status=200,
+                headers={"Content-Type": "application/scim+json"},
+            )
+
+        return Response(
+            json.dumps(
+                {
+                    "schemas": ["urn:ietf:params:scim:schemas:core:2.0:User"],
+                    "id": "123",
+                    "userName": "test@example.com",
+                }
+            ),
+            status=200,
+            headers={"Content-Type": "application/scim+json"},
+        )
+
+    def get_handler(request):
+        return Response(
+            json.dumps(
+                {
+                    "schemas": ["urn:ietf:params:scim:schemas:core:2.0:User"],
+                    "id": "123",
+                    "userName": "test@example.com",
+                    "displayName": "original_display",
+                }
+            ),
+            status=200,
+            headers={"Content-Type": "application/scim+json"},
+        )
+
+    httpserver.expect_request(uri="/Users/123", method="PATCH").respond_with_handler(
+        patch_handler
+    )
+    httpserver.expect_request(uri="/Users/123", method="GET").respond_with_handler(
+        get_handler
+    )
+
+    results = check_replace_attribute(testing_context, User)
+
+    error_results = [
+        r
+        for r in results
+        if r.status == Status.ERROR
+        and "was not replaced or has unexpected value" in r.reason
+        and hasattr(r, "data")
+        and r.data
+        and r.data.get("urn") == "displayName"
+    ]
+    assert len(error_results) > 0
+
+
+def test_patch_replace_modify_returns_none(httpserver, testing_context):
+    """Test PATCH replace when modify returns None (no content)."""
+    httpserver.expect_request(uri="/Users", method="POST").respond_with_json(
+        {
+            "schemas": ["urn:ietf:params:scim:schemas:core:2.0:User"],
+            "id": "123",
+            "userName": "test@example.com",
+            "displayName": "original_display",
+        },
+        status=201,
+    )
+
+    saved_values = {}
+
+    def patch_handler(request):
+        patch_data = json.loads(request.get_data(as_text=True))
+        operation = patch_data["Operations"][0]
+        path = operation.get("path", "")
+        value = operation.get("value")
+
+        saved_values[path] = value
+
+        return Response(
+            "",
+            status=204,
+            headers={"Content-Type": "application/scim+json"},
+        )
+
+    def get_handler(request):
+        response_data = {
+            "schemas": ["urn:ietf:params:scim:schemas:core:2.0:User"],
+            "id": "123",
+            "userName": "test@example.com",
+        }
+
+        for path, value in saved_values.items():
+            if path == "displayName":
+                response_data["displayName"] = value
+            elif path == "title":
+                response_data["title"] = value
+
+        return Response(
+            json.dumps(response_data),
+            status=200,
+            headers={"Content-Type": "application/scim+json"},
+        )
+
+    httpserver.expect_request(uri="/Users/123", method="PATCH").respond_with_handler(
+        patch_handler
+    )
+    httpserver.expect_request(uri="/Users/123", method="GET").respond_with_handler(
+        get_handler
+    )
+
+    results = check_replace_attribute(testing_context, User)
+
+    success_results = [r for r in results if r.status == Status.SUCCESS]
+    assert len(success_results) > 0
 
 
 def test_patch_not_supported(testing_context):

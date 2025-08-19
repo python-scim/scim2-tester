@@ -12,7 +12,7 @@ from scim2_tester.utils import ResourceManager
 from scim2_tester.utils import Status
 from scim2_tester.utils import _matches_hierarchical_tags
 from scim2_tester.utils import checker
-from scim2_tester.utils import compare_field
+from scim2_tester.utils import fields_equality
 from scim2_tester.utils import get_registered_tags
 
 
@@ -283,16 +283,16 @@ def test_checker_skip_with_include_tags():
     assert result[0].title == "write_check"
 
 
-def test_compare_field_with_none_values():
-    """Test compare_field function with None values."""
+def test_fields_equality_with_none_values():
+    """Test fields_equality function with None values."""
     # Test when expected is None
-    assert compare_field(None, "some_value") is False
+    assert fields_equality(None, "some_value") is False
 
     # Test when actual is None
-    assert compare_field("some_value", None) is False
+    assert fields_equality("some_value", None) is False
 
-    # Test when both are None
-    assert compare_field(None, None) is False
+    # Test when both are None - they are equal
+    assert fields_equality(None, None) is True
 
 
 def test_check_result_repr():

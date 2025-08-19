@@ -357,10 +357,7 @@ def checker(*tags: str) -> Any:
     return decorator
 
 
-def compare_field(expected: Any, actual: Any) -> bool:
-    if expected is None or actual is None:
-        return False
-
+def fields_equality(expected: Any, actual: Any) -> bool:
     expected = expected.model_dump() if isinstance(expected, BaseModel) else expected
     actual = actual.model_dump() if isinstance(actual, BaseModel) else actual
 

@@ -17,7 +17,7 @@ from ..utils import CheckResult
 from ..utils import Status
 from ..utils import check_result
 from ..utils import checker
-from ..utils import compare_field
+from ..utils import fields_equality
 
 
 @checker("patch:replace")
@@ -117,29 +117,28 @@ def check_replace_attribute(
             continue
 
         if modify_result is not None:
-            if modify_actual_value := get_value_by_urn(modify_result, urn):
-                if not (
-                    mutability == Mutability.write_only
-                    or compare_field(patch_value, modify_actual_value)
-                ):
-                    results.append(
-                        check_result(
-                            context,
-                            status=Status.ERROR,
-                            reason=(
-                                f"PATCH modify() returned unexpected value for '{urn}'.\n"
-                                f"Patched value: {patch_value}\n"
-                                f"Returned value: {modify_actual_value}"
-                            ),
-                            resource_type=model.__name__,
-                            data={
-                                "urn": urn,
-                                "expected": patch_value,
-                                "modify_actual": modify_actual_value,
-                            },
-                        )
+            modify_actual_value = get_value_by_urn(modify_result, urn)
+            if mutability != Mutability.write_only and not fields_equality(
+                patch_value, modify_actual_value
+            ):
+                results.append(
+                    check_result(
+                        context,
+                        status=Status.ERROR,
+                        reason=(
+                            f"PATCH modify() returned unexpected value for '{urn}'.\n"
+                            f"Patched value: {patch_value}\n"
+                            f"Returned value: {modify_actual_value}"
+                        ),
+                        resource_type=model.__name__,
+                        data={
+                            "urn": urn,
+                            "expected": patch_value,
+                            "modify_actual": modify_actual_value,
+                        },
                     )
-                    continue
+                )
+                continue
 
         try:
             updated_resource = context.client.query(
@@ -163,7 +162,7 @@ def check_replace_attribute(
             continue
 
         actual_value = get_value_by_urn(updated_resource, urn)
-        if mutability == Mutability.write_only or compare_field(
+        if mutability == Mutability.write_only or fields_equality(
             patch_value, actual_value
         ):
             results.append(

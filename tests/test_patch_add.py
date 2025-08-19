@@ -371,7 +371,7 @@ def test_patch_add_modify_result_incorrect_value(testing_context):
 
 
 def test_patch_add_query_failure_after_patch(httpserver, testing_context):
-    """Test PATCH add when query fails after successful patch."""
+    """Test PATCH add when attribute appears in PATCH response but not in GET."""
     httpserver.expect_request(uri="/Users", method="POST").respond_with_json(
         {
             "schemas": ["urn:ietf:params:scim:schemas:core:2.0:User"],
@@ -381,24 +381,40 @@ def test_patch_add_query_failure_after_patch(httpserver, testing_context):
         status=201,
     )
 
-    httpserver.expect_request(uri="/Users/123", method="PATCH").respond_with_json(
-        {
-            "schemas": ["urn:ietf:params:scim:schemas:core:2.0:User"],
-            "id": "123",
-            "userName": "test@example.com",
-            "displayName": "test_display",
-        },
-        status=200,
-    )
+    resource_state = {
+        "schemas": ["urn:ietf:params:scim:schemas:core:2.0:User"],
+        "id": "123",
+        "userName": "test@example.com",
+    }
 
-    httpserver.expect_request(uri="/Users/123", method="GET").respond_with_json(
-        {
-            "schemas": ["urn:ietf:params:scim:schemas:core:2.0:User"],
-            "id": "123",
-            "userName": "test@example.com",
-            # displayName missing - attribute not actually added
-        },
-        status=200,
+    def patch_handler(request):
+        patch_data = json.loads(request.get_data(as_text=True))
+        operation = patch_data["Operations"][0]
+        path = operation["path"]
+        value = operation["value"]
+
+        response_state = resource_state.copy()
+        if path == "displayName":
+            response_state["displayName"] = value
+
+        return Response(
+            json.dumps(response_state),
+            status=200,
+            headers={"Content-Type": "application/scim+json"},
+        )
+
+    def get_handler(request):
+        return Response(
+            json.dumps(resource_state),
+            status=200,
+            headers={"Content-Type": "application/scim+json"},
+        )
+
+    httpserver.expect_request(uri="/Users/123", method="PATCH").respond_with_handler(
+        patch_handler
+    )
+    httpserver.expect_request(uri="/Users/123", method="GET").respond_with_handler(
+        get_handler
     )
 
     results = check_add_attribute(testing_context, User)
@@ -408,6 +424,9 @@ def test_patch_add_query_failure_after_patch(httpserver, testing_context):
         for r in results
         if r.status == Status.ERROR
         and "was not added or has unexpected value" in r.reason
+        and hasattr(r, "data")
+        and r.data
+        and r.data.get("urn") == "displayName"
     ]
     assert len(error_results) > 0
 
@@ -416,7 +435,6 @@ def test_patch_not_supported(testing_context):
     """Test PATCH add returns SKIPPED when PATCH is not supported."""
     from unittest.mock import Mock
 
-    # Mock ServiceProviderConfig with patch.supported = False
     mock_service_provider_config = Mock()
     mock_service_provider_config.patch.supported = False
     testing_context.client.service_provider_config = mock_service_provider_config
