@@ -35,9 +35,45 @@ def object_replacement(
     """
     test_obj = context.resource_manager.create_and_register(model)
 
+    # Dirty hotfix, waiting to path management in scim2-models
+    # to have a more generic way to do things
+    # https://github.com/python-scim/scim2-models/issues/111
+    # Store original immutable values to preserve them
+    original_immutable_values = {}
+    for field_name, field_info in model.model_fields.items():  # pragma: no cover
+        # Check if field is immutable
+        is_immutable = any(
+            isinstance(metadata, Mutability) and metadata == Mutability.immutable
+            for metadata in field_info.metadata
+        )
+        if is_immutable:
+            original_value = getattr(test_obj, field_name, None)
+            if original_value is not None:
+                original_immutable_values[field_name] = original_value
+
     modified_obj = fill_with_random_values(
-        context, test_obj, mutability=[Mutability.read_write, Mutability.write_only]
+        context,
+        test_obj,
+        mutability=[Mutability.read_write, Mutability.write_only, Mutability.immutable],
     )
+
+    # Dirty hotfix, waiting to path management in scim2-models
+    # to have a more generic way to do things
+    # https://github.com/python-scim/scim2-models/issues/111
+    # Restore original immutable values for non-complex fields
+    if modified_obj is not None:
+        for (
+            field_name,
+            original_value,
+        ) in original_immutable_values.items():  # pragma: no cover
+            # Only restore if it's not a complex list (like members)
+            if not (
+                isinstance(original_value, list)
+                and original_value
+                and hasattr(original_value[0], "__class__")
+                and hasattr(original_value[0].__class__, "model_fields")
+            ):
+                setattr(modified_obj, field_name, original_value)
 
     if modified_obj is None:
         raise ValueError(
