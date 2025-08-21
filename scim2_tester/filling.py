@@ -160,7 +160,7 @@ def generate_random_value(
     if is_multiple:
         value = [value]
 
-    return value
+    return fix_reference_values_in_value(value)
 
 
 def fill_with_random_values(
@@ -202,27 +202,33 @@ def fill_with_random_values(
             set_value_by_urn(obj, urn, value)
 
     fix_primary_attributes(obj)
-    fix_reference_values(obj)
 
     return obj
 
 
-def fix_reference_values(obj: Resource[Any]) -> None:
-    """Fix reference values to extract IDs from reference URLs.
+def fix_reference_values_in_value(value: Any) -> Any:
+    """Fix reference values in any value to extract IDs from reference URLs.
 
     For SCIM reference fields, correctly sets the value field to match
-    the ID extracted from the reference URL.
+    the ID extracted from the reference URL. Works with both single values
+    and lists containing reference objects.
     """
-    for field_name, _field_info in type(obj).model_fields.items():
-        attr_value = getattr(obj, field_name, None)
-        if not attr_value or not isinstance(attr_value, list):
-            continue
+    if isinstance(value, list):
+        for item in value:
+            if (
+                hasattr(item, "ref")
+                and hasattr(item, "value")
+                and getattr(item, "ref", None)
+            ):
+                item.value = item.ref.rsplit("/", 1)[-1]
+    elif (
+        hasattr(value, "ref")
+        and hasattr(value, "value")
+        and getattr(value, "ref", None)
+    ):
+        value.value = value.ref.rsplit("/", 1)[-1]
 
-        for item in attr_value:
-            if not (ref := getattr(item, "ref", None)) or not hasattr(item, "value"):
-                continue
-
-            item.value = ref.rsplit("/", 1)[-1]
+    return value
 
 
 def fix_primary_attributes(obj: Resource[Any]) -> None:
