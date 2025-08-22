@@ -1042,7 +1042,7 @@ wheels = [
 
 [[package]]
 name = "scim2-tester"
-version = "0.2.2"
+version = "0.2.3"
 source = { editable = "." }
 dependencies = [
     { name = "scim2-client" },
