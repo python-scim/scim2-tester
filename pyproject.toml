@@ -4,7 +4,7 @@ build-backend = "uv_build"
 
 [project]
 name = "scim2-tester"
-version = "0.2.3"
+version = "0.2.4"
 description = " Check SCIM RFCs server compliance"
 authors = [{name="Yaal Coop", email="contact@yaal.coop"}]
 license = {file = "LICENSE.md"}
