@@ -12,11 +12,12 @@ readme = "README.md"
 keywords = ["scim", "scim2", "provisioning", "rfc7643", "rfc7644"]
 classifiers = [
     "Intended Audience :: Developers",
-    "Development Status :: 3 - Alpha",
+    "Development Status :: 4 - Beta",
     "Programming Language :: Python :: 3.10",
     "Programming Language :: Python :: 3.11",
     "Programming Language :: Python :: 3.12",
     "Programming Language :: Python :: 3.13",
+    "Programming Language :: Python :: 3.14",
     "Programming Language :: Python :: Implementation :: CPython",
     "License :: OSI Approved :: Apache Software License",
     "Environment :: Web Environment",
@@ -129,6 +130,7 @@ env_list = [
     "py311",
     "py312",
     "py313",
+    "py314",
     "minversions",
     "doc",
     "coverage",

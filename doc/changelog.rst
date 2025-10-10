@@ -4,6 +4,10 @@ Changelog
 [0.2.4] - Unreleased
 --------------------
 
+Added
+^^^^^
+- Support for Python 3.14.
+
 Fixed
 ^^^^^
 - Compatibility with Pydantic 2.12.
