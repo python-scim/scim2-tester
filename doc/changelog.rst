@@ -1,6 +1,13 @@
 Changelog
 =========
 
+[0.2.4] - Unreleased
+--------------------
+
+Fixed
+^^^^^
+- Compatibility with Pydantic 2.12.
+
 [0.2.3] - 2025-08-22
 --------------------
 

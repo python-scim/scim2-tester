@@ -37,9 +37,9 @@ def iter_urns(
 
         field_type = model.get_field_root_type(field_name)
 
-        if issubclass(field_type, Extension):
+        if isclass(field_type) and issubclass(field_type, Extension):
             urn = field_type.model_fields["schemas"].default[0]
-        elif issubclass(model, Extension):
+        elif isclass(model) and issubclass(model, Extension):
             urn = model().get_attribute_urn(field_name)
         else:
             urn = _to_camel(field_name)
