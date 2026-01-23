@@ -27,7 +27,7 @@ class Complex(ComplexAttribute):
 
 
 class CustomModel(Resource):
-    schemas: list[str] = ["org:test:CustomModel"]
+    __schema__: str = "org:test:CustomModel"
 
     class Type(str, Enum):
         foo = "foo"

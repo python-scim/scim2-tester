@@ -1,6 +1,13 @@
 Changelog
 =========
 
+[0.2.5] - Unreleased
+--------------------
+
+Changed
+^^^^^^^
+- Use scim2-models native path management.
+
 [0.2.4] - 2025-10-10
 --------------------
 

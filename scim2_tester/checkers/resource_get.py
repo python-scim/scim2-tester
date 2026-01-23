@@ -19,7 +19,7 @@ def _model_from_resource_type(
     corresponding Python model class registered in the SCIM client.
     """
     for resource_model in context.client.resource_models:
-        if resource_model.model_fields["schemas"].default[0] == resource_type.schema_:
+        if resource_model.__schema__ == resource_type.schema_:
             return resource_model
 
     return None

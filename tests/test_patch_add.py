@@ -133,13 +133,15 @@ def test_attribute_not_added(httpserver, testing_context):
 
 def test_no_patchable_attributes(testing_context):
     """Test no patchable attributes returns SKIPPED."""
+    from unittest.mock import MagicMock
     from unittest.mock import patch
 
-    with (
-        patch(
-            "scim2_tester.checkers.patch_add.iter_all_urns",
-            return_value=iter([]),
-        ),
+    mock_bound_path = MagicMock()
+    mock_bound_path.iter_paths.return_value = iter([])
+
+    with patch(
+        "scim2_tester.checkers.patch_add.Path.__class_getitem__",
+        return_value=mock_bound_path,
     ):
         results = check_add_attribute(testing_context, User)
         assert len(results) == 1
@@ -264,13 +266,15 @@ def test_complex_attribute_not_added(httpserver, testing_context):
 
 def test_no_complex_patchable_attributes(testing_context):
     """Test no complex patchable attributes returns SKIPPED."""
+    from unittest.mock import MagicMock
     from unittest.mock import patch
 
-    with (
-        patch(
-            "scim2_tester.checkers.patch_add.iter_all_urns",
-            return_value=iter([]),
-        ),
+    mock_bound_path = MagicMock()
+    mock_bound_path.iter_paths.return_value = iter([])
+
+    with patch(
+        "scim2_tester.checkers.patch_add.Path.__class_getitem__",
+        return_value=mock_bound_path,
     ):
         results = check_add_attribute(testing_context, User)
         assert len(results) == 1

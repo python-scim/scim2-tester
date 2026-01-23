@@ -8,10 +8,8 @@ from scim2_models import PatchOp
 from scim2_models import PatchOperation
 from scim2_models import Required
 from scim2_models import Resource
+from scim2_models.path import Path
 
-from ..urns import get_annotation_by_urn
-from ..urns import get_value_by_urn
-from ..urns import iter_all_urns
 from ..utils import CheckContext
 from ..utils import CheckResult
 from ..utils import Status
@@ -59,17 +57,15 @@ def check_remove_attribute(
         ]
 
     results = []
-    all_urns = list(
-        iter_all_urns(
-            model,
+    all_paths = list(
+        Path[model].iter_paths(
             required=[Required.false],
             mutability=[Mutability.read_write, Mutability.write_only],
-            # Not supported until filters are implemented in scim2_models
             include_subattributes=False,
         )
     )
 
-    if not all_urns:
+    if not all_paths:
         return [
             check_result(
                 context,
@@ -81,9 +77,10 @@ def check_remove_attribute(
 
     full_resource = context.resource_manager.create_and_register(model, fill_all=True)
 
-    for urn, source_model in all_urns:
-        initial_value = get_value_by_urn(full_resource, urn)
-        mutability = get_annotation_by_urn(Mutability, urn, source_model)
+    for path in all_paths:
+        urn = str(path)
+        initial_value = path.get(full_resource)
+        mutability = path.get_annotation(Mutability)
         if initial_value is None:
             continue
 
@@ -91,7 +88,7 @@ def check_remove_attribute(
             operations=[
                 PatchOperation(
                     op=PatchOperation.Op.remove,
-                    path=urn,
+                    path=path,
                 )
             ]
         )
@@ -119,7 +116,7 @@ def check_remove_attribute(
             continue
 
         if modify_result is not None:
-            if modify_actual_value := get_value_by_urn(modify_result, urn):
+            if modify_actual_value := path.get(modify_result):
                 if (
                     mutability != Mutability.write_only
                     and modify_actual_value is not None
@@ -160,7 +157,7 @@ def check_remove_attribute(
             )
             continue
 
-        actual_value = get_value_by_urn(updated_resource, urn)
+        actual_value = path.get(updated_resource)
         if mutability == Mutability.write_only or actual_value is None:
             results.append(
                 check_result(
