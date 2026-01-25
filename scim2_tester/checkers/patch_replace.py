@@ -7,11 +7,9 @@ from scim2_models import Mutability
 from scim2_models import PatchOp
 from scim2_models import PatchOperation
 from scim2_models import Resource
+from scim2_models.path import Path
 
 from ..filling import generate_random_value
-from ..urns import get_annotation_by_urn
-from ..urns import get_value_by_urn
-from ..urns import iter_all_urns
 from ..utils import CheckContext
 from ..utils import CheckResult
 from ..utils import Status
@@ -59,16 +57,14 @@ def check_replace_attribute(
         ]
 
     results = []
-    all_urns = list(
-        iter_all_urns(
-            model,
+    all_paths = list(
+        Path[model].iter_paths(
             mutability=[Mutability.read_write, Mutability.write_only],
-            # Not supported until filters are implemented in scim2_models
             include_subattributes=False,
         )
     )
 
-    if not all_urns:
+    if not all_paths:
         return [
             check_result(
                 context,
@@ -80,15 +76,16 @@ def check_replace_attribute(
 
     base_resource = context.resource_manager.create_and_register(model)
 
-    for urn, source_model in all_urns:
-        patch_value = generate_random_value(context, urn=urn, model=source_model)
-        mutability = get_annotation_by_urn(Mutability, urn, source_model)
+    for path in all_paths:
+        urn = str(path)
+        patch_value = generate_random_value(context, path=path)
+        mutability = path.get_annotation(Mutability)
 
         patch_op = PatchOp[type(base_resource)](
             operations=[
                 PatchOperation(
                     op=PatchOperation.Op.replace_,
-                    path=urn,
+                    path=path,
                     value=patch_value,
                 )
             ]
@@ -117,7 +114,7 @@ def check_replace_attribute(
             continue
 
         if modify_result is not None:
-            modify_actual_value = get_value_by_urn(modify_result, urn)
+            modify_actual_value = path.get(modify_result)
             if mutability != Mutability.write_only and not fields_equality(
                 patch_value, modify_actual_value
             ):
@@ -161,7 +158,7 @@ def check_replace_attribute(
             )
             continue
 
-        actual_value = get_value_by_urn(updated_resource, urn)
+        actual_value = path.get(updated_resource)
         if mutability == Mutability.write_only or fields_equality(
             patch_value, actual_value
         ):

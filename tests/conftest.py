@@ -11,10 +11,12 @@ from scim2_tester.utils import CheckContext
 
 @pytest.fixture
 def scim_client(httpserver):
-    client = Client(base_url=f"http://localhost:{httpserver.port}")
-    scim_client = SyncSCIMClient(client, resource_models=[User[EnterpriseUser], Group])
-    scim_client.register_naive_resource_types()
-    return scim_client
+    with Client(base_url=f"http://localhost:{httpserver.port}") as client:
+        scim_client = SyncSCIMClient(
+            client, resource_models=[User[EnterpriseUser], Group]
+        )
+        scim_client.register_naive_resource_types()
+        yield scim_client
 
 
 @pytest.fixture

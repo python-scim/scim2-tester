@@ -22,6 +22,8 @@ def build_nested_response(base_response: dict, path: str, value: Any) -> dict:
             response[path] = value
         else:
             namespace, field_name = path.rsplit(":", 1)
+            if namespace not in response or not isinstance(response[namespace], dict):
+                response[namespace] = {}
             response[namespace][field_name] = value
 
     else:

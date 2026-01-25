@@ -14,6 +14,7 @@ from scim2_tester.utils import _matches_hierarchical_tags
 from scim2_tester.utils import checker
 from scim2_tester.utils import fields_equality
 from scim2_tester.utils import get_registered_tags
+from tests.utils import build_nested_response
 
 
 def test_checker_decorator_with_tags():
@@ -335,3 +336,14 @@ def test_check_result_repr():
     assert "title=" not in repr_str
     assert "reason='Success without name'" in repr_str
     assert "Status.SUCCESS" in repr_str
+
+
+def test_build_nested_response_with_unknown_extension_urn():
+    """Test build_nested_response initializes namespace for unknown extension URNs."""
+    base_response = {"id": "123", "userName": "test"}
+    path = "urn:custom:extension:fieldName"
+
+    result = build_nested_response(base_response, path, "value")
+
+    assert "urn:custom:extension" in result
+    assert result["urn:custom:extension"]["fieldName"] == "value"

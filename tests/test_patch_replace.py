@@ -127,13 +127,15 @@ def test_replace_attribute_not_updated(httpserver, testing_context):
 
 def test_no_replaceable_attributes(testing_context):
     """Test no replaceable attributes returns SKIPPED."""
+    from unittest.mock import MagicMock
     from unittest.mock import patch
 
-    with (
-        patch(
-            "scim2_tester.checkers.patch_replace.iter_all_urns",
-            return_value=iter([]),
-        ),
+    mock_bound_path = MagicMock()
+    mock_bound_path.iter_paths.return_value = iter([])
+
+    with patch(
+        "scim2_tester.checkers.patch_replace.Path.__class_getitem__",
+        return_value=mock_bound_path,
     ):
         results = check_replace_attribute(testing_context, User)
         unexpected = [r for r in results if r.status != Status.SKIPPED]

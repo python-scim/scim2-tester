@@ -139,11 +139,15 @@ def test_attribute_not_removed(httpserver, testing_context):
 
 def test_no_removable_attributes(testing_context):
     """Test no removable attributes returns SKIPPED."""
+    from unittest.mock import MagicMock
     from unittest.mock import patch
 
+    mock_bound_path = MagicMock()
+    mock_bound_path.iter_paths.return_value = iter([])
+
     with patch(
-        "scim2_tester.checkers.patch_remove.iter_all_urns",
-        return_value=iter([]),
+        "scim2_tester.checkers.patch_remove.Path.__class_getitem__",
+        return_value=mock_bound_path,
     ):
         results = check_remove_attribute(testing_context, User)
         unexpected = [r for r in results if r.status != Status.SKIPPED]
