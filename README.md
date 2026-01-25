@@ -12,6 +12,15 @@ Provisioning is the action of managing a set of resources across different servi
 SCIM is often used between Identity Providers and applications in completion of standards like OAuth2 and OpenID Connect.
 It allows users and groups creations, modifications and deletions to be synchronized between applications.
 
+## Features
+
+- **Discovery Validation**: Tests `/ServiceProviderConfig`, `/ResourceTypes` and `/Schemas` endpoints
+- **CRUD Testing**: Validates `create`, `read`, `update` and `delete` operations on all available resource types
+- **PATCH Testing**: Tests `add`, `remove` and `replace` operations on all available simple, complex and extension attributes
+- **RFC Compliance**: Checks adherence to [RFC7643](https://datatracker.ietf.org/doc/html/rfc7643) and [RFC7644](https://datatracker.ietf.org/doc/html/rfc7644) specifications
+- **Structured Results**: `CheckResult` objects with status, description and debugging data
+- **Tag-Based Filtering**: Run specific test categories (`discovery`, `crud`, `patch`, etc.)
+
 ## Installation
 
 ```shell
