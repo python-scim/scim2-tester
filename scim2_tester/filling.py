@@ -96,7 +96,7 @@ def generate_random_value(
         value = "".join(str(random.choice(range(10))) for _ in range(10))
 
     elif field_type is int:
-        value = uuid.uuid4().int
+        value = random.randint(0, 2**31 - 1)
 
     elif field_type is bool:
         value = random.choice([True, False])

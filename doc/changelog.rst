@@ -6,6 +6,13 @@ Changelog
 
 Changed
 ^^^^^^^
+- Random integers are 32bits and positive.
+
+[0.2.5] - 2026-01-01
+--------------------
+
+Changed
+^^^^^^^
 - Use scim2-models native path management.
 
 [0.2.4] - 2025-10-10
