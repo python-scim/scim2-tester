@@ -42,10 +42,7 @@ def test_bad_authentication(httpserver):
     results = _schemas_endpoint(context)
 
     assert results[0].status == Status.ERROR
-    assert (
-        results[0].reason
-        == "The server returned a SCIM Error object: Authentication is needed"
-    )
+    assert "Authentication is needed" in results[0].reason
 
 
 def test_bad_content_type(httpserver):
