@@ -175,6 +175,12 @@ def fill_with_random_values(
 
     fix_primary_attributes(obj)
 
+    # Ensure reference consistency for all complex sub-attributes
+    for field_name in type(obj).model_fields:
+        child = getattr(obj, field_name, None)
+        if child is not None:
+            fix_reference_values_in_value(child)
+
     return obj
 
 
