@@ -42,7 +42,7 @@ module-root = ""
 
 [project.optional-dependencies]
 httpx = [
-    "scim2-client[httpx]>=0.4.0",
+    "scim2-client[httpx]>=0.7.4",
 ]
 
 [dependency-groups]
