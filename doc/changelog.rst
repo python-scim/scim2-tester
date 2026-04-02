@@ -1,6 +1,13 @@
 Changelog
 =========
 
+[unreleased]
+------------
+
+Fixed
+^^^^^
+- Fix ``ref``/``value`` consistency for root complex attributes (e.g. standalone ``GroupMember``).
+
 [0.2.7] - 2026-04-02
 --------------------
 

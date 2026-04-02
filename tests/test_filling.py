@@ -332,6 +332,17 @@ def test_fix_ref_value_on_object_with_ref_and_value():
     assert manager.value == "abc123"
 
 
+def test_fix_reference_values_on_root_complex_attribute():
+    """Ensures fix_reference_values fixes ref/value on the root object itself."""
+    member = Group.Members(
+        ref="http://example.com/Users/real-user-id",
+        value="random-wrong-value",
+    )
+    fix_reference_values(member)
+
+    assert member.value == "real-user-id"
+
+
 def test_fix_reference_values_on_list_of_members():
     """Ensures fix_reference_values fixes ref/value in list attributes."""
     group = Group(display_name="test")

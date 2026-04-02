@@ -187,6 +187,7 @@ def fix_reference_values(obj: BaseModel) -> None:
     ``ref`` and ``value`` attributes, ``value`` matches the last segment
     of the ``ref`` URL.
     """
+    _fix_ref_value(obj)
     for field_name in type(obj).model_fields:
         child = getattr(obj, field_name, None)
         if child is None:
