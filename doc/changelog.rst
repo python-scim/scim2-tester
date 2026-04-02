@@ -4,6 +4,10 @@ Changelog
 [0.2.7] - Unreleased
 --------------------
 
+Fixed
+^^^^^
+- Fix ``ref``/``value`` consistency for nested complex attributes like ``Manager``. :pr:`47`
+
 Added
 ^^^^^
 - Attribute filtering compliance checkers for ``attributes`` and ``excludedAttributes`` on single resource, list, and ``.search`` endpoints (:rfc:`7644` §3.4). :issue:`20`
