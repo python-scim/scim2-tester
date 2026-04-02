@@ -17,8 +17,10 @@ from scim2_models.path import Path
 from scim2_models.resources.resource import Resource
 from scim2_models.resources.user import X509Certificate
 
+from scim2_tester.filling import _fix_ref_value
 from scim2_tester.filling import fill_with_random_values
 from scim2_tester.filling import fix_primary_attributes
+from scim2_tester.filling import fix_reference_values
 from scim2_tester.filling import generate_random_value
 from scim2_tester.filling import get_model_from_ref_type
 from scim2_tester.filling import get_random_example_value
@@ -282,3 +284,68 @@ def test_generate_random_value_required_filter(testing_context):
         testing_context, Path[User]("userName"), required=[Required.true]
     )
     assert result
+
+
+def test_fix_reference_values_in_nested_complex_attribute(testing_context, httpserver):
+    """Ensures ref and value are consistent for nested complex attributes like Manager."""
+    user_data = {
+        "schemas": ["urn:ietf:params:scim:schemas:core:2.0:User"],
+        "id": "manager-id",
+        "userName": "manager-user",
+        "meta": {
+            "resourceType": "User",
+            "location": f"http://localhost:{httpserver.port}/Users/manager-id",
+        },
+    }
+    httpserver.expect_request("/Users", method="POST").respond_with_json(
+        user_data, status=201
+    )
+
+    manager_urn = "urn:ietf:params:scim:schemas:extension:enterprise:2.0:User:manager"
+    enterprise_user = User[EnterpriseUser](user_name="test")
+    filled = fill_with_random_values(
+        testing_context,
+        enterprise_user,
+        [
+            Path[User[EnterpriseUser]](manager_urn),
+            Path[User[EnterpriseUser]](f"{manager_urn}.value"),
+            Path[User[EnterpriseUser]](f"{manager_urn}.ref"),
+        ],
+    )
+
+    manager = filled[EnterpriseUser].manager
+    assert manager is not None
+    assert manager.ref is not None
+    assert manager.value == manager.ref.rsplit("/", 1)[-1]
+
+
+def test_fix_ref_value_on_object_with_ref_and_value():
+    """Ensures _fix_ref_value corrects value from ref URL."""
+    from scim2_models.resources.enterprise_user import Manager
+
+    manager = Manager(
+        ref="http://example.com/Users/abc123",
+        value="wrong-value",
+    )
+    _fix_ref_value(manager)
+
+    assert manager.value == "abc123"
+
+
+def test_fix_reference_values_on_list_of_members():
+    """Ensures fix_reference_values fixes ref/value in list attributes."""
+    group = Group(display_name="test")
+    group.members = [
+        Group.Members(
+            ref="http://example.com/Users/user1",
+            value="wrong",
+        ),
+        Group.Members(
+            ref="http://example.com/Groups/group2",
+            value="wrong",
+        ),
+    ]
+    fix_reference_values(group)
+
+    assert group.members[0].value == "user1"
+    assert group.members[1].value == "group2"

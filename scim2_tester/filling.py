@@ -7,6 +7,7 @@ from typing import TYPE_CHECKING
 from typing import Any
 
 from pydantic import Base64Bytes
+from pydantic import BaseModel
 from scim2_models import ComplexAttribute
 from scim2_models import Extension
 from scim2_models import Mutability
@@ -134,7 +135,7 @@ def generate_random_value(
     if path.is_multivalued:
         value = [value]
 
-    return fix_reference_values_in_value(value)
+    return value
 
 
 def fill_with_random_values(
@@ -174,39 +175,37 @@ def fill_with_random_values(
             path.set(obj, value, strict=False)
 
     fix_primary_attributes(obj)
-
-    # Ensure reference consistency for all complex sub-attributes
-    for field_name in type(obj).model_fields:
-        child = getattr(obj, field_name, None)
-        if child is not None:
-            fix_reference_values_in_value(child)
+    fix_reference_values(obj)
 
     return obj
 
 
-def fix_reference_values_in_value(value: Any) -> Any:
-    """Fix reference values in any value to extract IDs from reference URLs.
+def fix_reference_values(obj: BaseModel) -> None:
+    """Recursively fix ref/value consistency on an object and its children.
 
-    For SCIM reference fields, correctly sets the value field to match
-    the ID extracted from the reference URL. Works with both single values
-    and lists containing reference objects.
+    Walks the object tree and ensures that for any object with both
+    ``ref`` and ``value`` attributes, ``value`` matches the last segment
+    of the ``ref`` URL.
     """
-    if isinstance(value, list):
-        for item in value:
-            if (
-                hasattr(item, "ref")
-                and hasattr(item, "value")
-                and getattr(item, "ref", None)
-            ):
-                item.value = item.ref.rsplit("/", 1)[-1]
-    elif (
-        hasattr(value, "ref")
-        and hasattr(value, "value")
-        and getattr(value, "ref", None)
-    ):
-        value.value = value.ref.rsplit("/", 1)[-1]
+    for field_name in type(obj).model_fields:
+        child = getattr(obj, field_name, None)
+        if child is None:
+            continue
 
-    return value
+        if isinstance(child, list):
+            for item in child:
+                _fix_ref_value(item)
+                if isinstance(item, BaseModel):
+                    fix_reference_values(item)
+        elif isinstance(child, BaseModel):
+            _fix_ref_value(child)
+            fix_reference_values(child)
+
+
+def _fix_ref_value(obj: Any) -> None:
+    """Set ``value`` to the last segment of ``ref`` if both attributes exist."""
+    if hasattr(obj, "ref") and hasattr(obj, "value") and getattr(obj, "ref", None):
+        obj.value = obj.ref.rsplit("/", 1)[-1]
 
 
 def fix_primary_attributes(obj: Resource[Any]) -> None:

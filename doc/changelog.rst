@@ -1,6 +1,13 @@
 Changelog
 =========
 
+[0.2.7] - Unreleased
+--------------------
+
+Fixed
+^^^^^
+- Fix ``ref``/``value`` consistency for nested complex attributes like ``Manager``. :pr:`47`
+
 [0.2.6] - 2026-02-19
 --------------------
 
