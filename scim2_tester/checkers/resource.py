@@ -13,6 +13,9 @@ from .resource_get import object_query
 from .resource_get import object_query_without_id
 from .resource_post import object_creation
 from .resource_put import object_replacement
+from .resource_query_attributes import object_list_with_attributes
+from .resource_query_attributes import object_query_with_attributes
+from .resource_query_attributes import search_with_attributes
 
 
 def resource_type_tests(
@@ -51,6 +54,9 @@ def resource_type_tests(
     results.extend(object_creation(context, model))
     results.extend(object_query(context, model))
     results.extend(object_query_without_id(context, model))
+    results.extend(object_query_with_attributes(context, model))
+    results.extend(object_list_with_attributes(context, model))
+    results.extend(search_with_attributes(context, model))
     results.extend(object_replacement(context, model))
     results.extend(object_deletion(context, model))
 

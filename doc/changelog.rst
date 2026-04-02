@@ -1,6 +1,13 @@
 Changelog
 =========
 
+[0.2.7] - Unreleased
+--------------------
+
+Added
+^^^^^
+- Attribute filtering compliance checkers for ``attributes`` and ``excludedAttributes`` on single resource, list, and ``.search`` endpoints (:rfc:`7644` §3.4). :issue:`20`
+
 [0.2.6] - 2026-02-19
 --------------------
 
