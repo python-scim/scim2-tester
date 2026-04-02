@@ -114,7 +114,7 @@ As :class:`~scim2_client.engines.werkzeug.TestSCIMClient` relies on :doc:`Werkze
 
 .. code-block:: console
 
-   uv add --group dev scim2-models[werkzeug]
+   uv add --group dev scim2-client[werkzeug]
 
 .. code-block:: python
 
