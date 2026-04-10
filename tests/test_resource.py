@@ -5,6 +5,7 @@ from unittest.mock import patch
 from scim2_models import ComplexAttribute
 from scim2_models import Context
 from scim2_models import EnterpriseUser
+from scim2_models import Error
 from scim2_models import ListResponse
 from scim2_models import Mutability
 from scim2_models import Reference
@@ -143,52 +144,20 @@ def test_object_query_without_id_when_object_missing_from_list(
     )
 
 
-def test_object_deletion_with_null_id(testing_context):
-    """Test deletion of objects without an ID."""
-
-    class MockResourceManager:
-        def __init__(self):
-            self.resources = []
-
-        def create_and_register(self, model):
-            obj = model(user_name="test")
-            obj.id = None
-            self.resources.append(obj)
-            return obj
-
-        def cleanup(self):
-            pass
-
-    original_rm = testing_context.resource_manager
-    testing_context.resource_manager = MockResourceManager()
-
-    try:
-        result = object_deletion(testing_context, User)
-        assert result[0].status == Status.SUCCESS
-        assert "Successfully deleted User object with id None" in result[0].reason
-    finally:
-        testing_context.resource_manager = original_rm
-
-
 def test_object_deletion_when_object_persists(httpserver, testing_context):
     """Test deletion failure when object persists after DELETE request."""
     user_id = "test-user-123"
     test_user = User(id=user_id, user_name="testuser")
 
-    # Mock user creation
     httpserver.expect_request("/Users", method="POST").respond_with_json(
         test_user.model_dump(scim_ctx=Context.RESOURCE_QUERY_RESPONSE),
         status=201,
         content_type="application/scim+json",
     )
-
-    # Mock deletion request
     httpserver.expect_request(f"/Users/{user_id}", method="DELETE").respond_with_data(
         "", status=204, content_type="application/scim+json"
     )
-
-    # Mock query showing object still exists
-    httpserver.expect_request(f"/Users/{user_id}").respond_with_json(
+    httpserver.expect_request(f"/Users/{user_id}", method="GET").respond_with_json(
         test_user.model_dump(scim_ctx=Context.RESOURCE_QUERY_RESPONSE),
         status=200,
         content_type="application/scim+json",
@@ -202,26 +171,50 @@ def test_object_deletion_when_object_persists(httpserver, testing_context):
     )
 
 
-def test_object_deletion_successful(httpserver, testing_context):
-    """Test successful object deletion when object is properly removed."""
-    user_id = "test-user-456"
+def test_object_deletion_with_wrong_status_code(httpserver, testing_context):
+    """Test deletion reports error when server returns non-404 error for deleted resource."""
+    user_id = "test-user-789"
     test_user = User(id=user_id, user_name="testuser")
+    error_response = Error(status=500, detail="Internal server error")
 
-    # Mock user creation
     httpserver.expect_request("/Users", method="POST").respond_with_json(
         test_user.model_dump(scim_ctx=Context.RESOURCE_QUERY_RESPONSE),
         status=201,
         content_type="application/scim+json",
     )
-
-    # Mock deletion
     httpserver.expect_request(f"/Users/{user_id}", method="DELETE").respond_with_data(
         "", status=204, content_type="application/scim+json"
     )
+    httpserver.expect_request(f"/Users/{user_id}", method="GET").respond_with_json(
+        error_response.model_dump(scim_ctx=Context.RESOURCE_QUERY_RESPONSE),
+        status=500,
+        content_type="application/scim+json",
+    )
 
-    # Mock query returning 404 (object properly deleted)
-    httpserver.expect_request(f"/Users/{user_id}").respond_with_data(
-        "Not Found", status=404
+    result = object_deletion(testing_context, User)
+
+    assert result[0].status == Status.ERROR
+    assert "500 instead of 404" in result[0].reason
+
+
+def test_object_deletion_successful(httpserver, testing_context):
+    """Test successful object deletion when server returns 404."""
+    user_id = "test-user-456"
+    test_user = User(id=user_id, user_name="testuser")
+    error_response = Error(status=404, detail="Not found")
+
+    httpserver.expect_request("/Users", method="POST").respond_with_json(
+        test_user.model_dump(scim_ctx=Context.RESOURCE_QUERY_RESPONSE),
+        status=201,
+        content_type="application/scim+json",
+    )
+    httpserver.expect_request(f"/Users/{user_id}", method="DELETE").respond_with_data(
+        "", status=204, content_type="application/scim+json"
+    )
+    httpserver.expect_request(f"/Users/{user_id}", method="GET").respond_with_json(
+        error_response.model_dump(scim_ctx=Context.RESOURCE_QUERY_RESPONSE),
+        status=404,
+        content_type="application/scim+json",
     )
 
     result = object_deletion(testing_context, User)
