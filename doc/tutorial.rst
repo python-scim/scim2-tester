@@ -17,7 +17,7 @@ You can check the :ref:`scim2-cli test command reference <scim2_cli:test>` for m
 Code integration
 ================
 
-If you need to integrate the tester in your code, you can initialize a :ref:`scim2-client engine <scim2_client:engines>`
+If you need to integrate the tester in your code, you can initialize a :ref:`scim2-client engine <scim2_client:tutorial:engines>`
 and pass it to the :meth:`~scim2_tester.check_server` method:
 
 .. code-block:: python
