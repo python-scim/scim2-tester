@@ -6,7 +6,7 @@ from scim2_client.engines.httpx import SyncSCIMClient
 from scim2_tester.checker import check_server
 
 
-def cli():
+def cli() -> None:
     parser = argparse.ArgumentParser(description="SCIM server compliance checker.")
     parser.add_argument("host")
     parser.add_argument("--token", required=False)

@@ -103,13 +103,12 @@ def generate_random_value(
         value = random.choice([True, False])
 
     elif isclass(field_type) and issubclass(field_type, Reference):
-        ref_types = field_type.__reference_types__
+        ref_type: type[Reference] = field_type
+        ref_types = ref_type.__reference_types__
         if not ref_types or "external" in ref_types or "uri" in ref_types:
             value = f"https://{str(uuid.uuid4())}.test"
         else:
-            ref_model = get_model_from_ref_type(
-                context, field_type, different_than=model
-            )
+            ref_model = get_model_from_ref_type(context, ref_type, different_than=model)
             ref_obj = context.resource_manager.create_and_register(ref_model)
             value = ref_obj.meta.location if ref_obj.meta else None
 
