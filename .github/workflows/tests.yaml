@@ -54,6 +54,7 @@ jobs:
 
   downstream-tests:
     name: py${{ matrix.python }} ${{ matrix.downstream }} downstream unit tests
+    if: ${{ !startsWith(github.head_ref, 'renovate/') }}
     runs-on: ubuntu-latest
     strategy:
       fail-fast: false
