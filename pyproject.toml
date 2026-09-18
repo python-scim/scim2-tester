@@ -122,6 +122,9 @@ plugins = [
   "pydantic.mypy"
 ]
 
+[tool.pytest.ini_options]
+testpaths = ["tests"]
+
 [tool.tox]
 requires = ["tox>=4.19"]
 env_list = [
