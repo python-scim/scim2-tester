@@ -133,6 +133,23 @@ def raise_on_caller(exc: Exception) -> None:
     raise exc.with_traceback(tb)
 
 
+def _exception_data(exc: Exception) -> Any:
+    """Return the debugging data an exception carries, in a displayable form.
+
+    scim2-client attaches the network response to the exceptions it raises once
+    the request has been sent, and the request payload when it could not be.
+    Responses are unwrapped, as their representation holds nothing but a status.
+    """
+    source: Any = getattr(exc, "source", None)
+    if not hasattr(source, "text"):
+        return source
+
+    try:
+        return source.json()
+    except ValueError:
+        return source.text
+
+
 @dataclass
 class CheckResult:
     """Store a check result."""
@@ -327,7 +344,7 @@ def checker(*tags: str) -> Any:
                     CheckResult(
                         status=Status.ERROR,
                         reason=reason,
-                        data=getattr(exc, "source", None),
+                        data=_exception_data(exc),
                     )
                 ]
 

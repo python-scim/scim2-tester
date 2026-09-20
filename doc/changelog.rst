@@ -1,6 +1,14 @@
 Changelog
 =========
 
+[Unreleased]
+------------
+
+Fixed
+^^^^^
+- The :attr:`~scim2_tester.CheckResult.data` of a failed check holds the decoded response
+  payload instead of the response object, whose representation only carries a status code.
+
 [0.3.0] - 2026-09-20
 --------------------
 

@@ -2,6 +2,12 @@ from unittest.mock import Mock
 from unittest.mock import patch
 
 import pytest
+
+try:
+    from httpx2 import Response
+except ImportError:
+    from httpx import Response
+
 from scim2_client import SCIMClientException
 from scim2_models import SCIMException
 from scim2_models import User
@@ -198,12 +204,12 @@ def test_scim_client_exception_handling():
 
 
 def test_server_scim_error_handling():
-    """Test that a SCIM error returned by a server keeps the response as related data."""
+    """Test that a SCIM error returned by a server keeps the response payload as related data."""
 
     @checker("test")
     def scim_error_check(context):
         exc = SCIMException(detail="Server error")
-        exc.source = {"detail": "test data"}
+        exc.source = Response(400, json={"status": "400", "detail": "Server error"})
         raise exc
 
     conf = CheckConfig(raise_exceptions=False)
@@ -212,7 +218,25 @@ def test_server_scim_error_handling():
     result = scim_error_check(context)
     assert result[0].status == Status.ERROR
     assert "Server error" in result[0].reason
-    assert result[0].data == {"detail": "test data"}
+    assert result[0].data == {"status": "400", "detail": "Server error"}
+
+
+def test_non_json_server_response_handling():
+    """Test that a response the server did not serialize in JSON is kept as text."""
+
+    @checker("test")
+    def scim_error_check(context):
+        raise SCIMClientException(
+            "Unexpected content type: text/html",
+            source=Response(500, text="<html>Internal Server Error</html>"),
+        )
+
+    conf = CheckConfig(raise_exceptions=False)
+    context = CheckContext(client=None, conf=conf)
+
+    result = scim_error_check(context)
+    assert result[0].status == Status.ERROR
+    assert result[0].data == "<html>Internal Server Error</html>"
 
 
 def test_sourceless_scim_error_handling():
