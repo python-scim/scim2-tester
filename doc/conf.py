@@ -40,6 +40,7 @@ language = "en"
 pygments_style = "sphinx"
 todo_include_todos = True
 toctree_collapse = False
+suppress_warnings = ["autosectionlabel.changelog"]
 
 intersphinx_mapping = {
     "python": ("https://docs.python.org/3", None),
