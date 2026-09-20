@@ -1,6 +1,6 @@
 """Test discovery endpoints functionality."""
 
-from scim2_client import SCIMClientError
+from scim2_client import SCIMClientException
 
 from scim2_tester.checkers._discovery_utils import _test_discovery_endpoint_methods
 from scim2_tester.utils import Status
@@ -67,11 +67,11 @@ def test_discovery_endpoint_methods_wrong_status_codes(httpserver, testing_conte
 
 def test_discovery_endpoint_methods_connection_error(testing_context):
     """Test handling of connection errors during HTTP method testing."""
-    # Mock the client to raise SCIMClientError
+    # Mock the client to raise SCIMClientException
     original_request = testing_context.client.client.request
 
     def mock_request(*args, **kwargs):
-        raise SCIMClientError("Connection failed")
+        raise SCIMClientException("Connection failed")
 
     testing_context.client.client.request = mock_request
 

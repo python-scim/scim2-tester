@@ -1,8 +1,9 @@
 import uuid
 
-from scim2_client import SCIMClientError
+from scim2_client import SCIMClientException
 from scim2_models import Error
 from scim2_models import Schema
+from scim2_models import SCIMException
 
 from ..utils import CheckContext
 from ..utils import CheckResult
@@ -195,7 +196,7 @@ def access_schema_by_id(
                         data=response,
                     )
                 )
-            except SCIMClientError as e:
+            except (SCIMClientException, SCIMException) as e:
                 results.append(
                     check_result(
                         context,

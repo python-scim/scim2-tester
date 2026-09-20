@@ -22,8 +22,8 @@ and pass it to the :meth:`~scim2_tester.check_server` method:
 
 .. code-block:: python
 
-    from httpx import Client
-    from scim2_client.engines.httpx import SyncSCIMClient
+    from httpx2 import Client
+    from scim2_client.engines.httpx2 import SyncSCIMClient
     from scim2_tester import check_server
 
     httpx_client = Client(

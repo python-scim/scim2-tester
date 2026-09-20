@@ -1,4 +1,6 @@
-from scim2_client.engines.httpx import SyncSCIMClient
+from typing import Any
+
+from scim2_client.engines.httpx2 import SyncSCIMClient
 
 from scim2_tester.checkers import random_url
 from scim2_tester.checkers import resource_type_tests
@@ -9,6 +11,16 @@ from scim2_tester.utils import CheckConfig
 from scim2_tester.utils import CheckContext
 from scim2_tester.utils import CheckResult
 from scim2_tester.utils import Status
+
+
+def _discovered_objects(results: list[CheckResult]) -> Any:
+    """Extract the objects a discovery endpoint exposed.
+
+    Discovery orchestrators run the check querying the whole collection first,
+    so its result comes first. The data of the other statuses describes why the
+    check failed and must not be mistaken for discovered objects.
+    """
+    return results[0].data if results[0].status == Status.SUCCESS else None
 
 
 def check_server(
@@ -72,29 +84,23 @@ def check_server(
     context = CheckContext(client, conf)
     results = []
 
-    result_spc_list = service_provider_config_endpoint(context)
-    results.extend(result_spc_list)
-    result_spc = result_spc_list[0]  # Get the first (and only) result
-    if result_spc.status != Status.SKIPPED and not client.service_provider_config:
-        client.service_provider_config = result_spc.data
+    results_spc = service_provider_config_endpoint(context)
+    results.extend(results_spc)
+    if not client.service_provider_config:
+        client.service_provider_config = _discovered_objects(results_spc)
 
     results_resource_types = _resource_types_endpoint(context)
     results.extend(results_resource_types)
     if not client.resource_types:
-        for rt_result in results_resource_types:
-            if rt_result.status != Status.SKIPPED and rt_result.data:
-                client.resource_types = rt_result.data
-                break
+        client.resource_types = _discovered_objects(results_resource_types)
 
     results_schemas = _schemas_endpoint(context)
     results.extend(results_schemas)
-    if not client.resource_models:
-        for schema_result in results_schemas:
-            if schema_result.status != Status.SKIPPED and schema_result.data:
-                client.resource_models = client.build_resource_models(
-                    client.resource_types or [], schema_result.data or []
-                )
-                break
+    schemas = _discovered_objects(results_schemas)
+    if not client.resource_models and schemas:
+        client.resource_models = client.build_resource_models(
+            client.resource_types or [], schemas
+        )
 
     if (
         not client.service_provider_config

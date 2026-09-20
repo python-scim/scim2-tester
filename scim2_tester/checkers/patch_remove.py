@@ -2,12 +2,13 @@
 
 from typing import Any
 
-from scim2_client import SCIMClientError
+from scim2_client import SCIMClientException
 from scim2_models import Mutability
 from scim2_models import PatchOp
 from scim2_models import PatchOperation
 from scim2_models import Required
 from scim2_models import Resource
+from scim2_models import SCIMException
 from scim2_models.path import Path
 
 from ..utils import CheckContext
@@ -95,11 +96,11 @@ def check_remove_attribute(
 
         try:
             modify_result = context.client.modify(
-                resource_model=type(full_resource),
+                resource=type(full_resource),
                 id=full_resource.id,
                 patch_op=remove_op,
             )
-        except SCIMClientError as exc:
+        except (SCIMClientException, SCIMException) as exc:
             results.append(
                 check_result(
                     context,
@@ -141,7 +142,7 @@ def check_remove_attribute(
                 type(full_resource),
                 full_resource.id,
             )
-        except SCIMClientError as exc:
+        except (SCIMClientException, SCIMException) as exc:
             results.append(
                 check_result(
                     context,

@@ -1,9 +1,10 @@
 import uuid
 
-from scim2_client import SCIMClientError
+from scim2_client import SCIMClientException
 from scim2_models import Error
 from scim2_models import ResourceType
 from scim2_models import Schema
+from scim2_models import SCIMException
 
 from ..utils import CheckContext
 from ..utils import CheckResult
@@ -116,7 +117,7 @@ def resource_types_schema_validation(
                     data=schema_response,
                 )
             )
-        except SCIMClientError as e:
+        except (SCIMClientException, SCIMException) as e:
             results.append(
                 check_result(
                     context,

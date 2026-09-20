@@ -1,14 +1,14 @@
 """Test the main checker functionality."""
 
 import pytest
-from httpx import Client
-from scim2_client.engines.httpx import SyncSCIMClient
+from scim2_client.engines.httpx2 import SyncSCIMClient
 from scim2_client.engines.werkzeug import TestSCIMClient
 from werkzeug.test import Client as WerkzeugClient
 
 from scim2_tester.checker import check_server
 from scim2_tester.utils import SCIMTesterError
 from scim2_tester.utils import Status
+from tests.utils import Client
 
 
 def test_check_server_with_tag_filtering(httpserver):
@@ -49,6 +49,18 @@ def test_check_server_with_resource_type_filtering(scim2_server_app):
     ]
     assert user_filtered
     assert not group_filtered
+
+
+def test_check_server_ignores_data_of_failed_discovery_checks(httpserver):
+    """Ensures the debugging data of failed discovery checks is not registered on the client."""
+    client = SyncSCIMClient(Client(base_url=httpserver.url_for("/")))
+
+    results = check_server(client)
+
+    assert client.service_provider_config is None
+    assert client.resource_types is None
+    assert client.resource_models == ()
+    assert all(result.status == Status.ERROR for result in results)
 
 
 def test_check_server_exception_handling(httpserver):

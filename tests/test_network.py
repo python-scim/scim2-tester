@@ -1,7 +1,6 @@
 import re
 
-from httpx import Client
-from scim2_client.engines.httpx import SyncSCIMClient
+from scim2_client.engines.httpx2 import SyncSCIMClient
 from scim2_models import Context
 from scim2_models import Error
 from scim2_models import Group
@@ -13,6 +12,7 @@ from scim2_tester.utils import CheckConfig
 from scim2_tester.utils import CheckContext
 from scim2_tester.utils import CheckResult
 from scim2_tester.utils import Status
+from tests.utils import Client
 
 
 def test_unreachable_host():

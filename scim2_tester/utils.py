@@ -7,12 +7,13 @@ from enum import Enum
 from enum import auto
 from typing import Any
 
-from scim2_client import SCIMClientError
-from scim2_client.engines.httpx import SyncSCIMClient
+from scim2_client import SCIMClientException
+from scim2_client.engines.httpx2 import SyncSCIMClient
 from scim2_models import BaseModel
 from scim2_models import Mutability
 from scim2_models import Required
 from scim2_models import Resource
+from scim2_models import SCIMException
 
 # Global registry for all tags discovered by checker decorators
 _REGISTERED_TAGS: set[str] = set()
@@ -273,7 +274,7 @@ def checker(*tags: str) -> Any:
     """Decorate checker methods with tags for selective execution.
 
     - It adds a title and a description to the returned result, extracted from the method name and its docstring.
-    - It catches SCIMClient errors.
+    - It catches the scim2-client and SCIM protocol errors.
     - It allows tagging checks for selective execution.
     - It skips execution based on tag filtering in CheckConfig.
 
@@ -317,13 +318,17 @@ def checker(*tags: str) -> Any:
             try:
                 result = func(context, *args, **kwargs)
 
-            except SCIMClientError as exc:
+            except (SCIMClientException, SCIMException) as exc:
                 if context.conf.raise_exceptions:
                     raise
 
                 reason = f"{exc} {exc.__cause__}" if exc.__cause__ else str(exc)
                 result = [
-                    CheckResult(status=Status.ERROR, reason=reason, data=exc.source)
+                    CheckResult(
+                        status=Status.ERROR,
+                        reason=reason,
+                        data=getattr(exc, "source", None),
+                    )
                 ]
 
             except Exception as exc:

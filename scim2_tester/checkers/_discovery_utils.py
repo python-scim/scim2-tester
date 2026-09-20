@@ -1,6 +1,7 @@
 """Utility functions for discovery endpoint testing."""
 
-from scim2_client import SCIMClientError
+from scim2_client import SCIMClientException
+from scim2_models import SCIMException
 
 from ..utils import CheckContext
 from ..utils import CheckResult
@@ -53,7 +54,7 @@ def _test_discovery_endpoint_methods(
                         data=response,
                     )
                 )
-        except SCIMClientError as e:
+        except (SCIMClientException, SCIMException) as e:
             results.append(
                 check_result(
                     context,

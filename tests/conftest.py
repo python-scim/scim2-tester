@@ -1,12 +1,12 @@
 import pytest
-from httpx import Client
-from scim2_client.engines.httpx import SyncSCIMClient
+from scim2_client.engines.httpx2 import SyncSCIMClient
 from scim2_models import EnterpriseUser
 from scim2_models import Group
 from scim2_models import User
 
 from scim2_tester.utils import CheckConfig
 from scim2_tester.utils import CheckContext
+from tests.utils import Client
 
 
 @pytest.fixture

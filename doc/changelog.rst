@@ -1,6 +1,33 @@
 Changelog
 =========
 
+[Unreleased]
+------------
+
+Added
+^^^^^
+- The ``httpx2`` packaging extra, pulling ``scim2-client[httpx2]``.
+
+Changed
+^^^^^^^
+- scim2-client 0.8.0 is now the minimum supported version.
+- The :attr:`~scim2_tester.CheckResult.data` of a failed check holds the server response
+  instead of the request payload, as scim2-client 0.8 attaches the response to the
+  exceptions it raises.
+
+Deprecated
+^^^^^^^^^^
+- The ``httpx`` packaging extra, in favor of the ``httpx2`` extra. Will be removed
+  when scim2-client drops its own ``httpx`` extra.
+
+Fixed
+^^^^^
+- Checks performing one request per attribute, such as the PATCH ones, report one result
+  per attribute again when the server answers a SCIM error, instead of a single result
+  for the whole check.
+- ``check_server`` no longer registers the debugging data of a failed discovery check
+  as the resource types, the schemas or the service provider configuration of the client.
+
 [0.2.8] - 2026-04-02
 --------------------
 

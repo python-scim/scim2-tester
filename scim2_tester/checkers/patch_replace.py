@@ -2,11 +2,12 @@
 
 from typing import Any
 
-from scim2_client import SCIMClientError
+from scim2_client import SCIMClientException
 from scim2_models import Mutability
 from scim2_models import PatchOp
 from scim2_models import PatchOperation
 from scim2_models import Resource
+from scim2_models import SCIMException
 from scim2_models.path import Path
 
 from ..filling import generate_random_value
@@ -93,11 +94,11 @@ def check_replace_attribute(
 
         try:
             modify_result = context.client.modify(
-                resource_model=type(base_resource),
+                resource=type(base_resource),
                 id=base_resource.id,
                 patch_op=patch_op,
             )
-        except SCIMClientError as exc:
+        except (SCIMClientException, SCIMException) as exc:
             results.append(
                 check_result(
                     context,
@@ -142,7 +143,7 @@ def check_replace_attribute(
                 type(base_resource),
                 base_resource.id,
             )
-        except SCIMClientError as exc:
+        except (SCIMClientException, SCIMException) as exc:
             results.append(
                 check_result(
                     context,

@@ -19,7 +19,6 @@ classifiers = [
     "Programming Language :: Python :: 3.13",
     "Programming Language :: Python :: 3.14",
     "Programming Language :: Python :: Implementation :: CPython",
-    "License :: OSI Approved :: Apache Software License",
     "Environment :: Web Environment",
     "Programming Language :: Python",
     "Operating System :: OS Independent",
@@ -27,8 +26,8 @@ classifiers = [
 
 requires-python = ">= 3.10"
 dependencies = [
-    "scim2-client>=0.7.0",
-    "scim2-models>=0.6.1",
+    "scim2-client>=0.8.0",
+    "scim2-models>=0.7.0",
 ]
 
 [project.urls]
@@ -41,8 +40,13 @@ funding = "https://github.com/sponsors/python-scim"
 module-root = ""
 
 [project.optional-dependencies]
+httpx2 = [
+    "scim2-client[httpx2]>=0.8.0",
+]
+
+# Deprecated, will be removed in 0.9.
 httpx = [
-    "scim2-client[httpx]>=0.7.4",
+    "scim2-client[httpx]>=0.8.0",
 ]
 
 [dependency-groups]
@@ -134,13 +138,14 @@ env_list = [
     "py312",
     "py313",
     "py314",
+    "legacy",
     "minversions",
     "doc",
     "coverage",
 ]
 
 [tool.tox.env_run_base]
-extras = ["httpx"]
+extras = ["httpx2"]
 runner = "uv-venv-lock-runner"
 dependency_groups = ["dev"]
 commands = [
@@ -152,6 +157,9 @@ runner = "uv-venv-runner"
 commands = [
     ["prek", "run", "--all-files", "--show-diff-on-failure"],
 ]
+
+[tool.tox.env.legacy]
+extras = ["httpx"]
 
 [tool.tox.env.minversions]
 base_python = ["python3.10"]

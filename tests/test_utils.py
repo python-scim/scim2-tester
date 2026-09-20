@@ -2,7 +2,8 @@ from unittest.mock import Mock
 from unittest.mock import patch
 
 import pytest
-from scim2_client import SCIMClientError
+from scim2_client import SCIMClientException
+from scim2_models import SCIMException
 from scim2_models import User
 
 from scim2_tester.utils import CheckConfig
@@ -180,12 +181,12 @@ def test_hierarchical_tag_no_match():
     assert _matches_hierarchical_tags(func_tags, filter_tags) is False
 
 
-def test_scim_client_error_handling():
-    """Test SCIMClientError handling in checker decorator."""
+def test_scim_client_exception_handling():
+    """Test SCIMClientException handling in checker decorator."""
 
     @checker("test")
     def scim_error_check(context):
-        raise SCIMClientError("SCIM error", source={"detail": "test data"})
+        raise SCIMClientException("SCIM error", source={"detail": "test data"})
 
     conf = CheckConfig(raise_exceptions=False)
     context = CheckContext(client=None, conf=conf)
@@ -194,6 +195,40 @@ def test_scim_client_error_handling():
     assert result[0].status == Status.ERROR
     assert "SCIM error" in result[0].reason
     assert result[0].data == {"detail": "test data"}
+
+
+def test_server_scim_error_handling():
+    """Test that a SCIM error returned by a server keeps the response as related data."""
+
+    @checker("test")
+    def scim_error_check(context):
+        exc = SCIMException(detail="Server error")
+        exc.source = {"detail": "test data"}
+        raise exc
+
+    conf = CheckConfig(raise_exceptions=False)
+    context = CheckContext(client=None, conf=conf)
+
+    result = scim_error_check(context)
+    assert result[0].status == Status.ERROR
+    assert "Server error" in result[0].reason
+    assert result[0].data == {"detail": "test data"}
+
+
+def test_sourceless_scim_error_handling():
+    """Test that a SCIM error raised before the request is sent has no related data."""
+
+    @checker("test")
+    def scim_error_check(context):
+        raise SCIMException(detail="Invalid request payload")
+
+    conf = CheckConfig(raise_exceptions=False)
+    context = CheckContext(client=None, conf=conf)
+
+    result = scim_error_check(context)
+    assert result[0].status == Status.ERROR
+    assert "Invalid request payload" in result[0].reason
+    assert result[0].data is None
 
 
 def test_resource_manager_create_and_cleanup():

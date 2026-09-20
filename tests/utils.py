@@ -2,7 +2,14 @@
 
 from typing import Any
 
+try:
+    from httpx2 import Client
+except ImportError:
+    from httpx import Client
+
 from scim2_models.utils import _to_camel
+
+__all__ = ["Client", "build_nested_response"]
 
 
 def build_nested_response(base_response: dict, path: str, value: Any) -> dict:
