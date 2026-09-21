@@ -6,10 +6,10 @@ from scim2_client import SCIMClientException
 from scim2_models import Mutability
 from scim2_models import PatchOp
 from scim2_models import PatchOperation
+from scim2_models import Path
 from scim2_models import Required
 from scim2_models import Resource
 from scim2_models import SCIMException
-from scim2_models.path import Path
 
 from ..filling import generate_random_value
 from ..utils import CheckContext
@@ -46,8 +46,8 @@ def check_add_attribute(
        an existing resource."
     """
     if (
-        context.client.service_provider_config
-        and not context.client.service_provider_config.patch.supported
+        context.client.provider.config
+        and not context.client.provider.config.patch.supported
     ):
         return [
             check_result(
@@ -86,7 +86,8 @@ def check_add_attribute(
     for path in all_paths:
         urn = str(path)
         patch_value = generate_random_value(context, path=path)
-        mutability = path.get_annotation(Mutability)
+        binding = path.resolve()
+        mutability = binding.get_annotation(Mutability) if binding else None
 
         patch_op = PatchOp[type(base_resource)](
             operations=[

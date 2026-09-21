@@ -22,6 +22,7 @@ from scim2_tester.utils import checker
 from scim2_tester.utils import fields_equality
 from scim2_tester.utils import get_registered_tags
 from tests.utils import build_nested_response
+from tests.utils import werkzeug_response
 
 
 def test_checker_decorator_with_tags():
@@ -236,6 +237,45 @@ def test_non_json_server_response_handling():
 
     result = scim_error_check(context)
     assert result[0].status == Status.ERROR
+    assert result[0].data == "<html>Internal Server Error</html>"
+
+
+def test_werkzeug_server_response_handling():
+    """Test that the payload of a response the werkzeug engine returned is decoded."""
+
+    @checker("test")
+    def scim_error_check(context):
+        raise SCIMClientException(
+            "Unexpected status code: 400",
+            source=werkzeug_response(
+                b'{"status": "400", "detail": "Server error"}',
+                "application/scim+json",
+            ),
+        )
+
+    conf = CheckConfig(raise_exceptions=False)
+    context = CheckContext(client=None, conf=conf)
+
+    result = scim_error_check(context)
+    assert result[0].data == {"status": "400", "detail": "Server error"}
+
+
+def test_non_json_werkzeug_server_response_handling():
+    """Test that a werkzeug response the server did not serialize in JSON is kept as text."""
+
+    @checker("test")
+    def scim_error_check(context):
+        raise SCIMClientException(
+            "Unexpected content type: text/html",
+            source=werkzeug_response(
+                b"<html>Internal Server Error</html>", "text/html"
+            ),
+        )
+
+    conf = CheckConfig(raise_exceptions=False)
+    context = CheckContext(client=None, conf=conf)
+
+    result = scim_error_check(context)
     assert result[0].data == "<html>Internal Server Error</html>"
 
 

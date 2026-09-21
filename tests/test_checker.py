@@ -1,8 +1,18 @@
 """Test the main checker functionality."""
 
+import re
+
 import pytest
 from scim2_client.engines.httpx2 import SyncSCIMClient
 from scim2_client.engines.werkzeug import TestSCIMClient
+from scim2_models import Context
+from scim2_models import Error
+from scim2_models import ListResponse
+from scim2_models import Patch
+from scim2_models import ResourceType
+from scim2_models import Schema
+from scim2_models import ServiceProviderConfig
+from scim2_models import User
 from werkzeug.test import Client as WerkzeugClient
 
 from scim2_tester.checker import check_server
@@ -57,9 +67,9 @@ def test_check_server_ignores_data_of_failed_discovery_checks(httpserver):
 
     results = check_server(client)
 
-    assert client.service_provider_config is None
-    assert client.resource_types is None
-    assert client.resource_models == ()
+    assert client.provider.config is None
+    assert client.provider.resource_types == ()
+    assert client.provider.models == ()
     assert all(result.status == Status.ERROR for result in results)
 
 
@@ -74,3 +84,54 @@ def test_check_server_exception_handling(httpserver):
 
     with pytest.raises((SCIMTesterError, Exception)):
         check_server(client, raise_exceptions=True)
+
+
+def test_check_server_reports_an_uncomposable_service_description(httpserver):
+    """Ensures a resource type naming a schema the server does not publish is reported."""
+    httpserver.expect_request("/ServiceProviderConfig").respond_with_json(
+        ServiceProviderConfig(patch=Patch(supported=True)).model_dump(
+            scim_ctx=Context.RESOURCE_QUERY_RESPONSE
+        ),
+        content_type="application/scim+json",
+    )
+    resource_type = ResourceType(
+        id="Ghost",
+        name="Ghost",
+        endpoint="/Ghosts",
+        schema_="urn:example:params:scim:schemas:Ghost",
+    )
+    httpserver.expect_request("/ResourceTypes").respond_with_json(
+        ListResponse[ResourceType](
+            resources=[resource_type], total_results=1
+        ).model_dump(scim_ctx=Context.RESOURCE_QUERY_RESPONSE),
+        content_type="application/scim+json",
+    )
+    httpserver.expect_request(f"/ResourceTypes/{resource_type.id}").respond_with_json(
+        resource_type.model_dump(scim_ctx=Context.RESOURCE_QUERY_RESPONSE),
+        content_type="application/scim+json",
+    )
+    schema = User.to_schema()
+    httpserver.expect_request("/Schemas").respond_with_json(
+        ListResponse[Schema](resources=[schema], total_results=1).model_dump(
+            scim_ctx=Context.RESOURCE_QUERY_RESPONSE
+        ),
+        content_type="application/scim+json",
+    )
+    httpserver.expect_request(f"/Schemas/{schema.id}").respond_with_json(
+        schema.model_dump(scim_ctx=Context.RESOURCE_QUERY_RESPONSE),
+        content_type="application/scim+json",
+    )
+    httpserver.expect_request(
+        re.compile(r"^/(Schemas|ResourceTypes)/.*$")
+    ).respond_with_json(
+        Error(status=404, detail="Not Found").model_dump(),
+        status=404,
+        content_type="application/scim+json",
+    )
+
+    results = check_server(SyncSCIMClient(Client(base_url=httpserver.url_for("/"))))
+
+    description = [r for r in results if r.title == "service_description"]
+    assert len(description) == 1
+    assert description[0].status == Status.ERROR
+    assert "urn:example:params:scim:schemas:Ghost" in description[0].reason

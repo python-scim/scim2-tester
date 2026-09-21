@@ -2,14 +2,22 @@
 
 from typing import Any
 
-try:
-    from httpx2 import Client
-except ImportError:
-    from httpx import Client
-
+from httpx2 import Client
 from scim2_models.utils import _to_camel
+from werkzeug.test import Client as WerkzeugClient
+from werkzeug.test import TestResponse
+from werkzeug.wrappers import Response
 
-__all__ = ["Client", "build_nested_response"]
+__all__ = ["Client", "build_nested_response", "werkzeug_response"]
+
+
+def werkzeug_response(body: bytes, content_type: str) -> TestResponse:
+    """Build the response the werkzeug engine hands to the exceptions it raises."""
+
+    def app(environ, start_response):
+        return Response(body, content_type=content_type)(environ, start_response)
+
+    return WerkzeugClient(app).get("/")
 
 
 def build_nested_response(base_response: dict, path: str, value: Any) -> dict:

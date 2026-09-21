@@ -7,8 +7,8 @@ from enum import Enum
 from enum import auto
 from typing import Any
 
+from scim2_client import BaseSyncSCIMClient
 from scim2_client import SCIMClientException
-from scim2_client.engines.httpx2 import SyncSCIMClient
 from scim2_models import BaseModel
 from scim2_models import Mutability
 from scim2_models import Required
@@ -102,7 +102,7 @@ class CheckContext:
 
     resource_manager: "ResourceManager"
 
-    def __init__(self, client: SyncSCIMClient, conf: CheckConfig):
+    def __init__(self, client: BaseSyncSCIMClient, conf: CheckConfig):
         self.client = client
         self.conf = conf
         # ResourceManager is defined later in the file, so we instantiate it here
@@ -144,10 +144,15 @@ def _exception_data(exc: Exception) -> Any:
     if not hasattr(source, "text"):
         return source
 
+    # httpx decodes the payload from a method, werkzeug from a property which
+    # answers None instead of raising when the response carries no JSON.
     try:
-        return source.json()
+        payload = source.json
+        payload = payload() if callable(payload) else payload
     except ValueError:
-        return source.text
+        payload = None
+
+    return source.text if payload is None else payload
 
 
 @dataclass

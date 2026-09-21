@@ -4,10 +4,39 @@ Changelog
 [Unreleased]
 ------------
 
+Added
+^^^^^
+- A check reporting a service description that cannot be composed, such as a
+  :class:`~scim2_models.ResourceType` naming a schema ``/Schemas`` does not publish.
+  The remaining checks used to be silently skipped.
+
+Changed
+^^^^^^^
+- scim2-client 0.9.0 and scim2-models 0.8.0 are now the minimum supported versions.
+- What the discovery endpoints publish is registered on the client as a
+  :class:`~scim2_models.ScimProvider`, in place of its resource models, its resource types
+  and its service provider configuration.
+
+Removed
+^^^^^^^
+- **Breaking:** the ``httpx`` packaging extra, as scim2-client dropped its own.
+  The engines require `httpx2 <https://github.com/pydantic/httpx2>`_, pulled by the
+  ``httpx2`` extra. An application that cannot migrate all its dependencies at once can
+  call :code:`httpx2.alias_httpx()` at the very top of its entrypoint, so that
+  :code:`import httpx` resolves to httpx2 process-wide.
+
 Fixed
 ^^^^^
 - The :attr:`~scim2_tester.CheckResult.data` of a failed check holds the decoded response
   payload instead of the response object, whose representation only carries a status code.
+- Two resource types built upon a same schema are told apart, where the model of the first
+  one declaring the schema used to answer for both.
+- The :attr:`~scim2_tester.CheckResult.data` of a check failed against the
+  :class:`~scim2_client.engines.werkzeug.TestSCIMClient` engine holds the response payload,
+  where reading it raised a :class:`TypeError`.
+- :meth:`~scim2_tester.check_server` takes any synchronous client, as it always did, instead
+  of declaring the httpx2 one. Importing ``scim2_tester`` no longer requires the ``httpx2``
+  packaging extra, which only the command line needs.
 
 [0.3.0] - 2026-09-20
 --------------------

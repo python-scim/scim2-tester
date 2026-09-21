@@ -17,13 +17,13 @@ def test_resource_types_endpoint(httpserver, testing_context):
     """Test a fully functional resource types endpoint."""
     httpserver.expect_request(re.compile(r"^/ResourceTypes$")).respond_with_json(
         ListResponse[ResourceType](
-            resources=testing_context.client.resource_types,
-            total_results=len(testing_context.client.resource_types),
+            resources=testing_context.client.provider.resource_types,
+            total_results=len(testing_context.client.provider.resource_types),
         ).model_dump(scim_ctx=Context.RESOURCE_QUERY_RESPONSE),
         status=200,
         content_type="application/scim+json",
     )
-    for resource_type in testing_context.client.resource_types:
+    for resource_type in testing_context.client.provider.resource_types:
         httpserver.expect_request(
             re.compile(rf"^/ResourceTypes/{resource_type.id}$")
         ).respond_with_json(
@@ -58,8 +58,8 @@ def test_resource_missing_query_endpoint(httpserver, testing_context):
     """Test that individual ResourceType endpoints are missing."""
     httpserver.expect_request(re.compile(r"^/ResourceTypes$")).respond_with_json(
         ListResponse[ResourceType](
-            resources=testing_context.client.resource_types,
-            total_results=len(testing_context.client.resource_types),
+            resources=testing_context.client.provider.resource_types,
+            total_results=len(testing_context.client.provider.resource_types),
         ).model_dump(scim_ctx=Context.RESOURCE_QUERY_RESPONSE),
         status=200,
         content_type="application/scim+json",
@@ -109,7 +109,7 @@ def test_query_resource_type_by_id_client_returns_error(httpserver, testing_cont
 
 def test_access_resource_type_by_id_success(httpserver, testing_context):
     """Test successfully accessing a resource type by ID."""
-    resource_type = testing_context.client.resource_types[0]
+    resource_type = testing_context.client.provider.resource_types[0]
     httpserver.expect_request(f"/ResourceTypes/{resource_type.id}").respond_with_json(
         resource_type.model_dump(scim_ctx=Context.RESOURCE_QUERY_RESPONSE),
         status=200,

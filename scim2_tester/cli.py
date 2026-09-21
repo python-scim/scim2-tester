@@ -1,10 +1,6 @@
 import argparse
 
-try:
-    from httpx2 import Client
-except ImportError:
-    from httpx import Client
-
+from httpx2 import Client
 from scim2_client.engines.httpx2 import SyncSCIMClient
 
 from scim2_tester.checker import check_server

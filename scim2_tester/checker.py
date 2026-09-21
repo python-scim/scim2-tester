@@ -1,6 +1,8 @@
 from typing import Any
 
-from scim2_client.engines.httpx2 import SyncSCIMClient
+from scim2_client import BaseSyncSCIMClient
+from scim2_models import ScimProvider
+from scim2_models import ScimProviderError
 
 from scim2_tester.checkers import random_url
 from scim2_tester.checkers import resource_type_tests
@@ -11,6 +13,7 @@ from scim2_tester.utils import CheckConfig
 from scim2_tester.utils import CheckContext
 from scim2_tester.utils import CheckResult
 from scim2_tester.utils import Status
+from scim2_tester.utils import check_result
 
 
 def _discovered_objects(results: list[CheckResult]) -> Any:
@@ -23,8 +26,56 @@ def _discovered_objects(results: list[CheckResult]) -> Any:
     return results[0].data if results[0].status == Status.SUCCESS else None
 
 
+def _describe_service(
+    context: CheckContext,
+    results_spc: list[CheckResult],
+    results_resource_types: list[CheckResult],
+    results_schemas: list[CheckResult],
+) -> tuple[ScimProvider | None, list[CheckResult]]:
+    """Compose the description of the server from what its discovery endpoints published.
+
+    What the client already describes wins over what the server publishes, as
+    :meth:`~scim2_client.BaseSyncSCIMClient.discover` does. The description is
+    registered on the client so the remaining checks are run against it.
+    """
+    provider = context.client.provider
+    config = provider.config or _discovered_objects(results_spc)
+
+    if provider.models:
+        described = ScimProvider(
+            provider.models, provider.resource_types, config, provider.policy
+        )
+        context.client.provider = described
+        return described, []
+
+    resource_types = _discovered_objects(results_resource_types)
+    schemas = _discovered_objects(results_schemas)
+    if not resource_types or not schemas:
+        return None, []
+
+    try:
+        described = ScimProvider.from_discovery(
+            schemas, resource_types, config, provider.policy
+        )
+    except ScimProviderError as exc:
+        return None, [
+            check_result(
+                context,
+                status=Status.ERROR,
+                title="service_description",
+                description="Compose the resource models the server serves from "
+                "the schemas and the resource types it publishes.",
+                reason=str(exc),
+                tags={"discovery"},
+            )
+        ]
+
+    context.client.provider = described
+    return described, []
+
+
 def check_server(
-    client: SyncSCIMClient,
+    client: BaseSyncSCIMClient,
     raise_exceptions: bool = False,
     include_tags: set[str] | None = None,
     exclude_tags: set[str] | None = None,
@@ -34,7 +85,8 @@ def check_server(
 
     It starts by retrieving the standard :class:`~scim2_models.ServiceProviderConfig`,
     :class:`~scim2_models.Schema` and :class:`~scim2_models.ResourceType` endpoints.
-    Those configuration resources will be registered to the client if no other have been registered yet.
+    What they publish describes the server as a :class:`~scim2_models.ScimProvider`
+    registered on the client, leaving untouched whatever the client already described.
 
     Then for all available resources (whether they have been manually configured in the client,
     or dynamically discovered by the checker), it perform a series of creation, query, replacement and deletion.
@@ -86,33 +138,25 @@ def check_server(
 
     results_spc = service_provider_config_endpoint(context)
     results.extend(results_spc)
-    if not client.service_provider_config:
-        client.service_provider_config = _discovered_objects(results_spc)
 
     results_resource_types = _resource_types_endpoint(context)
     results.extend(results_resource_types)
-    if not client.resource_types:
-        client.resource_types = _discovered_objects(results_resource_types)
 
     results_schemas = _schemas_endpoint(context)
     results.extend(results_schemas)
-    schemas = _discovered_objects(results_schemas)
-    if not client.resource_models and schemas:
-        client.resource_models = client.build_resource_models(
-            client.resource_types or [], schemas
-        )
 
-    if (
-        not client.service_provider_config
-        or not client.resource_types
-        or not client.resource_models
-    ):
+    provider, results_description = _describe_service(
+        context, results_spc, results_resource_types, results_schemas
+    )
+    results.extend(results_description)
+
+    if provider is None or not provider.config:
         return results
 
     result_random = random_url(context)
     results.extend(result_random)
 
-    for resource_type in client.resource_types or []:
+    for resource_type in provider.resource_types:
         if conf.resource_types and resource_type.name not in conf.resource_types:
             continue
 

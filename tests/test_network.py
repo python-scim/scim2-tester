@@ -4,6 +4,7 @@ from scim2_client.engines.httpx2 import SyncSCIMClient
 from scim2_models import Context
 from scim2_models import Error
 from scim2_models import Group
+from scim2_models import ScimProvider
 from scim2_models import User
 
 from scim2_tester.checker import check_server
@@ -36,7 +37,7 @@ def test_bad_authentication(httpserver):
     )
 
     client = Client(base_url=f"http://localhost:{httpserver.port}")
-    scim = SyncSCIMClient(client, resource_models=(User, Group))
+    scim = SyncSCIMClient(client, provider=ScimProvider(models=[User, Group]))
     conf = CheckConfig(expected_status_codes=[200, 401])
     context = CheckContext(scim, conf)
     results = _schemas_endpoint(context)
@@ -70,8 +71,7 @@ def test_bad_content_type(httpserver):
     )
 
     client = Client(base_url=f"http://localhost:{httpserver.port}")
-    scim = SyncSCIMClient(client, resource_models=(User, Group))
-    scim.register_naive_resource_types()
+    scim = SyncSCIMClient(client, provider=ScimProvider(models=[User, Group]))
     conf = CheckConfig()
     context = CheckContext(scim, conf)
 

@@ -1,5 +1,6 @@
 """Test automatic field filling functionality."""
 
+import base64
 from typing import Annotated
 from typing import Union
 from unittest.mock import patch
@@ -7,6 +8,7 @@ from unittest.mock import patch
 from scim2_models import Email
 from scim2_models import EnterpriseUser
 from scim2_models import Group
+from scim2_models import GroupMember
 from scim2_models import Mutability
 from scim2_models import PhoneNumber
 from scim2_models import Reference
@@ -30,7 +32,7 @@ def test_generate_random_value_bytes_field(testing_context):
     """Validates random value generation for bytes fields."""
     value = generate_random_value(testing_context, Path[X509Certificate]("value"))
 
-    assert isinstance(value, str)
+    assert base64.b64decode(value, validate=True)
 
 
 def test_model_resolution_from_reference_type(testing_context):
@@ -100,9 +102,9 @@ def test_fill_with_nonexistent_field(testing_context):
 
 def test_get_random_example_value():
     """Validates random value selection from pydantic field examples."""
-    value = get_random_example_value(Path[Email]("type"))
+    value = get_random_example_value(Path[GroupMember]("type"))
 
-    assert value in ["work", "home", "other"]
+    assert value in ["User", "Group"]
 
 
 def test_get_random_example_value_no_examples():

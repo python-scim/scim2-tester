@@ -15,7 +15,7 @@ from scim2_tester.utils import Status
 
 def test_schemas_endpoint(httpserver, testing_context):
     """Test a fully functional schemas endpoint."""
-    schemas = [model.to_schema() for model in testing_context.client.resource_models]
+    schemas = list(testing_context.client.provider.schemas)
     httpserver.expect_request(re.compile(r"^/Schemas$")).respond_with_json(
         ListResponse[Schema](
             resources=schemas,
@@ -45,7 +45,7 @@ def test_schemas_endpoint(httpserver, testing_context):
 
 def test_missing_individual_schema_endpoints(httpserver, testing_context):
     """Test behavior when individual schema endpoints are not available."""
-    schemas = [model.to_schema() for model in testing_context.client.resource_models]
+    schemas = list(testing_context.client.provider.schemas)
     httpserver.expect_request(re.compile(r"^/Schemas$")).respond_with_json(
         ListResponse[Schema](
             resources=schemas,

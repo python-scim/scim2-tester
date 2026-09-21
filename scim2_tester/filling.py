@@ -6,15 +6,14 @@ from inspect import isclass
 from typing import TYPE_CHECKING
 from typing import Any
 
-from pydantic import Base64Bytes
 from pydantic import BaseModel
 from scim2_models import ComplexAttribute
 from scim2_models import Extension
 from scim2_models import Mutability
+from scim2_models import Path
 from scim2_models import Reference
 from scim2_models import Required
 from scim2_models import Resource
-from scim2_models.path import Path
 
 if TYPE_CHECKING:
     from scim2_tester.utils import CheckContext
@@ -22,10 +21,11 @@ if TYPE_CHECKING:
 
 def get_random_example_value(path: Path[Any]) -> Any | None:
     """Get a random value from pydantic field examples if available."""
-    if path.model is None or path.field_name is None:
+    binding = path.resolve()
+    if binding is None or binding.target_model is None:
         return None
 
-    field_info = path.model.model_fields.get(path.field_name)
+    field_info = binding.target_model.model_fields.get(binding.target_field_name)
     if not field_info or not hasattr(field_info, "examples") or not field_info.examples:
         return None
 
@@ -55,24 +55,29 @@ def generate_random_value(
     required: list[Required] | None = None,
 ) -> Any:
     """Generate a random value for the given path."""
-    if mutability is not None:
-        field_mutability = path.get_annotation(Mutability)
-        if field_mutability not in mutability:
-            return None
+    binding = path.resolve()
 
-    if required is not None:
-        field_required = path.get_annotation(Required)
-        if field_required not in required:
-            return None
+    if mutability is not None and (
+        binding is None or binding.get_annotation(Mutability) not in mutability
+    ):
+        return None
 
-    field_type = path.field_type
-    model = path.model
+    if required is not None and (
+        binding is None or binding.get_annotation(Required) not in required
+    ):
+        return None
+
+    # A path naming a bare extension URN designates a model rather than an
+    # attribute, so nothing resolves and the model it names answers for it.
+    field_type = binding.target_type if binding else None
+    model = binding.target_model if binding else path.model
+    field_name = binding.target_field_name if binding else None
 
     is_email = str(path).endswith("emails.value") or (
-        path.field_name == "value" and model and "email" in model.__name__.lower()
+        field_name == "value" and model and "email" in model.__name__.lower()
     )
     is_phone = str(path).endswith("phoneNumbers.value") or (
-        path.field_name == "value" and model and "phone" in model.__name__.lower()
+        field_name == "value" and model and "phone" in model.__name__.lower()
     )
 
     value: Any
@@ -125,13 +130,13 @@ def generate_random_value(
             context, model(), mutability=mutability, required=required
         )  # type: ignore[arg-type]
 
-    elif field_type is Base64Bytes:
+    elif field_type is bytes:
         value = base64.b64encode(uuid.uuid4().bytes).decode("ascii")
 
     else:
         value = str(uuid.uuid4())
 
-    if path.is_multivalued:
+    if binding and binding.target_is_multivalued:
         value = [value]
 
     return value

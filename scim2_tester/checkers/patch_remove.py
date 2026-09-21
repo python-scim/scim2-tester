@@ -6,10 +6,10 @@ from scim2_client import SCIMClientException
 from scim2_models import Mutability
 from scim2_models import PatchOp
 from scim2_models import PatchOperation
+from scim2_models import Path
 from scim2_models import Required
 from scim2_models import Resource
 from scim2_models import SCIMException
-from scim2_models.path import Path
 
 from ..utils import CheckContext
 from ..utils import CheckResult
@@ -45,8 +45,8 @@ def check_remove_attribute(
        functions, depending on the target location specified by 'path'."
     """
     if (
-        context.client.service_provider_config
-        and not context.client.service_provider_config.patch.supported
+        context.client.provider.config
+        and not context.client.provider.config.patch.supported
     ):
         return [
             check_result(
@@ -81,7 +81,8 @@ def check_remove_attribute(
     for path in all_paths:
         urn = str(path)
         initial_value = path.get(full_resource)
-        mutability = path.get_annotation(Mutability)
+        binding = path.resolve()
+        mutability = binding.get_annotation(Mutability) if binding else None
         if initial_value is None:
             continue
 

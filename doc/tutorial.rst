@@ -12,12 +12,12 @@ scim2-tester is integrated in :doc:`scim2-cli <scim2_cli:index>`:
     export SCIM_CLI_URL="https://auth.example"
     scim test
 
-You can check the :ref:`scim2-cli test command reference <scim2_cli:test>` for more details.
+You can check the :ref:`scim2-cli test command reference <scim2_cli:reference:test>` for more details.
 
 Code integration
 ================
 
-If you need to integrate the tester in your code, you can initialize a :ref:`scim2-client engine <scim2_client:tutorial:engines>`
+If you need to integrate the tester in your code, you can initialize a :ref:`scim2-client engine <scim2_client:reference:engines>`
 and pass it to the :meth:`~scim2_tester.check_server` method:
 
 .. code-block:: python

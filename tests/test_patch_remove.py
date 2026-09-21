@@ -3,6 +3,9 @@
 import json
 
 from scim2_models import EnterpriseUser
+from scim2_models import Patch
+from scim2_models import ScimProvider
+from scim2_models import ServiceProviderConfig
 from scim2_models import User
 from werkzeug.wrappers import Response
 
@@ -441,12 +444,12 @@ def test_patch_remove_writeonly_attribute(testing_context):
 
 def test_patch_not_supported(testing_context):
     """Test PATCH remove returns SKIPPED when PATCH is not supported."""
-    from unittest.mock import Mock
-
-    # Mock ServiceProviderConfig with patch.supported = False
-    mock_service_provider_config = Mock()
-    mock_service_provider_config.patch.supported = False
-    testing_context.client.service_provider_config = mock_service_provider_config
+    provider = testing_context.client.provider
+    testing_context.client.provider = ScimProvider(
+        provider.models,
+        provider.resource_types,
+        ServiceProviderConfig(patch=Patch(supported=False)),
+    )
 
     results = check_remove_attribute(testing_context, User)
 

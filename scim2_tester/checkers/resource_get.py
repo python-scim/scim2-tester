@@ -1,4 +1,5 @@
 from typing import Any
+from typing import cast
 
 from scim2_models import Resource
 from scim2_models import ResourceType
@@ -13,16 +14,14 @@ from ..utils import checker
 def _model_from_resource_type(
     context: CheckContext, resource_type: ResourceType
 ) -> type[Resource[Any]] | None:
-    """Resolve Resource model class from ResourceType metadata.
+    """Resolve the model a :class:`~scim2_models.ResourceType` designates.
 
-    Maps a :class:`~scim2_models.ResourceType` object (containing schema URIs and metadata) to the
-    corresponding Python model class registered in the SCIM client.
+    The description of the server binds each resource type name to the model an
+    endpoint serves, extensions included, so two resource types built upon a
+    same schema are told apart.
     """
-    for resource_model in context.client.resource_models:
-        if resource_model.__schema__ == resource_type.schema_:
-            return resource_model
-
-    return None
+    model = context.client.provider.model_for(resource_type)
+    return cast("type[Resource[Any]]", model) if model else None
 
 
 @checker("crud:read")
