@@ -1,4 +1,4 @@
-from enum import Enum
+from enum import StrEnum
 from unittest.mock import MagicMock
 from unittest.mock import patch
 
@@ -30,7 +30,7 @@ class Complex(ComplexAttribute):
 class CustomModel(Resource):
     __schema__: str = "org:test:CustomModel"
 
-    class Type(str, Enum):
+    class Type(StrEnum):
         foo = "foo"
         bar = "bar"
 
