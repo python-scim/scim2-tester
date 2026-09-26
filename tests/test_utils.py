@@ -16,8 +16,10 @@ from scim2_tester.utils import CheckConfig
 from scim2_tester.utils import CheckContext
 from scim2_tester.utils import CheckResult
 from scim2_tester.utils import ResourceManager
+from scim2_tester.utils import SCIMTesterError
 from scim2_tester.utils import Status
 from scim2_tester.utils import _matches_hierarchical_tags
+from scim2_tester.utils import check_result
 from scim2_tester.utils import checker
 from scim2_tester.utils import fields_equality
 from scim2_tester.utils import get_registered_tags
@@ -446,3 +448,42 @@ def test_build_nested_response_with_unknown_extension_urn():
 
     assert "urn:custom:extension" in result
     assert result["urn:custom:extension"]["fieldName"] == "value"
+
+
+def _check_reporting(context, status, reason):
+    return check_result(context, status, reason=reason)
+
+
+@pytest.mark.parametrize("status", [Status.ERROR, Status.CRITICAL])
+def test_check_result_raises_on_failures_when_configured(status):
+    """A failing result raises SCIMTesterError from the check that reported it."""
+    conf = CheckConfig(raise_exceptions=True)
+    context = CheckContext(client=None, conf=conf)
+
+    with pytest.raises(SCIMTesterError) as exc_info:
+        _check_reporting(context, status, "Server answered 500")
+
+    assert str(exc_info.value) == "Server answered 500"
+    assert exc_info.value.conf is conf
+    assert exc_info.traceback[-1].frame.code.name == "_check_reporting"
+
+
+def test_check_result_raises_a_default_message_without_reason():
+    """A failing result without a reason raises with a generic message."""
+    context = CheckContext(client=None, conf=CheckConfig(raise_exceptions=True))
+
+    with pytest.raises(SCIMTesterError, match="^Check failed$"):
+        _check_reporting(context, Status.ERROR, None)
+
+
+@pytest.mark.parametrize(
+    "status", [s for s in Status if s not in (Status.ERROR, Status.CRITICAL)]
+)
+def test_check_result_returns_non_failures_when_configured_to_raise(status):
+    """Only failures raise: other statuses are returned as results."""
+    context = CheckContext(client=None, conf=CheckConfig(raise_exceptions=True))
+
+    result = _check_reporting(context, status, "Details")
+
+    assert result.status == status
+    assert result.reason == "Details"
