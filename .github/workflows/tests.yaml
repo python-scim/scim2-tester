@@ -12,6 +12,7 @@ on:
 
 env:
   UV_LOCKED: 1
+  UV_PYTHON_PREFERENCE: only-managed
 
 permissions:
   contents: read
@@ -34,9 +35,8 @@ jobs:
         uses: astral-sh/setup-uv@bec219d24cd3e171d82865faccec33120bb574f4 # v10.1.0
         with:
           version: "0.12.13"
+          python-version: ${{ matrix.python }}
           enable-cache: true
-      - name: Install Python ${{ matrix.python }}
-        run: uv python install ${{ matrix.python }}
       - name: Install dependencies
         run: uv sync --all-extras
       - name: Run tests
@@ -51,13 +51,12 @@ jobs:
         uses: astral-sh/setup-uv@bec219d24cd3e171d82865faccec33120bb574f4 # v10.1.0
         with:
           version: "0.12.13"
+          python-version: "3.14"
           enable-cache: true
-      - name: Install Python 3.14
-        run: uv python install 3.14
       - name: Install dependencies
-        run: uv sync --all-extras --python 3.14
+        run: uv sync --all-extras
       - name: Run tests
-        run: uv run --python 3.14 pytest --cov --cov-fail-under=100
+        run: uv run pytest --cov --cov-fail-under=100
 
   downstream-tests:
     name: py${{ matrix.python }} ${{ matrix.downstream }} downstream unit tests
@@ -80,16 +79,13 @@ jobs:
         uses: astral-sh/setup-uv@bec219d24cd3e171d82865faccec33120bb574f4 # v10.1.0
         with:
           version: "0.12.13"
+          python-version: ${{ matrix.python }}
           enable-cache: true
       - name: Checkout downstream pyproject
         uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
         with:
           repository: python-scim/${{ matrix.downstream }}
           path: ${{ matrix.downstream }}
-      - name: Install Python ${{ matrix.python }}
-        run: |
-          cd ${{ matrix.downstream }}
-          uv python install ${{ matrix.python }}
       - name: Install downstream test environment
         run: |
           cd ${{ matrix.downstream }}
@@ -112,9 +108,8 @@ jobs:
         uses: astral-sh/setup-uv@bec219d24cd3e171d82865faccec33120bb574f4 # v10.1.0
         with:
           version: "0.12.13"
+          python-version: "3.11"
           enable-cache: true
-      - name: Install minimum supported mpython
-        run: uv python install 3.11
       - name: Install minimum dependencies
         run: uv sync --all-extras
       - name: Run tests
@@ -134,7 +129,8 @@ jobs:
         uses: astral-sh/setup-uv@bec219d24cd3e171d82865faccec33120bb574f4 # v10.1.0
         with:
           version: "0.12.13"
+          python-version: "3.14"
           enable-cache: true
       - name: Install dependencies
-        run: uv sync --python 3.14 --group doc --all-extras
+        run: uv sync --group doc --all-extras
       - run: uv run sphinx-build -W --keep-going doc build/sphinx/html
