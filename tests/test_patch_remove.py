@@ -1,6 +1,7 @@
 """Unit tests for PATCH remove operation checkers."""
 
 import json
+from unittest.mock import Mock
 
 from scim2_models import EnterpriseUser
 from scim2_models import Patch
@@ -406,6 +407,27 @@ def test_patch_remove_attribute_not_removed(testing_context):
         if r.status == Status.ERROR and "did not remove attribute" in r.reason
     ]
     assert len(error_results) > 0
+
+
+def test_patch_remove_attribute_still_returned_by_query(testing_context):
+    """Test PATCH remove when the server answers no content but the query still returns the attribute."""
+    mock_client = Mock()
+    mock_user = User(id="123", user_name="test@example.com", display_name="persistent")
+    mock_client.create.return_value = mock_user
+    mock_client.modify.return_value = None
+    mock_client.query.return_value = mock_user
+
+    testing_context.client = mock_client
+
+    results = check_remove_attribute(testing_context, User)
+
+    error_results = [
+        r
+        for r in results
+        if r.status == Status.ERROR
+        and r.reason == "Attribute 'displayName' was not removed"
+    ]
+    assert len(error_results) == 1
 
 
 def test_patch_remove_writeonly_attribute(testing_context):
