@@ -15,8 +15,3 @@ __all__ = [
     "get_all_available_tags",
     "get_standard_resource_types",
 ]
-
-if __name__ == "__main__":  # pragma: no cover
-    from scim2_tester.cli import cli
-
-    cli()

@@ -8,16 +8,15 @@ Changed
 ^^^^^^^
 - Python 3.11 is now the minimum supported version.
 
+Removed
+^^^^^^^
+- The undocumented command line. Use :ref:`scim2 test <scim2_cli:reference:test>` instead.
+
 Fixed
 ^^^^^
 - A service description breaking the construction of the models with another exception
   than :class:`~scim2_models.ScimProviderError` is reported by the ``service_description``
   check, instead of stopping :func:`~scim2_tester.check_server`.
-
-Security
-^^^^^^^^
-- The command line escapes the control characters of the report, so the server cannot
-  rewrite it on the terminal with escape sequences.
 
 [0.4.0] - 2026-09-21
 --------------------
