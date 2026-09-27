@@ -5,13 +5,13 @@ import re
 import pytest
 from scim2_client.engines.httpx2 import SyncSCIMClient
 from scim2_client.engines.werkzeug import TestSCIMClient
-from scim2_models import Attribute
 from scim2_models import Context
 from scim2_models import Error
 from scim2_models import ListResponse
 from scim2_models import Patch
 from scim2_models import ResourceType
 from scim2_models import Schema
+from scim2_models import ScimProvider
 from scim2_models import ServiceProviderConfig
 from scim2_models import User
 from werkzeug.test import Client as WerkzeugClient
@@ -142,27 +142,31 @@ def test_check_server_reports_an_uncomposable_service_description(httpserver):
     assert "urn:example:params:scim:schemas:Ghost" in description[0].reason
 
 
-def hostile_schema():
-    """Return the User schema with an attribute named after a member of the models."""
-    schema = User.to_schema()
-    schema.attributes.append(Attribute(name="model_config", type=Attribute.Type.string))
-    return schema
+def failing_discovery(*args, **kwargs):
+    raise TypeError("'FieldInfo' object is not iterable")
 
 
-def test_check_server_reports_a_schema_the_models_cannot_be_built_from(httpserver):
-    """A schema breaking the construction of the models is reported, and the checks go on."""
-    serve_discovery(httpserver, ResourceType.from_resource(User), hostile_schema())
+def test_check_server_reports_an_unexpected_service_description_failure(
+    httpserver, monkeypatch
+):
+    """A failure of scim2-models while composing the models is reported, and the checks go on."""
+    monkeypatch.setattr(ScimProvider, "from_discovery", failing_discovery)
+    serve_discovery(httpserver, ResourceType.from_resource(User), User.to_schema())
 
     results = check_server(SyncSCIMClient(Client(base_url=httpserver.url_for("/"))))
 
     description = [r for r in results if r.title == "service_description"]
     assert len(description) == 1
     assert description[0].status == Status.ERROR
+    assert "'FieldInfo' object is not iterable" in description[0].reason
 
 
-def test_check_server_raises_on_a_schema_the_models_cannot_be_built_from(httpserver):
-    """With raise_exceptions, the broken service description stops the checks."""
-    serve_discovery(httpserver, ResourceType.from_resource(User), hostile_schema())
+def test_check_server_raises_on_an_unexpected_service_description_failure(
+    httpserver, monkeypatch
+):
+    """With raise_exceptions, the failing service description stops the checks."""
+    monkeypatch.setattr(ScimProvider, "from_discovery", failing_discovery)
+    serve_discovery(httpserver, ResourceType.from_resource(User), User.to_schema())
     client = SyncSCIMClient(Client(base_url=httpserver.url_for("/")))
 
     with pytest.raises(SCIMTesterError):
