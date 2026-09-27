@@ -14,6 +14,11 @@ Fixed
   than :class:`~scim2_models.ScimProviderError` is reported by the ``service_description``
   check, instead of stopping :func:`~scim2_tester.check_server`.
 
+Security
+^^^^^^^^
+- The command line escapes the control characters of the report, so the server cannot
+  rewrite it on the terminal with escape sequences.
+
 [0.4.0] - 2026-09-21
 --------------------
 

@@ -1,9 +1,25 @@
 import argparse
+import re
 
 from httpx2 import Client
 from scim2_client.engines.httpx2 import SyncSCIMClient
 
 from scim2_tester.checker import check_server
+
+_CONTROL_CHARACTERS = re.compile(
+    "[\x00-\x08\x0b-\x1f\x7f-\x9f\u061c\u200e\u200f\u202a-\u202e\u2066-\u2069]"
+)
+
+
+def _escape_control_characters(text: object) -> str:
+    """Replace the control characters of a text by their escaped form.
+
+    The server writes part of the report, and the terminal would interpret
+    the escape sequences it sends.
+    """
+    return _CONTROL_CHARACTERS.sub(
+        lambda match: match.group().encode("unicode_escape").decode(), str(text)
+    )
 
 
 def cli() -> None:
@@ -53,9 +69,14 @@ def cli() -> None:
     )
 
     for result in results:
-        resource_info = f" [{result.resource_type}]" if result.resource_type else ""
-        print(f"{result.status.name} {result.title}{resource_info}")
+        title = _escape_control_characters(result.title)
+        resource_info = (
+            f" [{_escape_control_characters(result.resource_type)}]"
+            if result.resource_type
+            else ""
+        )
+        print(f"{result.status.name} {title}{resource_info}")
         if result.reason:
-            print("  ", result.reason)
+            print("  ", _escape_control_characters(result.reason))
             if args.verbose and result.data:
-                print("  ", result.data)
+                print("  ", _escape_control_characters(result.data))
