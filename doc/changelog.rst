@@ -8,6 +8,12 @@ Changed
 ^^^^^^^
 - Python 3.11 is now the minimum supported version.
 
+Fixed
+^^^^^
+- A service description breaking the construction of the models with another exception
+  than :class:`~scim2_models.ScimProviderError` is reported by the ``service_description``
+  check, instead of stopping :func:`~scim2_tester.check_server`.
+
 [0.4.0] - 2026-09-21
 --------------------
 

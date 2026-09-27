@@ -5,6 +5,7 @@ import re
 import pytest
 from scim2_client.engines.httpx2 import SyncSCIMClient
 from scim2_client.engines.werkzeug import TestSCIMClient
+from scim2_models import Attribute
 from scim2_models import Context
 from scim2_models import Error
 from scim2_models import ListResponse
@@ -86,19 +87,13 @@ def test_check_server_exception_handling(httpserver):
         check_server(client, raise_exceptions=True)
 
 
-def test_check_server_reports_an_uncomposable_service_description(httpserver):
-    """Ensures a resource type naming a schema the server does not publish is reported."""
+def serve_discovery(httpserver, resource_type, schema):
+    """Serve the discovery endpoints of a server publishing one resource type and one schema."""
     httpserver.expect_request("/ServiceProviderConfig").respond_with_json(
         ServiceProviderConfig(patch=Patch(supported=True)).model_dump(
             scim_ctx=Context.RESOURCE_QUERY_RESPONSE
         ),
         content_type="application/scim+json",
-    )
-    resource_type = ResourceType(
-        id="Ghost",
-        name="Ghost",
-        endpoint="/Ghosts",
-        schema_="urn:example:params:scim:schemas:Ghost",
     )
     httpserver.expect_request("/ResourceTypes").respond_with_json(
         ListResponse[ResourceType](
@@ -110,7 +105,6 @@ def test_check_server_reports_an_uncomposable_service_description(httpserver):
         resource_type.model_dump(scim_ctx=Context.RESOURCE_QUERY_RESPONSE),
         content_type="application/scim+json",
     )
-    schema = User.to_schema()
     httpserver.expect_request("/Schemas").respond_with_json(
         ListResponse[Schema](resources=[schema], total_results=1).model_dump(
             scim_ctx=Context.RESOURCE_QUERY_RESPONSE
@@ -129,9 +123,47 @@ def test_check_server_reports_an_uncomposable_service_description(httpserver):
         content_type="application/scim+json",
     )
 
+
+def test_check_server_reports_an_uncomposable_service_description(httpserver):
+    """Ensures a resource type naming a schema the server does not publish is reported."""
+    resource_type = ResourceType(
+        id="Ghost",
+        name="Ghost",
+        endpoint="/Ghosts",
+        schema_="urn:example:params:scim:schemas:Ghost",
+    )
+    serve_discovery(httpserver, resource_type, User.to_schema())
+
     results = check_server(SyncSCIMClient(Client(base_url=httpserver.url_for("/"))))
 
     description = [r for r in results if r.title == "service_description"]
     assert len(description) == 1
     assert description[0].status == Status.ERROR
     assert "urn:example:params:scim:schemas:Ghost" in description[0].reason
+
+
+def hostile_schema():
+    """Return the User schema with an attribute named after a member of the models."""
+    schema = User.to_schema()
+    schema.attributes.append(Attribute(name="model_config", type=Attribute.Type.string))
+    return schema
+
+
+def test_check_server_reports_a_schema_the_models_cannot_be_built_from(httpserver):
+    """A schema breaking the construction of the models is reported, and the checks go on."""
+    serve_discovery(httpserver, ResourceType.from_resource(User), hostile_schema())
+
+    results = check_server(SyncSCIMClient(Client(base_url=httpserver.url_for("/"))))
+
+    description = [r for r in results if r.title == "service_description"]
+    assert len(description) == 1
+    assert description[0].status == Status.ERROR
+
+
+def test_check_server_raises_on_a_schema_the_models_cannot_be_built_from(httpserver):
+    """With raise_exceptions, the broken service description stops the checks."""
+    serve_discovery(httpserver, ResourceType.from_resource(User), hostile_schema())
+    client = SyncSCIMClient(Client(base_url=httpserver.url_for("/")))
+
+    with pytest.raises(SCIMTesterError):
+        check_server(client, raise_exceptions=True)

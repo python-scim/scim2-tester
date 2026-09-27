@@ -2,7 +2,6 @@ from typing import Any
 
 from scim2_client import BaseSyncSCIMClient
 from scim2_models import ScimProvider
-from scim2_models import ScimProviderError
 
 from scim2_tester.checkers import random_url
 from scim2_tester.checkers import resource_type_tests
@@ -57,7 +56,7 @@ def _describe_service(
         described = ScimProvider.from_discovery(
             schemas, resource_types, config, provider.policy
         )
-    except ScimProviderError as exc:
+    except Exception as exc:
         return None, [
             check_result(
                 context,
