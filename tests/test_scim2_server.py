@@ -15,9 +15,6 @@ def scim_client(scim2_server_app):
     return client
 
 
-@pytest.mark.xfail(
-    reason="scim2-server don't correctly handle patch operation on extension roots"
-)
 def test_discovered_scim2_server(scim_client):
     """Test the complete SCIM server with discovery."""
     results = check_server(scim_client, raise_exceptions=False)
@@ -29,9 +26,6 @@ def test_discovered_scim2_server(scim_client):
     )
 
 
-@pytest.mark.xfail(
-    reason="scim2-server don't correctly handle patch operation on extension roots"
-)
 def test_undiscovered_scim2_server(scim2_server_app):
     """Test the SCIM server without initial discovery."""
     client = TestSCIMClient(Client(scim2_server_app))
@@ -44,9 +38,6 @@ def test_undiscovered_scim2_server(scim2_server_app):
     )
 
 
-@pytest.mark.xfail(
-    reason="scim2-server don't correctly handle patch operation on extension roots"
-)
 @pytest.mark.parametrize("tag", get_all_available_tags())
 @pytest.mark.parametrize("resource_type", [None] + get_standard_resource_types())
 def test_individual_filters(scim_client, tag, resource_type):
