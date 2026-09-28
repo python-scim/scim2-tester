@@ -117,26 +117,24 @@ def check_remove_attribute(
             )
             continue
 
-        if modify_result is not None:
-            if modify_actual_value := path.get(modify_result):
-                if (
-                    mutability != Mutability.write_only
-                    and modify_actual_value is not None
-                ):
-                    results.append(
-                        check_result(
-                            context,
-                            status=Status.ERROR,
-                            reason=f"PATCH modify() did not remove attribute '{urn}'",
-                            resource_type=model.__name__,
-                            data={
-                                "urn": urn,
-                                "initial_value": initial_value,
-                                "modify_actual": modify_actual_value,
-                            },
-                        )
-                    )
-                    continue
+        modify_actual_value = (
+            path.get(modify_result) if modify_result is not None else None
+        )
+        if mutability != Mutability.write_only and modify_actual_value is not None:
+            results.append(
+                check_result(
+                    context,
+                    status=Status.ERROR,
+                    reason=f"PATCH modify() did not remove attribute '{urn}'",
+                    resource_type=model.__name__,
+                    data={
+                        "urn": urn,
+                        "initial_value": initial_value,
+                        "modify_actual": modify_actual_value,
+                    },
+                )
+            )
+            continue
 
         try:
             updated_resource = context.client.query(

@@ -1,6 +1,14 @@
 Changelog
 =========
 
+[Unreleased]
+------------
+
+Fixed
+^^^^^
+- The ``patch:remove`` check reports an attribute left with a false value in the PATCH
+  response, such as ``active: false``.
+
 [0.5.0] - 2026-09-27
 --------------------
 

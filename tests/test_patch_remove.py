@@ -409,6 +409,28 @@ def test_patch_remove_attribute_not_removed(testing_context):
     assert len(error_results) > 0
 
 
+def test_patch_remove_false_value_not_removed(testing_context):
+    """A false boolean left in the PATCH response is reported as not removed."""
+    mock_client = Mock()
+    mock_user = User(id="123", user_name="test@example.com", active=False)
+    mock_client.create.return_value = mock_user
+    mock_client.modify.return_value = mock_user
+    mock_client.query.return_value = mock_user
+
+    testing_context.client = mock_client
+
+    results = check_remove_attribute(testing_context, User)
+
+    error_results = [
+        r
+        for r in results
+        if r.status == Status.ERROR
+        and r.reason == "PATCH modify() did not remove attribute 'active'"
+    ]
+    assert len(error_results) == 1
+    assert error_results[0].data["modify_actual"] is False
+
+
 def test_patch_remove_attribute_still_returned_by_query(testing_context):
     """Test PATCH remove when the server answers no content but the query still returns the attribute."""
     mock_client = Mock()
