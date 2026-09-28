@@ -18,6 +18,14 @@ from ..utils import check_result
 from ..utils import checker
 
 
+def _is_unassigned(value: Any) -> bool:
+    """Tell whether a value stands for an unassigned attribute.
+
+    Per RFC 7643 §2.5, an empty array is equivalent to an unassigned attribute.
+    """
+    return value is None or value == []
+
+
 @checker("patch:remove")
 def check_remove_attribute(
     context: CheckContext, model: type[Resource[Any]]
@@ -120,7 +128,9 @@ def check_remove_attribute(
         modify_actual_value = (
             path.get(modify_result) if modify_result is not None else None
         )
-        if mutability != Mutability.write_only and modify_actual_value is not None:
+        if mutability != Mutability.write_only and not _is_unassigned(
+            modify_actual_value
+        ):
             results.append(
                 check_result(
                     context,
@@ -158,7 +168,7 @@ def check_remove_attribute(
             continue
 
         actual_value = path.get(updated_resource)
-        if mutability == Mutability.write_only or actual_value is None:
+        if mutability == Mutability.write_only or _is_unassigned(actual_value):
             results.append(
                 check_result(
                     context,

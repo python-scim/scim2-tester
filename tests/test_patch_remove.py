@@ -3,6 +3,7 @@
 import json
 from unittest.mock import Mock
 
+from scim2_models import Email
 from scim2_models import EnterpriseUser
 from scim2_models import Patch
 from scim2_models import ScimProvider
@@ -429,6 +430,28 @@ def test_patch_remove_false_value_not_removed(testing_context):
     ]
     assert len(error_results) == 1
     assert error_results[0].data["modify_actual"] is False
+
+
+def test_patch_remove_empty_array_is_removed(testing_context):
+    """An empty multi-valued attribute left after the PATCH counts as removed."""
+    mock_client = Mock()
+    mock_client.create.return_value = User(
+        id="123", user_name="test@example.com", emails=[Email(value="a@example.com")]
+    )
+    mock_client.modify.return_value = User(
+        id="123", user_name="test@example.com", emails=[]
+    )
+    mock_client.query.return_value = User(
+        id="123", user_name="test@example.com", emails=[]
+    )
+
+    testing_context.client = mock_client
+
+    results = check_remove_attribute(testing_context, User)
+
+    emails_results = [r for r in results if r.data["urn"] == "emails"]
+    assert len(emails_results) == 1
+    assert emails_results[0].status == Status.SUCCESS
 
 
 def test_patch_remove_attribute_still_returned_by_query(testing_context):

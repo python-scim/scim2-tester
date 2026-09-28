@@ -7,7 +7,8 @@ Changelog
 Fixed
 ^^^^^
 - The ``patch:remove`` check reports an attribute left with a false value in the PATCH
-  response, such as ``active: false``.
+  response, such as ``active: false``. It accepts an empty multi-valued attribute, which is
+  equivalent to an unassigned one (:rfc:`7643` §2.5).
 
 [0.5.0] - 2026-09-27
 --------------------
