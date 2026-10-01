@@ -2,6 +2,7 @@ from typing import Any
 
 from scim2_models import ListResponse
 from scim2_models import Mutability
+from scim2_models import Path
 from scim2_models import Required
 from scim2_models import Resource
 from scim2_models import ResponseParameters
@@ -72,11 +73,11 @@ def _check_attribute_filtering(
 
 def _find_resource_in_list(
     response: ListResponse[Resource[Any]] | Any,
-    resource_id: str,
+    resource_id: str | None,
 ) -> dict[str, Any] | None:
     """Find a resource by id in a list response and return its dumped dict."""
     if isinstance(response, ListResponse):
-        for r in response.resources:
+        for r in response.resources or []:
             if r.id == resource_id:
                 return r.model_dump()
     return None
@@ -86,7 +87,7 @@ def _run_single_attribute_check(
     context: CheckContext,
     model: type[Resource[Any]],
     test_obj: Resource[Any],
-    query_parameters: ResponseParameters,
+    query_parameters: ResponseParameters[Any],
     included: str | None,
     excluded: str | None,
     query_fn: Any,
@@ -100,6 +101,7 @@ def _run_single_attribute_check(
     """
     response = query_fn(query_parameters)
 
+    response_data: dict[str, Any] | None
     if isinstance(response, Resource) and not isinstance(response, ListResponse):
         response_data = response.model_dump()
     elif isinstance(response, ListResponse):
@@ -149,7 +151,7 @@ def _run_attribute_checks(
                 context,
                 model,
                 test_obj,
-                ResponseParameters(attributes=[included]),
+                ResponseParameters(attributes=[Path(included)]),
                 included=included,
                 excluded=None,
                 query_fn=query_fn,
@@ -163,7 +165,7 @@ def _run_attribute_checks(
                 context,
                 model,
                 test_obj,
-                ResponseParameters(excluded_attributes=[excluded]),
+                ResponseParameters(excluded_attributes=[Path(excluded)]),
                 included=None,
                 excluded=excluded,
                 query_fn=query_fn,
@@ -209,7 +211,7 @@ def object_query_with_attributes(
 
     test_obj = context.resource_manager.create_and_register(model, fill_all=True)
 
-    def query_fn(query_parameters: ResponseParameters) -> Any:
+    def query_fn(query_parameters: ResponseParameters[Any]) -> Any:
         return context.client.query(
             model,
             test_obj.id,
@@ -256,7 +258,7 @@ def object_list_with_attributes(
 
     test_obj = context.resource_manager.create_and_register(model, fill_all=True)
 
-    def query_fn(query_parameters: ResponseParameters) -> Any:
+    def query_fn(query_parameters: ResponseParameters[Any]) -> Any:
         return context.client.query(
             model,
             query_parameters=query_parameters,
@@ -301,7 +303,7 @@ def search_with_attributes(
 
     test_obj = context.resource_manager.create_and_register(model, fill_all=True)
 
-    def query_fn(query_parameters: ResponseParameters) -> Any:
+    def query_fn(query_parameters: ResponseParameters[Any]) -> Any:
         return context.client.search(
             search_request=SearchRequest(
                 attributes=query_parameters.attributes,

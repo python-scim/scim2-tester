@@ -123,6 +123,12 @@ docstring-code-format = true
 plugins = [
   "pydantic.mypy"
 ]
+files = ["scim2_tester"]
+strict = true
+
+[tool.pydantic-mypy]
+init_forbid_extra = true
+init_typed = true
 
 [tool.pytest.ini_options]
 testpaths = ["tests"]

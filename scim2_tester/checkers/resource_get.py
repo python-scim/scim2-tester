@@ -1,6 +1,7 @@
 from typing import Any
 from typing import cast
 
+from scim2_models import ListResponse
 from scim2_models import Resource
 from scim2_models import ResourceType
 
@@ -86,11 +87,14 @@ def object_query_without_id(
     """
     test_obj = context.resource_manager.create_and_register(model)
 
-    response = context.client.query(
-        model, expected_status_codes=context.conf.expected_status_codes or [200]
+    response = cast(
+        "ListResponse[Resource[Any]]",
+        context.client.query(
+            model, expected_status_codes=context.conf.expected_status_codes or [200]
+        ),
     )
 
-    found = any(test_obj.id == resource.id for resource in response.resources)
+    found = any(test_obj.id == resource.id for resource in response.resources or [])
     if not found:
         return [
             check_result(

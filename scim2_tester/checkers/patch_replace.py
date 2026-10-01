@@ -17,6 +17,7 @@ from ..utils import Status
 from ..utils import check_result
 from ..utils import checker
 from ..utils import fields_equality
+from ..utils import parametrize
 
 
 @checker("patch:replace")
@@ -44,10 +45,8 @@ def check_replace_attribute(
        "The 'replace' operation replaces the value at the target location
        specified by the 'path'."
     """
-    if (
-        context.client.provider.config
-        and not context.client.provider.config.patch.supported
-    ):
+    config = context.client.provider.config
+    if config and config.patch and not config.patch.supported:
         return [
             check_result(
                 context,
@@ -59,7 +58,7 @@ def check_replace_attribute(
 
     results = []
     all_paths = list(
-        Path[model].iter_paths(
+        parametrize(Path, model).iter_paths(
             mutability=[Mutability.read_write, Mutability.write_only],
             include_subattributes=False,
         )
@@ -83,7 +82,7 @@ def check_replace_attribute(
         binding = path.resolve()
         mutability = binding.get_annotation(Mutability) if binding else None
 
-        patch_op = PatchOp[type(base_resource)](
+        patch_op = parametrize(PatchOp, type(base_resource))(
             operations=[
                 PatchOperation(
                     op=PatchOperation.Op.replace_,

@@ -50,7 +50,7 @@ def test_checker_decorator_with_tags():
 def test_checker_decorator_without_tags():
     """Ensures checker decorator works without explicit tags."""
 
-    @checker
+    @checker()
     def check_function(context: CheckContext) -> list[CheckResult]:
         """Test check function."""
         return [CheckResult(status=Status.SUCCESS, reason="Success")]

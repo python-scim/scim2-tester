@@ -1,11 +1,16 @@
 import functools
 import sys
 import types
+from collections.abc import Callable
 from dataclasses import dataclass
 from dataclasses import field
 from enum import Enum
 from enum import auto
 from typing import Any
+from typing import Concatenate
+from typing import ParamSpec
+from typing import TypeVar
+from typing import cast
 
 from scim2_client import BaseSyncSCIMClient
 from scim2_client import SCIMClientException
@@ -17,6 +22,9 @@ from scim2_models import SCIMException
 
 # Global registry for all tags discovered by checker decorators
 _REGISTERED_TAGS: set[str] = set()
+
+P = ParamSpec("P")
+GenericT = TypeVar("GenericT")
 
 
 def get_registered_tags() -> set[str]:
@@ -106,7 +114,7 @@ class CheckContext:
         self.client = client
         self.conf = conf
         # ResourceManager is defined later in the file, so we instantiate it here
-        self.resource_manager = ResourceManager(self)  # type: ignore[name-defined]
+        self.resource_manager = ResourceManager(self)
 
 
 class SCIMTesterError(Exception):
@@ -179,7 +187,7 @@ class CheckResult:
     resource_type: str | None = None
     """The resource type name if this check is related to a specific resource."""
 
-    def __repr__(self):
+    def __repr__(self) -> str:
         """Return string representation without verbose description field."""
         parts = [f"CheckResult(status={self.status!r}"]
         if self.title:
@@ -260,7 +268,7 @@ class ResourceManager:
         obj = model()
 
         if fill_all:
-            obj = fill_with_random_values(
+            fill_with_random_values(
                 self.context,
                 obj,
                 mutability=[
@@ -270,7 +278,7 @@ class ResourceManager:
                 ],
             )
         else:
-            obj = fill_with_random_values(self.context, obj, required=[Required.true])
+            fill_with_random_values(self.context, obj, required=[Required.true])
         created = self.context.client.create(obj)
 
         # Handle the case where create might return Error or dict
@@ -292,7 +300,12 @@ class ResourceManager:
                 pass
 
 
-def checker(*tags: str) -> Any:
+def checker(
+    *tags: str,
+) -> Callable[
+    [Callable[Concatenate[CheckContext, P], list[CheckResult]]],
+    Callable[Concatenate[CheckContext, P], list[CheckResult]],
+]:
     """Decorate checker methods with tags for selective execution.
 
     - It adds a title and a description to the returned result, extracted from the method name and its docstring.
@@ -306,9 +319,13 @@ def checker(*tags: str) -> Any:
             ...
     """
 
-    def decorator(func: Any) -> Any:
+    def decorator(
+        func: Callable[Concatenate[CheckContext, P], list[CheckResult]],
+    ) -> Callable[Concatenate[CheckContext, P], list[CheckResult]]:
         @functools.wraps(func)
-        def wrapped(context: CheckContext, *args: Any, **kwargs: Any) -> Any:
+        def wrapped(
+            context: CheckContext, /, *args: P.args, **kwargs: P.kwargs
+        ) -> list[CheckResult]:
             func_tags = set(tags) if tags else set()
 
             if context.conf.include_tags and not _matches_hierarchical_tags(
@@ -369,23 +386,20 @@ def checker(*tags: str) -> Any:
                 r.tags = func_tags
             return result
 
-        wrapped.tags = set(tags) if tags else set()  # type: ignore[attr-defined]
-
-        if tags:
-            _REGISTERED_TAGS.update(tags)
-
+        wrapped.tags = set(tags)  # type: ignore[attr-defined]
+        _REGISTERED_TAGS.update(tags)
         return wrapped
 
-    # Handle both @checker and @checker("tag1", "tag2")
-    if len(tags) == 1 and callable(tags[0]):
-        func = tags[0]
-        tags = ()
-        return decorator(func)
     return decorator
+
+
+def parametrize(generic: type[GenericT], model: type[Any]) -> type[GenericT]:
+    """Parametrize a generic class with a model only known at runtime."""
+    return cast("type[GenericT]", cast(Any, generic)[model])
 
 
 def fields_equality(expected: Any, actual: Any) -> bool:
     expected = expected.model_dump() if isinstance(expected, BaseModel) else expected
     actual = actual.model_dump() if isinstance(actual, BaseModel) else actual
 
-    return expected == actual
+    return bool(expected == actual)

@@ -5,6 +5,7 @@ from typing import Annotated
 from typing import Union
 from unittest.mock import patch
 
+import pytest
 from scim2_models import Email
 from scim2_models import EnterpriseUser
 from scim2_models import Group
@@ -272,6 +273,12 @@ def test_get_model_from_ref_type_fallback_when_no_acceptable_models(testing_cont
     )
 
     assert result == User[EnterpriseUser]
+
+
+def test_get_model_from_ref_type_without_known_model(testing_context):
+    """Resolving a reference to resource types the client does not know raises an error."""
+    with pytest.raises(ValueError, match="No resource model is known"):
+        get_model_from_ref_type(testing_context, Reference["Unknown"], None)
 
 
 def test_generate_random_value_required_filter(testing_context):

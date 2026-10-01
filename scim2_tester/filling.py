@@ -5,6 +5,7 @@ from enum import Enum
 from inspect import isclass
 from typing import TYPE_CHECKING
 from typing import Any
+from typing import TypeVar
 
 from pydantic import BaseModel
 from scim2_models import ComplexAttribute
@@ -15,8 +16,12 @@ from scim2_models import Reference
 from scim2_models import Required
 from scim2_models import Resource
 
+from scim2_tester.utils import parametrize
+
 if TYPE_CHECKING:
     from scim2_tester.utils import CheckContext
+
+ModelT = TypeVar("ModelT", bound=BaseModel)
 
 
 def get_random_example_value(path: Path[Any]) -> Any | None:
@@ -34,12 +39,19 @@ def get_random_example_value(path: Path[Any]) -> Any | None:
 
 def get_model_from_ref_type(
     context: "CheckContext",
-    ref_type: type[Reference],
-    different_than: type[Resource[Any]] | None,
+    ref_type: type[Reference[Any]],
+    different_than: type[BaseModel] | None,
 ) -> type[Resource[Any]]:
     """Return the Resource model referenced by a Reference type."""
     ref_names = ref_type.__reference_types__
-    models = [context.client.get_resource_model(ref_name) for ref_name in ref_names]
+    models = [
+        model
+        for ref_name in ref_names
+        if (model := context.client.get_resource_model(ref_name)) is not None
+    ]
+    if not models:
+        raise ValueError(f"No resource model is known for the references {ref_names}")
+
     acceptable_models = [model for model in models if model != different_than]
 
     if not acceptable_models:
@@ -108,7 +120,7 @@ def generate_random_value(
         value = random.choice([True, False])
 
     elif isclass(field_type) and issubclass(field_type, Reference):
-        ref_type: type[Reference] = field_type
+        ref_type: type[Reference[Any]] = field_type
         ref_types = ref_type.__reference_types__
         if not ref_types or "external" in ref_types or "uri" in ref_types:
             value = f"https://{str(uuid.uuid4())}.test"
@@ -123,12 +135,12 @@ def generate_random_value(
     elif isclass(field_type) and issubclass(field_type, ComplexAttribute):
         value = fill_with_random_values(
             context, field_type(), mutability=mutability, required=required
-        )  # type: ignore[arg-type]
+        )
 
     elif field_type is None and isclass(model) and issubclass(model, Extension):
         value = fill_with_random_values(
             context, model(), mutability=mutability, required=required
-        )  # type: ignore[arg-type]
+        )
 
     elif field_type is bytes:
         value = base64.b64encode(uuid.uuid4().bytes).decode("ascii")
@@ -144,19 +156,19 @@ def generate_random_value(
 
 def fill_with_random_values(
     context: "CheckContext",
-    obj: Resource[Any],
+    obj: ModelT,
     paths: list[Path[Any]] | None = None,
     mutability: list[Mutability] | None = None,
     required: list[Required] | None = None,
-) -> Resource[Any] | None:
+) -> ModelT:
     """Fill an object with random values generated according the attribute types.
 
     :param context: The check context containing the SCIM client and configuration
-    :param obj: The Resource object to fill with random values
+    :param obj: The object to fill with random values
     :param paths: Optional list of Paths to fill
     :param mutability: Optional list of mutability constraints to filter fields
     :param required: Optional list of required constraints to filter fields
-    :returns: The filled object or None if the object ends up empty
+    :returns: The filled object
     """
     mutability = mutability or [
         Mutability.read_write,
@@ -165,7 +177,7 @@ def fill_with_random_values(
     ]
     if paths is None:
         paths = list(
-            Path[type(obj)].iter_paths(
+            parametrize(Path, type(obj)).iter_paths(
                 mutability=mutability,
                 required=required,
             )
@@ -213,7 +225,7 @@ def _fix_ref_value(obj: Any) -> None:
         obj.value = obj.ref.rsplit("/", 1)[-1]
 
 
-def fix_primary_attributes(obj: Resource[Any]) -> None:
+def fix_primary_attributes(obj: BaseModel) -> None:
     """Fix primary attributes to respect RFC 7643 constraints.
 
     Ensures that for multi-valued attributes with 'primary' sub-attributes:

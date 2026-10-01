@@ -18,6 +18,7 @@ from ..utils import Status
 from ..utils import check_result
 from ..utils import checker
 from ..utils import fields_equality
+from ..utils import parametrize
 
 
 @checker("patch:add")
@@ -45,10 +46,8 @@ def check_add_attribute(
        "The 'add' operation is used to add a new attribute and/or values to
        an existing resource."
     """
-    if (
-        context.client.provider.config
-        and not context.client.provider.config.patch.supported
-    ):
+    config = context.client.provider.config
+    if config and config.patch and not config.patch.supported:
         return [
             check_result(
                 context,
@@ -60,7 +59,7 @@ def check_add_attribute(
 
     results = []
     all_paths = list(
-        Path[model].iter_paths(
+        parametrize(Path, model).iter_paths(
             required=[Required.false],
             mutability=[
                 Mutability.read_write,
@@ -89,7 +88,7 @@ def check_add_attribute(
         binding = path.resolve()
         mutability = binding.get_annotation(Mutability) if binding else None
 
-        patch_op = PatchOp[type(base_resource)](
+        patch_op = parametrize(PatchOp, type(base_resource))(
             operations=[
                 PatchOperation(
                     op=PatchOperation.Op.add,

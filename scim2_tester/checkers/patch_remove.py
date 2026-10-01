@@ -16,6 +16,7 @@ from ..utils import CheckResult
 from ..utils import Status
 from ..utils import check_result
 from ..utils import checker
+from ..utils import parametrize
 
 
 def _is_unassigned(value: Any) -> bool:
@@ -52,10 +53,8 @@ def check_remove_attribute(
        by the required attribute 'path'. The operation performs the following
        functions, depending on the target location specified by 'path'."
     """
-    if (
-        context.client.provider.config
-        and not context.client.provider.config.patch.supported
-    ):
+    config = context.client.provider.config
+    if config and config.patch and not config.patch.supported:
         return [
             check_result(
                 context,
@@ -67,7 +66,7 @@ def check_remove_attribute(
 
     results = []
     all_paths = list(
-        Path[model].iter_paths(
+        parametrize(Path, model).iter_paths(
             required=[Required.false],
             mutability=[Mutability.read_write, Mutability.write_only],
             include_subattributes=False,
@@ -94,7 +93,7 @@ def check_remove_attribute(
         if initial_value is None:
             continue
 
-        remove_op = PatchOp[type(full_resource)](
+        remove_op = parametrize(PatchOp, type(full_resource))(
             operations=[
                 PatchOperation(
                     op=PatchOperation.Op.remove,

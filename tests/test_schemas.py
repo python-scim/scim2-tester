@@ -9,6 +9,7 @@ from scim2_tester.checkers.schemas import _schemas_endpoint
 from scim2_tester.checkers.schemas import access_invalid_schema
 from scim2_tester.checkers.schemas import access_schema_by_id
 from scim2_tester.checkers.schemas import core_schemas_validation
+from scim2_tester.checkers.schemas import query_all_schemas
 from scim2_tester.checkers.schemas import schemas_endpoint_methods
 from scim2_tester.utils import Status
 
@@ -266,3 +267,20 @@ def test_schemas_endpoint_http_methods(httpserver, testing_context):
             f"{method} /Schemas correctly returned 405 Method Not Allowed"
             in results[i].reason
         )
+
+
+def test_query_all_schemas_without_any_schema(httpserver, testing_context):
+    """A /Schemas endpoint that publishes no schema is reported as an error."""
+    httpserver.expect_request(re.compile(r"^/Schemas$")).respond_with_json(
+        ListResponse[Schema](total_results=0).model_dump(
+            scim_ctx=Context.RESOURCE_QUERY_RESPONSE
+        ),
+        status=200,
+        content_type="application/scim+json",
+    )
+
+    results = query_all_schemas(testing_context)
+
+    assert len(results) == 1
+    assert results[0].status == Status.ERROR
+    assert results[0].reason == "The /Schemas endpoint published nothing"

@@ -4,11 +4,20 @@ Changelog
 [Unreleased]
 ------------
 
+Changed
+^^^^^^^
+- The code is checked with mypy in strict mode.
+
 Fixed
 ^^^^^
 - The ``patch:remove`` check reports an attribute left with a false value in the PATCH
   response, such as ``active: false``. It accepts an empty multi-valued attribute, which is
   equivalent to an unassigned one (:rfc:`7643` §2.5).
+- The PATCH checks run when the service provider configuration does not tell whether PATCH
+  is supported. They used to fail.
+- The ``/Schemas`` and ``/ResourceTypes`` checks report an endpoint that publishes nothing
+  with a clear message.
+- A reference to resource types the client does not know is reported with a clear message.
 
 [0.5.0] - 2026-09-27
 --------------------

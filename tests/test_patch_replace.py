@@ -490,3 +490,22 @@ def test_patch_not_supported(testing_context):
     assert results[0].status == Status.SKIPPED
     assert "PATCH operations not supported by server" in results[0].reason
     assert results[0].resource_type == "User"
+
+
+def test_patch_support_unknown(httpserver, testing_context):
+    """PATCH replace is checked when the server does not tell whether it supports PATCH."""
+    httpserver.expect_request(uri="/Users", method="POST").respond_with_json(
+        {"schemas": ["urn:ietf:params:scim:api:messages:2.0:Error"], "status": "500"},
+        status=500,
+        content_type="application/scim+json",
+    )
+    provider = testing_context.client.provider
+    testing_context.client.provider = ScimProvider(
+        provider.models, provider.resource_types, ServiceProviderConfig()
+    )
+
+    results = check_replace_attribute(testing_context, User)
+
+    assert len(results) == 1
+    assert results[0].status == Status.ERROR
+    assert len(httpserver.log) == 1

@@ -1,5 +1,8 @@
 """Utility functions for discovery endpoint testing."""
 
+from typing import Protocol
+from typing import cast
+
 from scim2_client import SCIMClientException
 from scim2_models import SCIMException
 
@@ -7,6 +10,20 @@ from ..utils import CheckContext
 from ..utils import CheckResult
 from ..utils import Status
 from ..utils import check_result
+
+
+class _RawResponse(Protocol):
+    status_code: int
+
+
+class _RawClient(Protocol):
+    def request(self, method: str, url: str) -> _RawResponse: ...
+
+
+class _EngineClient(Protocol):
+    """A SCIM client engine exposing the HTTP client it sends requests with."""
+
+    client: _RawClient
 
 
 def _test_discovery_endpoint_methods(
@@ -32,7 +49,7 @@ def _test_discovery_endpoint_methods(
 
     for method in methods:
         try:
-            response = context.client.client.request(
+            response = cast("_EngineClient", context.client).client.request(
                 method=method,
                 url=endpoint,
             )

@@ -1,7 +1,9 @@
 import uuid
+from typing import cast
 
 from scim2_client import SCIMClientException
 from scim2_models import Error
+from scim2_models import ListResponse
 from scim2_models import Schema
 from scim2_models import SCIMException
 
@@ -63,9 +65,22 @@ def query_all_schemas(context: CheckContext) -> list[CheckResult]:
        "An HTTP GET to this endpoint is used to retrieve information about
        resource schemas supported by a SCIM service provider."
     """
-    response = context.client.query(
-        Schema, expected_status_codes=context.conf.expected_status_codes or [200]
+    response = cast(
+        "ListResponse[Schema]",
+        context.client.query(
+            Schema, expected_status_codes=context.conf.expected_status_codes or [200]
+        ),
     )
+    if not response.resources:
+        return [
+            check_result(
+                context,
+                status=Status.ERROR,
+                reason="The /Schemas endpoint published nothing",
+                data=response,
+            )
+        ]
+
     available = ", ".join([f"'{resource.name}'" for resource in response.resources])
     return [
         check_result(
@@ -175,12 +190,15 @@ def access_schema_by_id(
        "Each schema specifies the name of the resource, the resource's base URI,
        and any attributes (including sub-attributes) of the resource."
     """
-    schemas_response = context.client.query(
-        Schema, expected_status_codes=context.conf.expected_status_codes or [200]
+    schemas_response = cast(
+        "ListResponse[Schema]",
+        context.client.query(
+            Schema, expected_status_codes=context.conf.expected_status_codes or [200]
+        ),
     )
 
     results = []
-    for schema in schemas_response.resources:
+    for schema in schemas_response.resources or []:
         if schema.id:
             try:
                 response = context.client.query(
@@ -238,8 +256,11 @@ def core_schemas_validation(
        The core schemas for ResourceType, ServiceProviderConfig, and Schema
        objects are fundamental to SCIM operation and should always be available.
     """
-    response = context.client.query(
-        Schema, expected_status_codes=context.conf.expected_status_codes or [200]
+    response = cast(
+        "ListResponse[Schema]",
+        context.client.query(
+            Schema, expected_status_codes=context.conf.expected_status_codes or [200]
+        ),
     )
 
     required_schemas = {
@@ -248,7 +269,7 @@ def core_schemas_validation(
         "Schema": False,
     }
 
-    for schema in response.resources:
+    for schema in response.resources or []:
         schema_name = getattr(schema, "name", "")
         if schema_name in required_schemas:
             required_schemas[schema_name] = True

@@ -8,6 +8,7 @@ from scim2_models import Schema
 
 from scim2_tester.checkers.resource_types import _resource_types_endpoint
 from scim2_tester.checkers.resource_types import access_invalid_resource_type
+from scim2_tester.checkers.resource_types import query_all_resource_types
 from scim2_tester.checkers.resource_types import query_resource_type_by_id
 from scim2_tester.checkers.resource_types import resource_types_endpoint_methods
 from scim2_tester.utils import Status
@@ -166,3 +167,22 @@ def test_access_invalid_resource_type_wrong_status_code(httpserver, testing_cont
     assert result[0].status == Status.ERROR
     assert "did return an object, but the status code is 400" in result[0].reason
     assert result[0].data == error
+
+
+def test_query_all_resource_types_without_any_resource_type(
+    httpserver, testing_context
+):
+    """A /ResourceTypes endpoint that publishes no resource type is reported as an error."""
+    httpserver.expect_request(re.compile(r"^/ResourceTypes$")).respond_with_json(
+        ListResponse[ResourceType](total_results=0).model_dump(
+            scim_ctx=Context.RESOURCE_QUERY_RESPONSE
+        ),
+        status=200,
+        content_type="application/scim+json",
+    )
+
+    results = query_all_resource_types(testing_context)
+
+    assert len(results) == 1
+    assert results[0].status == Status.ERROR
+    assert results[0].reason == "The /ResourceTypes endpoint published nothing"

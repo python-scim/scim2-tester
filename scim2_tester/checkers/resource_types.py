@@ -1,7 +1,9 @@
 import uuid
+from typing import cast
 
 from scim2_client import SCIMClientException
 from scim2_models import Error
+from scim2_models import ListResponse
 from scim2_models import ResourceType
 from scim2_models import Schema
 from scim2_models import SCIMException
@@ -42,7 +44,7 @@ def _resource_types_endpoint(context: CheckContext) -> list[CheckResult]:
     ]  # Get the first (and only) result
 
     if resource_types_result.status == Status.SUCCESS:
-        for resource_type in resource_types_result.data:
+        for resource_type in resource_types_result.data or []:
             results.extend(query_resource_type_by_id(context, resource_type))
 
         results.extend(resource_types_schema_validation(context))
@@ -96,12 +98,16 @@ def resource_types_schema_validation(
        "Each resource type defines the endpoint, the core schema URI that defines
        the resource, and any supported schema extensions."
     """
-    response = context.client.query(
-        ResourceType, expected_status_codes=context.conf.expected_status_codes or [200]
+    response = cast(
+        "ListResponse[ResourceType]",
+        context.client.query(
+            ResourceType,
+            expected_status_codes=context.conf.expected_status_codes or [200],
+        ),
     )
 
     results = []
-    for resource_type in response.resources:
+    for resource_type in response.resources or []:
         schema_id = resource_type.schema_
         try:
             schema_response = context.client.query(
@@ -146,9 +152,23 @@ def query_all_resource_types(context: CheckContext) -> list[CheckResult]:
        "An HTTP GET to this endpoint is used to discover the types of resources
        available on a SCIM service provider (e.g., Users and Groups)."
     """
-    response = context.client.query(
-        ResourceType, expected_status_codes=context.conf.expected_status_codes or [200]
+    response = cast(
+        "ListResponse[ResourceType]",
+        context.client.query(
+            ResourceType,
+            expected_status_codes=context.conf.expected_status_codes or [200],
+        ),
     )
+    if not response.resources:
+        return [
+            check_result(
+                context,
+                status=Status.ERROR,
+                reason="The /ResourceTypes endpoint published nothing",
+                data=response,
+            )
+        ]
+
     available = ", ".join([f"'{resource.name}'" for resource in response.resources])
     reason = f"Resource types available are: {available}"
     return [
