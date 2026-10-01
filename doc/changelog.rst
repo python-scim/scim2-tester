@@ -4,6 +4,11 @@ Changelog
 [Unreleased]
 ------------
 
+Added
+^^^^^
+- ``check_server`` checks that the ``/ServiceProviderConfig``, ``/ResourceTypes`` and
+  ``/Schemas`` endpoints answer 405 to ``POST``, ``PUT``, ``PATCH`` and ``DELETE``.
+
 Changed
 ^^^^^^^
 - The code is checked with mypy in strict mode.

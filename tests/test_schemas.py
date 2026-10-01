@@ -17,7 +17,13 @@ from scim2_tester.utils import Status
 def test_schemas_endpoint(httpserver, testing_context):
     """Test a fully functional schemas endpoint."""
     schemas = list(testing_context.client.provider.schemas)
-    httpserver.expect_request(re.compile(r"^/Schemas$")).respond_with_json(
+    for method in ("POST", "PUT", "PATCH", "DELETE"):
+        httpserver.expect_request("/Schemas", method=method).respond_with_data(
+            "", status=405
+        )
+    httpserver.expect_request(
+        re.compile(r"^/Schemas$"), method="GET"
+    ).respond_with_json(
         ListResponse[Schema](
             resources=schemas,
             total_results=len(schemas),

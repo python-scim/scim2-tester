@@ -44,6 +44,7 @@ def _schemas_endpoint(context: CheckContext) -> list[CheckResult]:
         results.extend(access_schema_by_id(context))
 
     results.extend(access_invalid_schema(context))
+    results.extend(schemas_endpoint_methods(context))
 
     return results
 

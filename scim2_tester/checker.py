@@ -6,6 +6,7 @@ from scim2_models import ScimProvider
 from scim2_tester.checkers import random_url
 from scim2_tester.checkers import resource_type_tests
 from scim2_tester.checkers import service_provider_config_endpoint
+from scim2_tester.checkers import service_provider_config_endpoint_methods
 from scim2_tester.checkers.resource_types import _resource_types_endpoint
 from scim2_tester.checkers.schemas import _schemas_endpoint
 from scim2_tester.utils import CheckConfig
@@ -137,6 +138,7 @@ def check_server(
 
     results_spc = service_provider_config_endpoint(context)
     results.extend(results_spc)
+    results.extend(service_provider_config_endpoint_methods(context))
 
     results_resource_types = _resource_types_endpoint(context)
     results.extend(results_resource_types)

@@ -16,7 +16,13 @@ from scim2_tester.utils import Status
 
 def test_resource_types_endpoint(httpserver, testing_context):
     """Test a fully functional resource types endpoint."""
-    httpserver.expect_request(re.compile(r"^/ResourceTypes$")).respond_with_json(
+    for method in ("POST", "PUT", "PATCH", "DELETE"):
+        httpserver.expect_request("/ResourceTypes", method=method).respond_with_data(
+            "", status=405
+        )
+    httpserver.expect_request(
+        re.compile(r"^/ResourceTypes$"), method="GET"
+    ).respond_with_json(
         ListResponse[ResourceType](
             resources=testing_context.client.provider.resource_types,
             total_results=len(testing_context.client.provider.resource_types),

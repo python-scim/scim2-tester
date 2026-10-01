@@ -50,6 +50,7 @@ def _resource_types_endpoint(context: CheckContext) -> list[CheckResult]:
         results.extend(resource_types_schema_validation(context))
 
     results.extend(access_invalid_resource_type(context))
+    results.extend(resource_types_endpoint_methods(context))
 
     return results
 
