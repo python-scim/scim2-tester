@@ -7,9 +7,12 @@ Changelog
 Changed
 ^^^^^^^
 - The code is checked with mypy in strict mode.
+- scim2-client 0.11.0 is now the minimum supported version.
 
 Fixed
 ^^^^^
+- The HTTP method checks of the discovery endpoints work with the Werkzeug engine.
+  They used to fail with an :class:`AttributeError`.
 - The ``patch:remove`` check reports an attribute left with a false value in the PATCH
   response, such as ``active: false``. It accepts an empty multi-valued attribute, which is
   equivalent to an unassigned one (:rfc:`7643` §2.5).

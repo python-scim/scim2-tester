@@ -1,8 +1,14 @@
 """Test discovery endpoints functionality."""
 
 from scim2_client import SCIMClientException
+from scim2_client.engines.werkzeug import TestSCIMClient
+from werkzeug import Request
+from werkzeug import Response
+from werkzeug.test import Client
 
 from scim2_tester.checkers._discovery_utils import _test_discovery_endpoint_methods
+from scim2_tester.utils import CheckConfig
+from scim2_tester.utils import CheckContext
 from scim2_tester.utils import Status
 
 
@@ -65,23 +71,32 @@ def test_discovery_endpoint_methods_wrong_status_codes(httpserver, testing_conte
     assert all(result.data is not None for result in results)
 
 
-def test_discovery_endpoint_methods_connection_error(testing_context):
-    """Test handling of connection errors during HTTP method testing."""
-    # Mock the client to raise SCIMClientException
-    original_request = testing_context.client.client.request
+def test_discovery_endpoint_methods_connection_error(testing_context, monkeypatch):
+    """A request that cannot be sent is reported as an error."""
 
-    def mock_request(*args, **kwargs):
+    def fail(*args, **kwargs):
         raise SCIMClientException("Connection failed")
 
-    testing_context.client.client.request = mock_request
+    monkeypatch.setattr(testing_context.client, "request", fail)
 
-    try:
-        results = _test_discovery_endpoint_methods(testing_context, "/TestEndpoint")
+    results = _test_discovery_endpoint_methods(testing_context, "/TestEndpoint")
 
-        assert len(results) == 4
-        assert all(result.status == Status.ERROR for result in results)
-        for result in results:
-            assert "failed: Connection failed" in result.reason
-    finally:
-        # Restore original method
-        testing_context.client.client.request = original_request
+    assert len(results) == 4
+    assert all(result.status == Status.ERROR for result in results)
+    for result in results:
+        assert "failed: Connection failed" in result.reason
+
+
+def test_discovery_endpoint_methods_with_the_werkzeug_engine():
+    """The HTTP method checks send their requests with the Werkzeug engine."""
+
+    @Request.application
+    def application(request):
+        return Response(status=405)
+
+    client = TestSCIMClient(Client(application), scim_prefix="/scim/v2")
+    context = CheckContext(client, CheckConfig())
+
+    results = _test_discovery_endpoint_methods(context, "/Schemas")
+
+    assert [result.status for result in results] == [Status.SUCCESS] * 4
