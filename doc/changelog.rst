@@ -16,6 +16,7 @@ Changed
 
 Fixed
 ^^^^^
+- The PATCH checks no longer emit a :class:`DeprecationWarning` with scim2-client 0.11.
 - The HTTP method checks of the discovery endpoints work with the Werkzeug engine.
   They used to fail with an :class:`AttributeError`.
 - The ``patch:remove`` check reports an attribute left with a false value in the PATCH

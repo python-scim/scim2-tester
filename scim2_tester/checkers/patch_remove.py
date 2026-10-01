@@ -104,7 +104,7 @@ def check_remove_attribute(
 
         try:
             modify_result = context.client.modify(
-                resource=type(full_resource),
+                target=type(full_resource),
                 id=full_resource.id,
                 patch_op=remove_op,
             )

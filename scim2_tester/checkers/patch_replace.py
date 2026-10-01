@@ -94,7 +94,7 @@ def check_replace_attribute(
 
         try:
             modify_result = context.client.modify(
-                resource=type(base_resource),
+                target=type(base_resource),
                 id=base_resource.id,
                 patch_op=patch_op,
             )
