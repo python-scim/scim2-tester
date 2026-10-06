@@ -191,19 +191,19 @@ def fill_with_random_values(
             path.set(obj, value, strict=False)
 
     fix_primary_attributes(obj)
-    fix_reference_values(obj)
+    fix_reference_values(context, obj)
 
     return obj
 
 
-def fix_reference_values(obj: BaseModel) -> None:
-    """Recursively fix ref/value consistency on an object and its children.
+def fix_reference_values(context: "CheckContext", obj: BaseModel) -> None:
+    """Recursively fix ref/value/type consistency on an object and its children.
 
-    Walks the object tree and ensures that for any object with both
-    ``ref`` and ``value`` attributes, ``value`` matches the last segment
-    of the ``ref`` URL.
+    Walks the object tree. For any object with a ``ref`` attribute, ``value``
+    is set to the last segment of the ``ref`` URL, and ``type`` is set to the
+    resource type of the referenced resource when it is one of the ``type`` examples.
     """
-    _fix_ref_value(obj)
+    _fix_ref_value(context, obj)
     for field_name in type(obj).model_fields:
         child = getattr(obj, field_name, None)
         if child is None:
@@ -211,18 +211,38 @@ def fix_reference_values(obj: BaseModel) -> None:
 
         if isinstance(child, list):
             for item in child:
-                _fix_ref_value(item)
+                _fix_ref_value(context, item)
                 if isinstance(item, BaseModel):
-                    fix_reference_values(item)
+                    fix_reference_values(context, item)
         elif isinstance(child, BaseModel):
-            _fix_ref_value(child)
-            fix_reference_values(child)
+            _fix_ref_value(context, child)
+            fix_reference_values(context, child)
 
 
-def _fix_ref_value(obj: Any) -> None:
-    """Set ``value`` to the last segment of ``ref`` if both attributes exist."""
-    if hasattr(obj, "ref") and hasattr(obj, "value") and getattr(obj, "ref", None):
-        obj.value = obj.ref.rsplit("/", 1)[-1]
+def _fix_ref_value(context: "CheckContext", obj: Any) -> None:
+    """Make ``value`` and ``type`` match the resource that ``ref`` points to."""
+    ref = getattr(obj, "ref", None)
+    if not ref:
+        return
+
+    if hasattr(obj, "value"):
+        obj.value = ref.rsplit("/", 1)[-1]
+
+    type_field = type(obj).model_fields.get("type")
+    if type_field is None or not type_field.examples:
+        return
+
+    resource_type = _referenced_resource_type(context, ref)
+    if resource_type in type_field.examples:
+        obj.type = resource_type
+
+
+def _referenced_resource_type(context: "CheckContext", ref: str) -> str | None:
+    """Return the resource type of the created resource located at ``ref``."""
+    for resource in context.resource_manager.resources:
+        if resource.meta and resource.meta.location == ref:
+            return resource.meta.resource_type
+    return None
 
 
 def fix_primary_attributes(obj: BaseModel) -> None:

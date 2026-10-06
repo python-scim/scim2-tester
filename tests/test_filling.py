@@ -6,10 +6,13 @@ from typing import Union
 from unittest.mock import patch
 
 import pytest
+from pydantic import Field
 from scim2_models import Email
 from scim2_models import EnterpriseUser
 from scim2_models import Group
 from scim2_models import GroupMember
+from scim2_models import GroupMembership
+from scim2_models import Meta
 from scim2_models import Mutability
 from scim2_models import PhoneNumber
 from scim2_models import Reference
@@ -328,7 +331,7 @@ def test_fix_reference_values_in_nested_complex_attribute(testing_context, https
     assert manager.value == manager.ref.rsplit("/", 1)[-1]
 
 
-def test_fix_ref_value_on_object_with_ref_and_value():
+def test_fix_ref_value_on_object_with_ref_and_value(testing_context):
     """Ensures _fix_ref_value corrects value from ref URL."""
     from scim2_models.resources.enterprise_user import Manager
 
@@ -336,23 +339,23 @@ def test_fix_ref_value_on_object_with_ref_and_value():
         ref="http://example.com/Users/abc123",
         value="wrong-value",
     )
-    _fix_ref_value(manager)
+    _fix_ref_value(testing_context, manager)
 
     assert manager.value == "abc123"
 
 
-def test_fix_reference_values_on_root_complex_attribute():
+def test_fix_reference_values_on_root_complex_attribute(testing_context):
     """Ensures fix_reference_values fixes ref/value on the root object itself."""
     member = Group.Members(
         ref="http://example.com/Users/real-user-id",
         value="random-wrong-value",
     )
-    fix_reference_values(member)
+    fix_reference_values(testing_context, member)
 
     assert member.value == "real-user-id"
 
 
-def test_fix_reference_values_on_list_of_members():
+def test_fix_reference_values_on_list_of_members(testing_context):
     """Ensures fix_reference_values fixes ref/value in list attributes."""
     group = Group(display_name="test")
     group.members = [
@@ -365,7 +368,89 @@ def test_fix_reference_values_on_list_of_members():
             value="wrong",
         ),
     ]
-    fix_reference_values(group)
+    fix_reference_values(testing_context, group)
 
     assert group.members[0].value == "user1"
     assert group.members[1].value == "group2"
+
+
+def _register_created_resource(context, resource_type, location):
+    """Register a resource as if the server had created it at ``location``."""
+    model = Group if resource_type == "Group" else User
+    context.resource_manager.resources.append(
+        model(id="target", meta=Meta(resource_type=resource_type, location=location))
+    )
+
+
+def test_fix_ref_value_sets_member_type_to_the_referenced_resource_type(
+    testing_context,
+):
+    """A group member type matches the resource type that its ref points to."""
+    location = "http://example.com/Groups/target"
+    _register_created_resource(testing_context, "Group", location)
+    member = Group.Members(ref=location, value="wrong", type="User")
+
+    _fix_ref_value(testing_context, member)
+
+    assert member.type == "Group"
+
+
+def test_fix_ref_value_keeps_type_that_is_not_a_resource_type(testing_context):
+    """The direct or indirect type of a group membership is left unchanged."""
+    location = "http://example.com/Groups/target"
+    _register_created_resource(testing_context, "Group", location)
+    membership = GroupMembership(ref=location, value="wrong", type="direct")
+
+    _fix_ref_value(testing_context, membership)
+
+    assert membership.type == "direct"
+
+
+def test_fix_ref_value_keeps_type_when_ref_points_to_an_unknown_resource(
+    testing_context,
+):
+    """The type is left unchanged when no created resource is located at ref."""
+    member = Group.Members(ref="http://example.com/Users/unknown", type="Group")
+
+    _fix_ref_value(testing_context, member)
+
+    assert member.type == "Group"
+
+
+def test_fill_group_members_type_matches_the_referenced_resource(
+    testing_context, httpserver
+):
+    """The members generated for a group have a type consistent with their ref."""
+    httpserver.expect_request("/Users", method="POST").respond_with_json(
+        {
+            "schemas": ["urn:ietf:params:scim:schemas:core:2.0:User"],
+            "id": "member-id",
+            "userName": "member",
+            "meta": {
+                "resourceType": "User",
+                "location": f"http://localhost:{httpserver.port}/Users/member-id",
+            },
+        },
+        status=201,
+    )
+
+    group = fill_with_random_values(testing_context, Group(display_name="test"))
+
+    assert group.members[0].type == "User"
+
+
+def test_fix_ref_value_on_object_with_ref_and_no_value(testing_context):
+    """The type is fixed on an object that has a ref but no value."""
+
+    class Link(ComplexAttribute):
+        ref: str | None = None
+        type: Annotated[str | None, Field(examples=["User", "Group"])] = None
+
+    location = "http://example.com/Groups/target"
+    _register_created_resource(testing_context, "Group", location)
+    link = Link(ref=location, type="User")
+
+    _fix_ref_value(testing_context, link)
+
+    assert link.ref == location
+    assert link.type == "Group"
