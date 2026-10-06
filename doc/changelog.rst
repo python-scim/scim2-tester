@@ -1,6 +1,16 @@
 Changelog
 =========
 
+[0.5.2] - Unreleased
+--------------------
+
+Fixed
+^^^^^
+- The ``search_with_attributes`` check is skipped when the server answers 501 to a search at
+  the root. A server that does not search several resource types at once answers 501
+  (:rfc:`7644` §3.12), and it used to fail this check.
+- The generated group members have a ``type`` that matches the resource of their ``$ref``.
+
 [0.5.1] - 2026-10-03
 --------------------
 

@@ -2,6 +2,7 @@ from typing import Any
 
 from scim2_models import ListResponse
 from scim2_models import Mutability
+from scim2_models import NotImplementedException
 from scim2_models import Path
 from scim2_models import Required
 from scim2_models import Resource
@@ -284,12 +285,21 @@ def search_with_attributes(
 
     - :attr:`~scim2_tester.Status.SUCCESS`: Server correctly filters search response attributes
     - :attr:`~scim2_tester.Status.ERROR`: Server ignores attribute filtering on search endpoint
-    - :attr:`~scim2_tester.Status.SKIPPED`: Model has no suitable attributes to test
+    - :attr:`~scim2_tester.Status.SKIPPED`: Model has no suitable attributes to test,
+      or the server does not search several resource types at once
 
     .. pull-quote:: :rfc:`RFC 7644 Section 3.4.3 <7644#section-3.4.3>`
 
        "Clients MAY execute queries without passing parameters on the URL by
        using the HTTP POST verb combined with the ``/.search`` path extension."
+
+    .. pull-quote:: :rfc:`RFC 7644 Section 3.12 <7644#section-3.12>`
+
+       "501 (Not Implemented): Service provider does not support the request
+       operation, e.g., PATCH."
+
+    A server that does not search several resource types at once answers 501.
+    The service provider configuration has no attribute to announce it.
     """
     included, excluded = _pick_attribute_names(model)
     if included is None and excluded is None:
@@ -310,8 +320,19 @@ def search_with_attributes(
                 excluded_attributes=query_parameters.excluded_attributes,
             ),
             expected_status_codes=context.conf.expected_status_codes or [200],
+            raise_scim_errors=True,
         )
 
-    return _run_attribute_checks(
-        context, model, test_obj, included, excluded, query_fn, "POST /.search"
-    )
+    try:
+        return _run_attribute_checks(
+            context, model, test_obj, included, excluded, query_fn, "POST /.search"
+        )
+    except NotImplementedException:
+        return [
+            check_result(
+                context,
+                status=Status.SKIPPED,
+                reason="POST /.search: searching several resource types at once "
+                "is not supported by the server",
+            )
+        ]
