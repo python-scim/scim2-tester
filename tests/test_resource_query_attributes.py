@@ -324,3 +324,25 @@ def test_search_skipped_when_no_suitable_attributes(httpserver, testing_context)
         results = search_with_attributes(testing_context, User)
     assert len(results) == 1
     assert results[0].status == Status.SKIPPED
+
+
+def test_search_skipped_when_the_server_does_not_search_at_the_root(
+    httpserver, testing_context
+):
+    """POST /.search is skipped when the server answers 501 Not Implemented."""
+    _setup_creation_and_deletion(httpserver)
+    httpserver.expect_request(uri="/.search", method="POST").respond_with_json(
+        {
+            "schemas": ["urn:ietf:params:scim:api:messages:2.0:Error"],
+            "status": "501",
+            "detail": "Searching several resource types at once is not supported",
+        },
+        status=501,
+        content_type="application/scim+json",
+    )
+
+    results = search_with_attributes(testing_context, User)
+
+    assert len(results) == 1
+    assert results[0].status == Status.SKIPPED
+    assert "several resource types" in results[0].reason
