@@ -107,26 +107,19 @@ Unit test suite integration
 ===========================
 
 If you build a Python SCIM sever application and need a complete test suite to check you implementation, you can integrate `scim2-tester` in your test suite with little effort.
-Thanks to scim2-client :class:`~scim2_client.engines.werkzeug.TestSCIMClient` engine, no real HTTP request is made, but the server code is directly executed.
+Thanks to scim2-client :class:`~scim2_client.engines.wsgi.WSGISCIMClient` engine, no real HTTP request is made, but the server code is directly executed.
 In combination with :paramref:`~scim2_tester.check_server.raise_exceptions`, this allows you to catch server exceptions in the test contexts, which is very handy for development.
-
-As :class:`~scim2_client.engines.werkzeug.TestSCIMClient` relies on :doc:`Werkzeug <werkzeug:index>`, you need to check that you have installed the right dependencies to use it:
-
-.. code-block:: console
-
-   uv add --group dev scim2-client[werkzeug]
+This engine only needs the standard library, and works with any WSGI framework.
 
 .. code-block:: python
 
-    from scim2_client.engines.werkzeug import TestSCIMClient
+    from scim2_client.engines.wsgi import WSGISCIMClient
     from scim2_tester import check_server
-    from werkzeug.test import Client
     from myapp import create_app
 
     def test_scim_tester():
         app = create_app(...)
-        testclient = Client(app)
-        client = TestSCIMClient(app=testclient, scim_prefix="/scim/v2")
+        client = WSGISCIMClient(app, base_url="http://localhost/scim/v2")
         check_server(client, raise_exceptions=True)
 
 Parametrized testing

@@ -4,7 +4,7 @@ import re
 
 import pytest
 from scim2_client.engines.httpx2 import SyncSCIMClient
-from scim2_client.engines.werkzeug import TestSCIMClient
+from scim2_client.engines.wsgi import WSGISCIMClient
 from scim2_models import Context
 from scim2_models import Error
 from scim2_models import ListResponse
@@ -14,7 +14,6 @@ from scim2_models import Schema
 from scim2_models import ScimProvider
 from scim2_models import ServiceProviderConfig
 from scim2_models import User
-from werkzeug.test import Client as WerkzeugClient
 
 from scim2_tester.checker import check_server
 from scim2_tester.utils import SCIMTesterError
@@ -37,7 +36,7 @@ def test_check_server_with_tag_filtering(httpserver):
 
 def test_check_server_with_resource_type_filtering(scim2_server_app):
     """Validates resource type filtering excludes unwanted resource types."""
-    client = TestSCIMClient(WerkzeugClient(scim2_server_app))
+    client = WSGISCIMClient(scim2_server_app)
 
     all_results = check_server(client, include_tags={"discovery", "crud:read"})
     user_results = [

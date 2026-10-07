@@ -1,6 +1,5 @@
 import pytest
-from scim2_client.engines.werkzeug import TestSCIMClient
-from werkzeug.test import Client
+from scim2_client.engines.wsgi import WSGISCIMClient
 
 from scim2_tester import Status
 from scim2_tester import check_server
@@ -10,7 +9,7 @@ from scim2_tester.discovery import get_standard_resource_types
 
 @pytest.fixture
 def scim_client(scim2_server_app):
-    client = TestSCIMClient(Client(scim2_server_app))
+    client = WSGISCIMClient(scim2_server_app)
     client.discover()
     return client
 
@@ -28,7 +27,7 @@ def test_discovered_scim2_server(scim_client):
 
 def test_undiscovered_scim2_server(scim2_server_app):
     """Test the SCIM server without initial discovery."""
-    client = TestSCIMClient(Client(scim2_server_app))
+    client = WSGISCIMClient(scim2_server_app)
     results = check_server(client, raise_exceptions=False)
 
     executed_results = [r for r in results if r.status != Status.SKIPPED]
@@ -70,7 +69,7 @@ def test_individual_filters(scim_client, tag, resource_type):
 
 def test_filtering_functionality(scim2_server_app):
     """Test that filtering produces different result sets."""
-    client = TestSCIMClient(Client(scim2_server_app))
+    client = WSGISCIMClient(scim2_server_app)
     client.discover()
 
     all_results = check_server(client, raise_exceptions=False)
@@ -120,7 +119,7 @@ def test_tag_discovery_utility(scim2_server_app):
         f"Expected at least 8 core tags, got {len(discovered_core)}: {discovered_core}"
     )
 
-    client = TestSCIMClient(Client(scim2_server_app))
+    client = WSGISCIMClient(scim2_server_app)
     client.discover()
 
     function_level_tags = {
