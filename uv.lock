@@ -1,5 +1,5 @@
 version = 1
-revision = 5
+revision = 3
 requires-python = ">=3.11"
 resolution-markers = [
     "python_full_version >= '3.15'",
@@ -1394,7 +1394,7 @@ doc = [
 requires-dist = [
     { name = "scim2-client", specifier = ">=0.11.0" },
     { name = "scim2-client", extras = ["httpx2"], marker = "extra == 'httpx2'", specifier = ">=0.11.0" },
-    { name = "scim2-models", specifier = ">=0.8.0" },
+    { name = "scim2-models", specifier = ">=0.10.3" },
 ]
 provides-extras = ["httpx2"]
 
