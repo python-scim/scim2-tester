@@ -1313,14 +1313,14 @@ wheels = [
 
 [[package]]
 name = "scim2-client"
-version = "0.12.0"
+version = "0.13.2"
 source = { registry = "https://pypi.org/simple" }
 dependencies = [
     { name = "scim2-models" },
 ]
-sdist = { url = "https://files.pythonhosted.org/packages/c3/d5/415580454e2c982a8f699b0fe61d2dd369324ee98c19437e97156bda871e/scim2_client-0.12.0.tar.gz", hash = "sha256:4cfecf3e1428498a1c3c7233ab928e8be377f6708417f9b67f754e135b47568a", size = 37241, upload-time = "2026-10-07T08:29:15.959Z" }
+sdist = { url = "https://files.pythonhosted.org/packages/67/9a/c84516f41990f32787ccc22ecce7224fd837322a20dedc1d3bc00bab24de/scim2_client-0.13.2.tar.gz", hash = "sha256:1397962f294f95c8982c543d422e2fa7fcf9295d5eb1af73067ab142090608e0", size = 37962, upload-time = "2026-10-09T11:28:09.624Z" }
 wheels = [
-    { url = "https://files.pythonhosted.org/packages/62/49/a4ddcd3c7490ede628987522bb51b65956d29686aff7e54fbea9ce69f54c/scim2_client-0.12.0-py3-none-any.whl", hash = "sha256:fd0461dc29d923035a8efdba035535a5b0a02bd3f7ae5c944ae659e1025d7bd4", size = 41005, upload-time = "2026-10-07T08:29:14.791Z" },
+    { url = "https://files.pythonhosted.org/packages/71/56/d69c8bcf6cef54fac7afb930efae39e0f3b47399a12746ba6280df6d7ceb/scim2_client-0.13.2-py3-none-any.whl", hash = "sha256:9fafa5d903e1fae513a0d946ce7cd5fad2d697d47b55ae0b3204c0848c6d4b48", size = 41726, upload-time = "2026-10-09T11:28:07.874Z" },
 ]
 
 [package.optional-dependencies]
@@ -1392,8 +1392,8 @@ doc = [
 
 [package.metadata]
 requires-dist = [
-    { name = "scim2-client", specifier = ">=0.11.0" },
-    { name = "scim2-client", extras = ["httpx2"], marker = "extra == 'httpx2'", specifier = ">=0.11.0" },
+    { name = "scim2-client", specifier = ">=0.13.2" },
+    { name = "scim2-client", extras = ["httpx2"], marker = "extra == 'httpx2'", specifier = ">=0.13.2" },
     { name = "scim2-models", specifier = ">=0.10.3" },
 ]
 provides-extras = ["httpx2"]

@@ -25,7 +25,7 @@ classifiers = [
 
 requires-python = ">= 3.11"
 dependencies = [
-    "scim2-client>=0.11.0",
+    "scim2-client>=0.13.2",
     "scim2-models>=0.10.3",
 ]
 
@@ -44,7 +44,7 @@ module-root = ""
 
 [project.optional-dependencies]
 httpx2 = [
-    "scim2-client[httpx2]>=0.11.0",
+    "scim2-client[httpx2]>=0.13.2",
 ]
 
 [dependency-groups]

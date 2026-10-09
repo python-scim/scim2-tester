@@ -11,6 +11,8 @@ from scim2_tester.checkers.resource_types import access_invalid_resource_type
 from scim2_tester.checkers.resource_types import query_all_resource_types
 from scim2_tester.checkers.resource_types import query_resource_type_by_id
 from scim2_tester.checkers.resource_types import resource_types_endpoint_methods
+from scim2_tester.utils import CheckConfig
+from scim2_tester.utils import CheckContext
 from scim2_tester.utils import Status
 
 
@@ -152,8 +154,10 @@ def test_access_invalid_resource_type_non_error_response(httpserver, testing_con
     result = access_invalid_resource_type(testing_context)
 
     assert result[0].status == Status.ERROR
-    assert "invalid URL did not return an Error object" in result[0].reason
-    assert result[0].data == mock_resource_type
+    assert (
+        "invalid URL did not return an Error object: "
+        "The server answered 404 without a SCIM error" in result[0].reason
+    )
 
 
 def test_access_invalid_resource_type_wrong_status_code(httpserver, testing_context):
@@ -192,3 +196,25 @@ def test_query_all_resource_types_without_any_resource_type(
     assert len(results) == 1
     assert results[0].status == Status.ERROR
     assert results[0].reason == "The /ResourceTypes endpoint published nothing"
+
+
+def test_invalid_resource_type_returns_success(httpserver, scim_client):
+    """Test an invalid resource type answered with a success, when the configuration expects it."""
+    httpserver.expect_request(
+        re.compile(r"^/ResourceTypes/[0-9a-f-]+$")
+    ).respond_with_json(
+        ResourceType(
+            id="invalid",
+            name="Invalid",
+            endpoint="/Invalid",
+            schema_="urn:invalid:schema",
+        ).model_dump(scim_ctx=Context.RESOURCE_QUERY_RESPONSE),
+        status=200,
+        content_type="application/scim+json",
+    )
+    context = CheckContext(scim_client, CheckConfig(expected_status_codes=[200]))
+
+    result = access_invalid_resource_type(context)
+
+    assert result[0].status == Status.ERROR
+    assert result[0].reason.endswith("invalid URL did not return an Error object")

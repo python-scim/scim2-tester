@@ -1,6 +1,7 @@
 import uuid
 from typing import Any
 
+from scim2_client import UnexpectedStatusCodeException
 from scim2_models import Error
 
 from ..utils import CheckContext
@@ -25,17 +26,23 @@ def random_url(context: CheckContext) -> list[CheckResult]:
 
     .. pull-quote:: :rfc:`RFC 7644 Section 3.12 - Error Response Handling <7644#section-3.12>`
 
-       "When returning HTTP error status codes other than a '401' 'Unauthorized',
-       '403' 'Forbidden', or '404' 'Not Found', the server SHOULD return
-       a SCIM error response."
-
-       For 404 responses specifically, servers SHOULD return proper :class:`~scim2_models.Error`
-       objects to maintain consistent error handling across all endpoints.
+       "In addition to returning an HTTP response code, implementers MUST return
+       the errors in the body of the response in a JSON format"
     """
     probably_invalid_url = f"/{str(uuid.uuid4())}"
-    response: Any = context.client.query(
-        url=probably_invalid_url, raise_scim_errors=False
-    )
+    try:
+        response: Any = context.client.query(
+            url=probably_invalid_url, raise_scim_errors=False
+        )
+    except UnexpectedStatusCodeException as exc:
+        return [
+            check_result(
+                context,
+                status=Status.ERROR,
+                reason=f"{probably_invalid_url} did not return an Error object: {exc}",
+                data=exc,
+            )
+        ]
 
     if not isinstance(response, Error):
         return [

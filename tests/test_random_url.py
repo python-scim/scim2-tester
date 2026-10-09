@@ -35,6 +35,37 @@ def test_random_url_valid_object(httpserver, testing_context):
 
     assert result[0].status == Status.ERROR
     assert "did not return an Error object" in result[0].reason
+    assert "The server answered 404 without a SCIM error" in result[0].reason
+
+
+def test_random_url_success(httpserver, testing_context):
+    """Test reaching a random URL that answers successfully with a SCIM object."""
+    httpserver.expect_request(re.compile(r".*")).respond_with_json(
+        User(
+            id="2819c223-7f76-453a-919d-413861904646", user_name="bjensen@example.com"
+        ).model_dump(),
+        status=200,
+        content_type="application/scim+json",
+    )
+
+    result = random_url(testing_context)
+
+    assert result[0].status == Status.ERROR
+    assert result[0].reason.endswith("did not return an Error object")
+
+
+def test_random_url_html_page(httpserver, testing_context):
+    """Test reaching a random URL that returns an HTML page."""
+    httpserver.expect_request(re.compile(r".*")).respond_with_data(
+        "<html>Not Found</html>", status=404, content_type="text/html"
+    )
+
+    result = random_url(testing_context)
+
+    assert result[0].status == Status.ERROR
+    assert result[0].reason.endswith(
+        "did not return an Error object: The server answered 404 without a SCIM error"
+    )
 
 
 def test_random_url_not_404(httpserver, testing_context):

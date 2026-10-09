@@ -2,6 +2,7 @@ import uuid
 from typing import cast
 
 from scim2_client import SCIMClientException
+from scim2_client import UnexpectedStatusCodeException
 from scim2_models import Error
 from scim2_models import ListResponse
 from scim2_models import Schema
@@ -107,16 +108,26 @@ def access_invalid_schema(context: CheckContext) -> list[CheckResult]:
 
     .. pull-quote:: :rfc:`RFC 7644 Section 3.12 - Error Response Handling <7644#section-3.12>`
 
-       "When returning HTTP error status codes, the server SHOULD return
-       a SCIM error response."
+       "In addition to returning an HTTP response code, implementers MUST return
+       the errors in the body of the response in a JSON format"
     """
     probably_invalid_id = str(uuid.uuid4())
-    response = context.client.query(
-        Schema,
-        probably_invalid_id,
-        expected_status_codes=context.conf.expected_status_codes or [404],
-        raise_scim_errors=False,
-    )
+    try:
+        response = context.client.query(
+            Schema,
+            probably_invalid_id,
+            expected_status_codes=context.conf.expected_status_codes or [404],
+            raise_scim_errors=False,
+        )
+    except UnexpectedStatusCodeException as exc:
+        return [
+            check_result(
+                context,
+                status=Status.ERROR,
+                reason=f"/Schemas/{probably_invalid_id} invalid URL did not return an Error object: {exc}",
+                data=exc,
+            )
+        ]
 
     if not isinstance(response, Error):
         return [

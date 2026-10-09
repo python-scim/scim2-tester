@@ -1,6 +1,14 @@
 Changelog
 =========
 
+[0.5.3] - Unreleased
+--------------------
+
+Fixed
+^^^^^
+- ``random_url``, ``access_invalid_schema`` and ``access_invalid_resource_type`` give the tested
+  URL and the HTTP status when the server answers an error without a SCIM error body.
+
 [0.5.2] - 2026-10-06
 --------------------
 
