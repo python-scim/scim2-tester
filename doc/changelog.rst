@@ -4,6 +4,10 @@ Changelog
 [0.5.3] - Unreleased
 --------------------
 
+Added
+^^^^^
+- Support for Python 3.15.
+
 Fixed
 ^^^^^
 - ``random_url``, ``access_invalid_schema`` and ``access_invalid_resource_type`` give the tested

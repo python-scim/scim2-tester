@@ -21,7 +21,6 @@ jobs:
   tests:
     name: py${{ matrix.python }} unit tests
     runs-on: ubuntu-24.04
-    continue-on-error: ${{ matrix.python == '3.15' }}
     strategy:
       fail-fast: false
       matrix:
@@ -57,7 +56,7 @@ jobs:
         uses: astral-sh/setup-uv@bec219d24cd3e171d82865faccec33120bb574f4 # v10.1.0
         with:
           version: "0.12.13"
-          python-version: "3.14"
+          python-version: "3.15"
           enable-cache: true
       - name: Install dependencies
         run: uv sync --all-extras
@@ -68,7 +67,6 @@ jobs:
     name: py${{ matrix.python }} ${{ matrix.downstream }} downstream unit tests
     if: ${{ !startsWith(github.head_ref, 'renovate/') }}
     runs-on: ubuntu-24.04
-    continue-on-error: ${{ matrix.python == '3.15' }}
     strategy:
       fail-fast: false
       matrix:
@@ -138,7 +136,7 @@ jobs:
       uses: astral-sh/setup-uv@bec219d24cd3e171d82865faccec33120bb574f4 # v10.1.0
       with:
         version: "0.12.13"
-        python-version: "3.14"
+        python-version: "3.15"
         enable-cache: true
     - uses: pre-commit/action@2c7b3805fd2a0fd8c1884dcaebf91fc102a13ecd # v3.0.1
 
@@ -152,7 +150,7 @@ jobs:
         uses: astral-sh/setup-uv@bec219d24cd3e171d82865faccec33120bb574f4 # v10.1.0
         with:
           version: "0.12.13"
-          python-version: "3.14"
+          python-version: "3.15"
           enable-cache: true
       - name: Install dependencies
         run: uv sync --group doc --all-extras
