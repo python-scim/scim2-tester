@@ -1,3 +1,5 @@
+<img alt="python-scim logo" src="https://raw.githubusercontent.com/python-scim/.github/refs/heads/main/python-scim.svg" height="72" align="right">
+
 # scim2-tester
 
 Python methods based on [scim2-models](https://scim2-models.readthedocs.io) and [scim2-client](https://scim2-client.readthedocs.io/en), to check if SCIM servers respect the [RFC7643](https://datatracker.ietf.org/doc/html/rfc7643.html) and [RFC7644](https://datatracker.ietf.org/doc/html/rfc7644.html) specifications.
