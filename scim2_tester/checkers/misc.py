@@ -1,4 +1,3 @@
-import uuid
 from typing import Any
 
 from scim2_client import UnexpectedStatusCodeException
@@ -29,7 +28,7 @@ def random_url(context: CheckContext) -> list[CheckResult]:
        "In addition to returning an HTTP response code, implementers MUST return
        the errors in the body of the response in a JSON format"
     """
-    probably_invalid_url = f"/{str(uuid.uuid4())}"
+    probably_invalid_url = f"/{str(context.random_uuid())}"
     try:
         response: Any = context.client.query(
             url=probably_invalid_url, raise_scim_errors=False

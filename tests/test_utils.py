@@ -537,3 +537,8 @@ def test_check_result_returns_non_failures_when_configured_to_raise(status):
 
     assert result.status == status
     assert result.reason == "Details"
+
+
+def test_random_uuid_is_a_version_4_uuid(testing_context):
+    """The generated UUIDs are random UUIDs, as uuid.uuid4 makes them."""
+    assert testing_context.random_uuid().version == 4

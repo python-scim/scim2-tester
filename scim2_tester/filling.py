@@ -1,6 +1,4 @@
 import base64
-import random
-import uuid
 from enum import Enum
 from inspect import isclass
 from typing import TYPE_CHECKING
@@ -24,7 +22,7 @@ if TYPE_CHECKING:
 ModelT = TypeVar("ModelT", bound=BaseModel)
 
 
-def get_random_example_value(path: Path[Any]) -> Any | None:
+def get_random_example_value(context: "CheckContext", path: Path[Any]) -> Any | None:
     """Get a random value from pydantic field examples if available."""
     binding = path.resolve()
     if binding is None or binding.target_model is None:
@@ -34,7 +32,7 @@ def get_random_example_value(path: Path[Any]) -> Any | None:
     if not field_info or not hasattr(field_info, "examples") or not field_info.examples:
         return None
 
-    return random.choice(field_info.examples)
+    return context.random.choice(field_info.examples)
 
 
 def get_model_from_ref_type(
@@ -94,7 +92,7 @@ def generate_random_value(
 
     value: Any
 
-    if example_value := get_random_example_value(path):
+    if example_value := get_random_example_value(context, path):
         value = example_value
 
     # RFC7643 §4.1.2 provides the following indications, however
@@ -102,7 +100,7 @@ def generate_random_value(
     # just by looking at the object schema.
     #     The value SHOULD be specified according to [RFC5321].
     elif is_email:
-        value = f"{uuid.uuid4()}@{uuid.uuid4()}.com"
+        value = f"{context.random_uuid()}@{context.random_uuid()}.com"
 
     # RFC7643 §4.1.2 provides the following indications, however
     # there is no way to guess the existence of such requirements
@@ -111,26 +109,26 @@ def generate_random_value(
     #     according to the format defined in [RFC3966], e.g.,
     #     'tel:+1-201-555-0123'.
     elif is_phone:  # pragma: no cover
-        value = "".join(str(random.choice(range(10))) for _ in range(10))
+        value = "".join(str(context.random.choice(range(10))) for _ in range(10))
 
     elif field_type is int:
-        value = random.randint(0, 2**31 - 1)
+        value = context.random.randint(0, 2**31 - 1)
 
     elif field_type is bool:
-        value = random.choice([True, False])
+        value = context.random.choice([True, False])
 
     elif isclass(field_type) and issubclass(field_type, Reference):
         ref_type: type[Reference[Any]] = field_type
         ref_types = ref_type.__reference_types__
         if not ref_types or "external" in ref_types or "uri" in ref_types:
-            value = f"https://{str(uuid.uuid4())}.test"
+            value = f"https://{context.random_uuid()}.test"
         else:
             ref_model = get_model_from_ref_type(context, ref_type, different_than=model)
             ref_obj = context.resource_manager.create_and_register(ref_model)
             value = ref_obj.meta.location if ref_obj.meta else None
 
     elif isclass(field_type) and issubclass(field_type, Enum):
-        value = random.choice(list(field_type))
+        value = context.random.choice(list(field_type))
 
     elif isclass(field_type) and issubclass(field_type, ComplexAttribute):
         value = fill_with_random_values(
@@ -143,10 +141,10 @@ def generate_random_value(
         )
 
     elif field_type is bytes:
-        value = base64.b64encode(uuid.uuid4().bytes).decode("ascii")
+        value = base64.b64encode(context.random_uuid().bytes).decode("ascii")
 
     else:
-        value = str(uuid.uuid4())
+        value = str(context.random_uuid())
 
     if binding and binding.target_is_multivalued:
         value = [value]
@@ -190,7 +188,7 @@ def fill_with_random_values(
         if value is not None:
             path.set(obj, value, strict=False)
 
-    fix_primary_attributes(obj)
+    fix_primary_attributes(context, obj)
     fix_reference_values(context, obj)
 
     return obj
@@ -245,7 +243,7 @@ def _referenced_resource_type(context: "CheckContext", ref: str) -> str | None:
     return None
 
 
-def fix_primary_attributes(obj: BaseModel) -> None:
+def fix_primary_attributes(context: "CheckContext", obj: BaseModel) -> None:
     """Fix primary attributes to respect RFC 7643 constraints.
 
     Ensures that for multi-valued attributes with 'primary' sub-attributes:
@@ -264,6 +262,6 @@ def fix_primary_attributes(obj: BaseModel) -> None:
         if not hasattr(first_item, "primary"):
             continue
 
-        primary_index = random.randint(0, len(attr_value) - 1)
+        primary_index = context.random.randint(0, len(attr_value) - 1)
         for i, item in enumerate(attr_value):
             item.primary = i == primary_index

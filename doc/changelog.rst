@@ -1,6 +1,14 @@
 Changelog
 =========
 
+[0.6.0] - Unreleased
+--------------------
+
+Added
+^^^^^
+- The ``seed`` parameter of :func:`~scim2_tester.check_server` sets the seed of the generated
+  values. Two runs with the same seed send the same values, which helps to replay a failure.
+
 [0.5.3] - 2026-10-29
 --------------------
 

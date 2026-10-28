@@ -170,3 +170,20 @@ def test_check_server_raises_on_an_unexpected_service_description_failure(
 
     with pytest.raises(SCIMTesterError):
         check_server(client, raise_exceptions=True)
+
+
+def _created_user_names(scim2_server_app, seed):
+    client = WSGISCIMClient(scim2_server_app)
+    results = check_server(
+        client, include_tags={"crud:create"}, resource_types=["User"], seed=seed
+    )
+    return [r.data.user_name for r in results if r.title == "object_creation"]
+
+
+def test_check_server_replays_the_values_of_a_seed(scim2_server_app):
+    """Two runs with the same seed send the same values."""
+    first = _created_user_names(scim2_server_app, 1234)
+
+    assert len(first) == 1
+    assert _created_user_names(scim2_server_app, 1234) == first
+    assert _created_user_names(scim2_server_app, 5678) != first

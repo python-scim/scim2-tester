@@ -30,6 +30,8 @@ from scim2_tester.filling import fix_reference_values
 from scim2_tester.filling import generate_random_value
 from scim2_tester.filling import get_model_from_ref_type
 from scim2_tester.filling import get_random_example_value
+from scim2_tester.utils import CheckConfig
+from scim2_tester.utils import CheckContext
 
 
 def test_generate_random_value_bytes_field(testing_context):
@@ -104,23 +106,23 @@ def test_fill_with_nonexistent_field(testing_context):
     assert result is user
 
 
-def test_get_random_example_value():
+def test_get_random_example_value(testing_context):
     """Validates random value selection from pydantic field examples."""
-    value = get_random_example_value(Path[GroupMember]("type"))
+    value = get_random_example_value(testing_context, Path[GroupMember]("type"))
 
     assert value in ["User", "Group"]
 
 
-def test_get_random_example_value_no_examples():
+def test_get_random_example_value_no_examples(testing_context):
     """Returns None when field has no examples."""
-    value = get_random_example_value(Path[Email]("value"))
+    value = get_random_example_value(testing_context, Path[Email]("value"))
 
     assert value is None
 
 
-def test_get_random_example_value_invalid_urn():
+def test_get_random_example_value_invalid_urn(testing_context):
     """Returns None when URN is invalid."""
-    value = get_random_example_value(Path[Email]("nonexistent"))
+    value = get_random_example_value(testing_context, Path[Email]("nonexistent"))
 
     assert value is None
 
@@ -194,18 +196,18 @@ def test_generate_random_value_default_string(testing_context):
     assert isinstance(value, str)
 
 
-def test_fix_primary_attributes_single_object():
+def test_fix_primary_attributes_single_object(testing_context):
     """Ensures single email gets primary=True."""
     user = User(user_name="test")
     user.emails = [Email(value="test@example.com", type=Email.Type.work)]
 
-    fix_primary_attributes(user)
+    fix_primary_attributes(testing_context, user)
 
     assert len(user.emails) == 1
     assert user.emails[0].primary is True
 
 
-def test_fix_primary_attributes_multiple_objects():
+def test_fix_primary_attributes_multiple_objects(testing_context):
     """Ensures exactly one email has primary=True when multiple exist."""
     user = User(user_name="test")
     user.emails = [
@@ -214,7 +216,7 @@ def test_fix_primary_attributes_multiple_objects():
         Email(value="other@example.com", type=Email.Type.other),
     ]
 
-    fix_primary_attributes(user)
+    fix_primary_attributes(testing_context, user)
 
     assert len(user.emails) == 3
     primary_count = sum(1 for email in user.emails if email.primary)
@@ -454,3 +456,23 @@ def test_fix_ref_value_on_object_with_ref_and_no_value(testing_context):
 
     assert link.ref == location
     assert link.type == "Group"
+
+
+def _filled_user(scim_client, seed):
+    context = CheckContext(scim_client, CheckConfig(seed=seed))
+    return fill_with_random_values(context, User()).model_dump()
+
+
+def test_the_same_seed_generates_the_same_values(scim_client):
+    """Two contexts with the same seed generate the same values."""
+    assert _filled_user(scim_client, 42) == _filled_user(scim_client, 42)
+
+
+def test_different_seeds_generate_different_values(scim_client):
+    """Two contexts with different seeds generate different values."""
+    assert _filled_user(scim_client, 42) != _filled_user(scim_client, 43)
+
+
+def test_without_seed_each_context_generates_new_values(scim_client):
+    """Without a seed, each context generates new values."""
+    assert _filled_user(scim_client, None) != _filled_user(scim_client, None)

@@ -80,6 +80,7 @@ def check_server(
     include_tags: set[str] | None = None,
     exclude_tags: set[str] | None = None,
     resource_types: list[str] | None = None,
+    seed: int | None = None,
 ) -> list[CheckResult]:
     """Perform a series of check to a SCIM server.
 
@@ -96,6 +97,8 @@ def check_server(
     :param include_tags: Execute only checks with at least one of these tags.
     :param exclude_tags: Skip checks with any of these tags.
     :param resource_types: Filter by resource type names (e.g., ["User", "Group"]).
+    :param seed: The seed of the generated values. Two runs with the same seed send the
+        same values, which helps to replay a failure. Without a seed, each run sends new values.
 
     Available tags:
         - **discovery**: Tests for configuration endpoints (ServiceProviderConfig, ResourceTypes, Schemas)
@@ -132,6 +135,7 @@ def check_server(
         include_tags=include_tags,
         exclude_tags=exclude_tags,
         resource_types=resource_types,
+        seed=seed,
     )
     context = CheckContext(client, conf)
     results = []

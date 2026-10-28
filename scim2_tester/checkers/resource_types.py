@@ -1,4 +1,3 @@
-import uuid
 from typing import cast
 
 from scim2_client import SCIMClientException
@@ -240,7 +239,7 @@ def access_invalid_resource_type(context: CheckContext) -> list[CheckResult]:
        "In addition to returning an HTTP response code, implementers MUST return
        the errors in the body of the response in a JSON format"
     """
-    probably_invalid_id = str(uuid.uuid4())
+    probably_invalid_id = str(context.random_uuid())
     try:
         response = context.client.query(
             ResourceType,

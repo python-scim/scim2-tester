@@ -1,6 +1,8 @@
 import functools
+import random
 import sys
 import types
+import uuid
 from collections.abc import Callable
 from dataclasses import dataclass
 from dataclasses import field
@@ -106,6 +108,13 @@ class CheckConfig:
     resource_types: list[str] | None = None
     """Filter by resource type names (e.g., ["User", "Group"])."""
 
+    seed: int | None = None
+    """The seed of the generated values.
+
+    Two runs with the same seed send the same values. Without a seed, each run
+    sends new values.
+    """
+
 
 class CheckContext:
     """Execution context with client, config and resource management."""
@@ -115,8 +124,13 @@ class CheckContext:
     def __init__(self, client: BaseSyncSCIMClient, conf: CheckConfig):
         self.client = client
         self.conf = conf
+        self.random = random.Random(conf.seed)
         # ResourceManager is defined later in the file, so we instantiate it here
         self.resource_manager = ResourceManager(self)
+
+    def random_uuid(self) -> uuid.UUID:
+        """Generate a random UUID from the seed of the configuration."""
+        return uuid.UUID(int=self.random.getrandbits(128), version=4)
 
 
 class SCIMTesterError(Exception):
