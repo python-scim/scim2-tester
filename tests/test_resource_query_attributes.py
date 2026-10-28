@@ -346,3 +346,72 @@ def test_search_skipped_when_the_server_does_not_search_at_the_root(
     assert len(results) == 1
     assert results[0].status == Status.SKIPPED
     assert "several resource types" in results[0].reason
+
+
+def _respond_to_search_with(httpserver, resources):
+    def handler(request):
+        return Response(
+            json.dumps(
+                {
+                    "schemas": ["urn:ietf:params:scim:api:messages:2.0:ListResponse"],
+                    "totalResults": len(resources),
+                    "Resources": resources,
+                }
+            ),
+            status=200,
+            headers={"Content-Type": "application/scim+json"},
+        )
+
+    httpserver.expect_request(uri="/.search", method="POST").respond_with_handler(
+        handler
+    )
+
+
+def test_search_returning_a_resource_without_schemas_is_summed_up(
+    httpserver, testing_context
+):
+    """A resource without schemas in a search at the root is reported in one sentence."""
+    _setup_creation_and_deletion(httpserver)
+    resource = {key: value for key, value in USER_PAYLOAD.items() if key != "schemas"}
+    _respond_to_search_with(httpserver, [resource])
+
+    results = search_with_attributes(testing_context, User)
+
+    assert len(results) == 1
+    assert results[0].status == Status.ERROR
+    assert results[0].reason == (
+        "The server returned 1 resource without the schema of a known resource "
+        "type (RFC 7643 §3)"
+    )
+
+
+def test_search_returning_resources_without_schemas_is_summed_up(
+    httpserver, testing_context
+):
+    """Several resources without schemas in a search at the root are counted in one sentence."""
+    _setup_creation_and_deletion(httpserver)
+    resource = {key: value for key, value in USER_PAYLOAD.items() if key != "schemas"}
+    _respond_to_search_with(httpserver, [resource, {**resource, "id": "456"}])
+
+    results = search_with_attributes(testing_context, User)
+
+    assert results[0].reason == (
+        "The server returned 2 resources without the schema of a known resource "
+        "type (RFC 7643 §3)"
+    )
+
+
+def test_search_returning_other_invalid_resources_keeps_the_validation_details(
+    httpserver, testing_context
+):
+    """A search returning invalid resources for another reason keeps the validation details."""
+    _setup_creation_and_deletion(httpserver)
+    resource = {key: value for key, value in USER_PAYLOAD.items() if key != "schemas"}
+    invalid = {**USER_PAYLOAD, "id": "456", "active": "maybe"}
+    _respond_to_search_with(httpserver, [resource, invalid])
+
+    results = search_with_attributes(testing_context, User)
+
+    assert results[0].status == Status.ERROR
+    assert "union_tag_not_found" in results[0].reason
+    assert "active" in results[0].reason
