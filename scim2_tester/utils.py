@@ -229,6 +229,13 @@ class CheckResult:
     resource_type: str | None = None
     """The resource type name if this check is related to a specific resource."""
 
+    attribute: str | None = None
+    """The path of the attribute if this check is related to a specific attribute.
+
+    For instance ``externalId``, ``name.givenName``, or
+    ``urn:ietf:params:scim:schemas:extension:enterprise:2.0:User:employeeNumber``.
+    """
+
     def __repr__(self) -> str:
         """Return string representation without verbose description field."""
         parts = [f"CheckResult(status={self.status!r}"]
@@ -242,6 +249,8 @@ class CheckResult:
             parts.append(f"tags={self.tags!r}")
         if self.resource_type:
             parts.append(f"resource_type={self.resource_type!r}")
+        if self.attribute:
+            parts.append(f"attribute={self.attribute!r}")
         return ", ".join(parts) + ")"
 
 
@@ -254,6 +263,7 @@ def check_result(
     data: Any | None = None,
     tags: set[str] | None = None,
     resource_type: str | None = None,
+    attribute: str | None = None,
 ) -> CheckResult:
     """Create a CheckResult that raises SCIMTesterError immediately if configured.
 
@@ -269,6 +279,7 @@ def check_result(
     :param data: Optional related data for debugging
     :param tags: Optional tags for filtering
     :param resource_type: Optional resource type name
+    :param attribute: Optional path of the checked attribute
     :returns: The created CheckResult
     :raises SCIMTesterError: If raise_exceptions is True and status is ERROR or CRITICAL
     """
@@ -284,6 +295,7 @@ def check_result(
         data=data,
         tags=tags or set(),
         resource_type=resource_type,
+        attribute=attribute,
     )
 
 

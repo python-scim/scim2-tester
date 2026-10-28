@@ -7,6 +7,9 @@ Changelog
 Added
 ^^^^^
 - Support for Python 3.15.
+- :attr:`~scim2_tester.CheckResult.attribute` gives the path of the checked attribute. The PATCH
+  checks and the ``attributes`` checks return one result per attribute, with the same title.
+  The attribute tells them apart.
 
 Changed
 ^^^^^^^

@@ -111,6 +111,7 @@ def check_add_attribute(
                     status=Status.ERROR,
                     reason=f"Failed to add attribute '{urn}': {exc}",
                     resource_type=model.__name__,
+                    attribute=urn,
                     data={
                         "urn": urn,
                         "error": exc,
@@ -135,6 +136,7 @@ def check_add_attribute(
                             f"Returned value: {modify_actual_value}"
                         ),
                         resource_type=model.__name__,
+                        attribute=urn,
                         data={
                             "urn": urn,
                             "expected": patch_value,
@@ -156,6 +158,7 @@ def check_add_attribute(
                     status=Status.ERROR,
                     reason=f"Failed to query resource after add on '{urn}': {exc}",
                     resource_type=model.__name__,
+                    attribute=urn,
                     data={
                         "urn": urn,
                         "error": exc,
@@ -176,6 +179,7 @@ def check_add_attribute(
                     status=Status.SUCCESS,
                     reason=f"Successfully added attribute '{urn}'",
                     resource_type=model.__name__,
+                    attribute=urn,
                     data={
                         "urn": urn,
                         "value": patch_value,
@@ -193,6 +197,7 @@ def check_add_attribute(
                         f"Returned value: {actual_value}"
                     ),
                     resource_type=model.__name__,
+                    attribute=urn,
                     data={
                         "urn": urn,
                         "expected": patch_value,

@@ -6,6 +6,8 @@ from scim2_tester import check_server
 from scim2_tester.discovery import get_all_available_tags
 from scim2_tester.discovery import get_standard_resource_types
 
+PATCH_TAGS = {"patch:add", "patch:replace", "patch:remove"}
+
 
 @pytest.fixture
 def scim_client(scim2_server_app):
@@ -49,6 +51,42 @@ def test_unsupported_methods_on_discovery_endpoints(scim_client):
     method_results = [r for r in results if r.title in method_checks]
     assert {r.title for r in method_results} == method_checks
     assert all(r.status == Status.SUCCESS for r in method_results)
+
+
+def test_patch_results_identify_their_attribute(scim_client):
+    """Each PATCH result tells its attribute, so a result can be followed from a run to another."""
+    results = check_server(scim_client, include_tags=PATCH_TAGS)
+
+    executed = [
+        r for r in results if r.status != Status.SKIPPED and r.tags & PATCH_TAGS
+    ]
+    assert {r.title for r in executed} == {
+        "check_add_attribute",
+        "check_replace_attribute",
+        "check_remove_attribute",
+    }
+    assert all(r.attribute == r.data["urn"] for r in executed)
+    assert (
+        "urn:ietf:params:scim:schemas:extension:enterprise:2.0:User:employeeNumber"
+        in {r.attribute for r in executed}
+    )
+    keys = [(r.resource_type, r.title, r.attribute) for r in executed]
+    assert len(keys) == len(set(keys))
+
+
+def test_attribute_filtering_results_identify_their_attribute(scim_client):
+    """Each result of the attributes and excludedAttributes checks tells its attribute."""
+    results = check_server(
+        scim_client, include_tags={"crud:read:attributes"}, resource_types=["User"]
+    )
+
+    executed = [
+        r
+        for r in results
+        if r.status != Status.SKIPPED and "crud:read:attributes" in r.tags
+    ]
+    assert len(executed) == 6
+    assert {r.attribute for r in executed} == {"externalId", "name"}
 
 
 @pytest.mark.parametrize("tag", get_all_available_tags())

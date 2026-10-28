@@ -105,6 +105,7 @@ def check_replace_attribute(
                     status=Status.ERROR,
                     reason=f"Failed to replace attribute '{urn}': {exc}",
                     resource_type=model.__name__,
+                    attribute=urn,
                     data={
                         "urn": urn,
                         "error": exc,
@@ -129,6 +130,7 @@ def check_replace_attribute(
                             f"Returned value: {modify_actual_value}"
                         ),
                         resource_type=model.__name__,
+                        attribute=urn,
                         data={
                             "urn": urn,
                             "expected": patch_value,
@@ -150,6 +152,7 @@ def check_replace_attribute(
                     status=Status.ERROR,
                     reason=f"Failed to query resource after replace on '{urn}': {exc}",
                     resource_type=model.__name__,
+                    attribute=urn,
                     data={
                         "urn": urn,
                         "error": exc,
@@ -169,6 +172,7 @@ def check_replace_attribute(
                     status=Status.SUCCESS,
                     reason=f"Successfully replaced attribute '{urn}'",
                     resource_type=model.__name__,
+                    attribute=urn,
                     data={
                         "urn": urn,
                         "value": patch_value,
@@ -186,6 +190,7 @@ def check_replace_attribute(
                         f"Returned value: {actual_value}"
                     ),
                     resource_type=model.__name__,
+                    attribute=urn,
                     data={
                         "urn": urn,
                         "expected": patch_value,
