@@ -16,6 +16,7 @@ from scim2_client import BaseSyncSCIMClient
 from scim2_client import SCIMClientException
 from scim2_models import BaseModel
 from scim2_models import Mutability
+from scim2_models import NotImplementedException
 from scim2_models import Required
 from scim2_models import Resource
 from scim2_models import SCIMException
@@ -127,6 +128,25 @@ class SCIMTesterError(Exception):
 
     def __str__(self) -> str:
         return self.message
+
+
+class CreationNotSupportedError(Exception):
+    """Raised when the server answers 501 to the creation of a resource.
+
+    :rfc:`7644` §3.12 lets a server answer 501 to an operation it does not
+    support. The checks that need such a resource are skipped.
+    """
+
+    def __init__(self, model: type[Resource[Any]], exc: NotImplementedException):
+        super().__init__()
+        self.model = model
+        self.exc = exc
+
+    def __str__(self) -> str:
+        return (
+            f"The server does not support creating {self.model.__name__} "
+            f"resources (501): {self.exc}"
+        )
 
 
 def raise_on_caller(exc: Exception) -> None:
@@ -261,6 +281,7 @@ class ResourceManager:
         :param fill_all: If True, fill all writable attributes (excluding read-only).
                          If False, fill only required attributes (default behavior).
         :returns: The created Resource instance
+        :raises CreationNotSupportedError: If the server answers 501
         """
         # Import here to avoid circular imports
         from scim2_tester.filling import fill_with_random_values
@@ -279,7 +300,11 @@ class ResourceManager:
             )
         else:
             fill_with_random_values(self.context, obj, required=[Required.true])
-        created = self.context.client.create(obj)
+
+        try:
+            created = self.context.client.create(obj)
+        except NotImplementedException as exc:
+            raise CreationNotSupportedError(model, exc) from exc
 
         # Handle the case where create might return Error or dict
         if isinstance(created, Resource):
@@ -356,6 +381,9 @@ def checker(
 
             try:
                 result = func(context, *args, **kwargs)
+
+            except CreationNotSupportedError as exc:
+                result = [CheckResult(status=Status.SKIPPED, reason=str(exc))]
 
             except (SCIMClientException, SCIMException) as exc:
                 if context.conf.raise_exceptions:
