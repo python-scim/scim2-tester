@@ -115,6 +115,7 @@ def check_remove_attribute(
                     status=Status.ERROR,
                     reason=f"Failed to remove attribute '{urn}': {exc}",
                     resource_type=model.__name__,
+                    attribute=urn,
                     data={
                         "urn": urn,
                         "error": exc,
@@ -136,6 +137,7 @@ def check_remove_attribute(
                     status=Status.ERROR,
                     reason=f"PATCH modify() did not remove attribute '{urn}'",
                     resource_type=model.__name__,
+                    attribute=urn,
                     data={
                         "urn": urn,
                         "initial_value": initial_value,
@@ -157,6 +159,7 @@ def check_remove_attribute(
                     status=Status.ERROR,
                     reason=f"Failed to query resource after remove on '{urn}': {exc}",
                     resource_type=model.__name__,
+                    attribute=urn,
                     data={
                         "urn": urn,
                         "error": exc,
@@ -174,6 +177,7 @@ def check_remove_attribute(
                     status=Status.SUCCESS,
                     reason=f"Successfully removed attribute '{urn}'",
                     resource_type=model.__name__,
+                    attribute=urn,
                     data={
                         "urn": urn,
                         "initial_value": initial_value,
@@ -187,6 +191,7 @@ def check_remove_attribute(
                     status=Status.ERROR,
                     reason=f"Attribute '{urn}' was not removed",
                     resource_type=model.__name__,
+                    attribute=urn,
                     data={
                         "urn": urn,
                         "initial_value": initial_value,

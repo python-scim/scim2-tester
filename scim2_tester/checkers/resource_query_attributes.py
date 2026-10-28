@@ -101,6 +101,7 @@ def _run_single_attribute_check(
     :param endpoint: human-readable endpoint label for messages.
     """
     response = query_fn(query_parameters)
+    attribute = included or excluded
 
     response_data: dict[str, Any] | None
     if isinstance(response, Resource) and not isinstance(response, ListResponse):
@@ -114,6 +115,7 @@ def _run_single_attribute_check(
                 reason=f"{endpoint}: could not find {model.__name__} "
                 f"with id {test_obj.id} in filtered results",
                 data=response,
+                attribute=attribute,
             )
     else:
         return check_result(
@@ -121,12 +123,15 @@ def _run_single_attribute_check(
             status=Status.ERROR,
             reason=f"{endpoint}: unexpected response type {type(response).__name__}",
             data=response,
+            attribute=attribute,
         )
 
     status, reason = _check_attribute_filtering(
         response_data, included, excluded, model.__name__, endpoint
     )
-    return check_result(context, status=status, reason=reason, data=response)
+    return check_result(
+        context, status=status, reason=reason, data=response, attribute=attribute
+    )
 
 
 def _run_attribute_checks(

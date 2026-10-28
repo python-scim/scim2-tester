@@ -465,6 +465,7 @@ def test_check_result_repr():
         data={"key": "value"},
         tags={"crud:read"},
         resource_type="User",
+        attribute="name.givenName",
     )
     repr_str = repr(result)
     assert "description" not in repr_str
@@ -474,6 +475,7 @@ def test_check_result_repr():
     assert "data={'key': 'value'}" in repr_str
     assert "tags={'crud:read'}" in repr_str
     assert "resource_type='User'" in repr_str
+    assert "attribute='name.givenName'" in repr_str
     assert result.description == "Very long description"
 
     # Test without title to cover the missing branch
