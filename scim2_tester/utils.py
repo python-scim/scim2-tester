@@ -12,6 +12,7 @@ from typing import ParamSpec
 from typing import TypeVar
 from typing import cast
 
+from pydantic import ValidationError
 from scim2_client import BaseSyncSCIMClient
 from scim2_client import SCIMClientException
 from scim2_models import BaseModel
@@ -181,6 +182,27 @@ def _exception_data(exc: Exception) -> Any:
         payload = None
 
     return source.text if payload is None else payload
+
+
+def _exception_reason(exc: Exception) -> str:
+    """Return why a check failed on an exception, in a readable form.
+
+    A list of several resource types tells them apart by their schemas. When the
+    server returns resources without such a schema, the validation error has an
+    entry per resource, and is summed up in a sentence.
+    """
+    cause = exc.__cause__
+    if isinstance(cause, ValidationError) and all(
+        error["type"] == "union_tag_not_found" for error in cause.errors()
+    ):
+        count = cause.error_count()
+        resources = "resource" if count == 1 else "resources"
+        return (
+            f"The server returned {count} {resources} without the schema of a "
+            "known resource type (RFC 7643 §3)"
+        )
+
+    return f"{exc} {cause}" if cause else str(exc)
 
 
 @dataclass
@@ -389,11 +411,10 @@ def checker(
                 if context.conf.raise_exceptions:
                     raise
 
-                reason = f"{exc} {exc.__cause__}" if exc.__cause__ else str(exc)
                 result = [
                     CheckResult(
                         status=Status.ERROR,
-                        reason=reason,
+                        reason=_exception_reason(exc),
                         data=_exception_data(exc),
                     )
                 ]

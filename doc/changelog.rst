@@ -23,6 +23,8 @@ Fixed
 - The ``patch:add`` and ``patch:replace`` checks compare a reference, such as a group member,
   on its ``value``, and on its ``type`` when one was sent. The server can fill the ``display``
   and the ``$ref`` itself (:rfc:`7643` §2.4).
+- A search returning resources without the schema of a known resource type is reported in one
+  sentence, instead of one validation error per resource.
 
 [0.5.2] - 2026-10-06
 --------------------
