@@ -66,9 +66,11 @@ def resource_types_endpoint_methods(
 
     **Status:**
 
-    - :attr:`~scim2_tester.Status.SUCCESS`: The method returns 405
-    - :attr:`~scim2_tester.Status.DEVIATION`: The method returns 404, 501 or another 4xx status
-    - :attr:`~scim2_tester.Status.ERROR`: The method succeeds, or returns another 5xx status
+    - :attr:`~scim2_tester.Status.SUCCESS`: Every method returns 405
+    - :attr:`~scim2_tester.Status.DEVIATION`: A method returns 404, 501 or another 4xx status
+    - :attr:`~scim2_tester.Status.ERROR`: A method succeeds, or returns another 5xx status
+
+    The check returns one result, with the worst status of the methods.
 
     .. pull-quote:: :rfc:`RFC 7644 Section 4 - Service Provider Configuration Endpoints <7644#section-4>`
 

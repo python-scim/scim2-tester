@@ -9,6 +9,11 @@ Added
 - The ``seed`` parameter of :func:`~scim2_tester.check_server` sets the seed of the generated
   values. Two runs with the same seed send the same values, which helps to replay a failure.
 
+Changed
+^^^^^^^
+- The checks of the HTTP methods on the discovery endpoints return one result per endpoint,
+  with the worst status of the methods. The reason lists the methods that did not answer 405.
+
 [0.5.3] - 2026-10-29
 --------------------
 

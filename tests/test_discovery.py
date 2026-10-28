@@ -22,17 +22,16 @@ def test_discovery_endpoint_methods_return_405(httpserver, testing_context):
 
     results = _test_discovery_endpoint_methods(testing_context, endpoint)
 
-    assert len(results) == 4
-    assert all(result.status == Status.SUCCESS for result in results)
-    for i, method in enumerate(["POST", "PUT", "PATCH", "DELETE"]):
-        assert (
-            f"{method} {endpoint} correctly returned 405 Method Not Allowed"
-            in results[i].reason
-        )
+    assert len(results) == 1
+    assert results[0].status == Status.SUCCESS
+    assert results[0].reason == (
+        f"POST, PUT, PATCH, DELETE {endpoint} correctly returned 405 Method Not Allowed"
+    )
+    assert set(results[0].data) == {"POST", "PUT", "PATCH", "DELETE"}
 
 
 def test_discovery_endpoint_methods_wrong_status_codes(httpserver, testing_context):
-    """A success or a server error is an error, a 404 is a deviation."""
+    """The result has the worst status of the methods, and lists the methods that did not answer 405."""
     endpoint = "/ResourceTypes"
 
     # Mock methods to return wrong status codes
@@ -54,19 +53,31 @@ def test_discovery_endpoint_methods_wrong_status_codes(httpserver, testing_conte
 
     results = _test_discovery_endpoint_methods(testing_context, endpoint)
 
-    assert len(results) == 4
+    assert len(results) == 1
     assert results[0].status == Status.ERROR
-    assert "POST /ResourceTypes returned 200 instead of 405" in results[0].reason
-    assert results[1].status == Status.DEVIATION
-    assert "PUT /ResourceTypes returned 404 instead of 405" in results[1].reason
-    assert results[2].status == Status.ERROR
-    assert "PATCH /ResourceTypes returned 500 instead of 405" in results[2].reason
-    assert results[3].status == Status.SUCCESS
-    assert (
-        "DELETE /ResourceTypes correctly returned 405 Method Not Allowed"
-        in results[3].reason
+    assert results[0].reason == (
+        "POST /ResourceTypes returned 200 instead of 405; "
+        "PUT /ResourceTypes returned 404 instead of 405; "
+        "PATCH /ResourceTypes returned 500 instead of 405"
     )
-    assert all(result.data is not None for result in results)
+
+
+def test_discovery_endpoint_methods_deviating_once_deviate(httpserver, testing_context):
+    """One method answering 404 while the others answer 405 makes the endpoint deviate."""
+    for method, status in [
+        ("POST", 405),
+        ("PUT", 405),
+        ("PATCH", 404),
+        ("DELETE", 405),
+    ]:
+        httpserver.expect_request(uri="/Schemas", method=method).respond_with_data(
+            "", status=status
+        )
+
+    results = _test_discovery_endpoint_methods(testing_context, "/Schemas")
+
+    assert results[0].status == Status.DEVIATION
+    assert results[0].reason == "PATCH /Schemas returned 404 instead of 405"
 
 
 def test_discovery_endpoint_methods_connection_error(testing_context, monkeypatch):
@@ -79,10 +90,9 @@ def test_discovery_endpoint_methods_connection_error(testing_context, monkeypatc
 
     results = _test_discovery_endpoint_methods(testing_context, "/TestEndpoint")
 
-    assert len(results) == 4
-    assert all(result.status == Status.ERROR for result in results)
-    for result in results:
-        assert "failed: Connection failed" in result.reason
+    assert len(results) == 1
+    assert results[0].status == Status.ERROR
+    assert results[0].reason.count("failed: Connection failed") == 4
 
 
 def test_discovery_endpoint_methods_with_the_wsgi_engine():
@@ -97,7 +107,7 @@ def test_discovery_endpoint_methods_with_the_wsgi_engine():
 
     results = _test_discovery_endpoint_methods(context, "/Schemas")
 
-    assert [result.status for result in results] == [Status.SUCCESS] * 4
+    assert [result.status for result in results] == [Status.SUCCESS]
 
 
 @pytest.mark.parametrize("status_code", [400, 403, 404, 501])
@@ -112,8 +122,10 @@ def test_discovery_endpoint_methods_refused_without_405_deviate(
 
     results = _test_discovery_endpoint_methods(testing_context, "/Schemas")
 
-    assert [result.status for result in results] == [Status.DEVIATION] * 4
-    assert results[0].reason == f"POST /Schemas returned {status_code} instead of 405"
+    assert [result.status for result in results] == [Status.DEVIATION]
+    assert results[0].reason.startswith(
+        f"POST /Schemas returned {status_code} instead of 405; "
+    )
 
 
 @pytest.mark.parametrize("status_code", [201, 204, 500, 503])
@@ -128,4 +140,4 @@ def test_discovery_endpoint_methods_accepted_or_crashing_fail(
 
     results = _test_discovery_endpoint_methods(testing_context, "/Schemas")
 
-    assert [result.status for result in results] == [Status.ERROR] * 4
+    assert [result.status for result in results] == [Status.ERROR]

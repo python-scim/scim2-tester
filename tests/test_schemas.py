@@ -270,13 +270,11 @@ def test_schemas_endpoint_http_methods(httpserver, testing_context):
 
     results = schemas_endpoint_methods(testing_context)
 
-    assert len(results) == 4
-    assert all(result.status == Status.SUCCESS for result in results)
-    for i, method in enumerate(["POST", "PUT", "PATCH", "DELETE"]):
-        assert (
-            f"{method} /Schemas correctly returned 405 Method Not Allowed"
-            in results[i].reason
-        )
+    assert len(results) == 1
+    assert results[0].status == Status.SUCCESS
+    assert results[0].reason == (
+        "POST, PUT, PATCH, DELETE /Schemas correctly returned 405 Method Not Allowed"
+    )
 
 
 def test_query_all_schemas_without_any_schema(httpserver, testing_context):

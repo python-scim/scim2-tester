@@ -88,13 +88,11 @@ def test_resource_types_endpoint_methods(httpserver, testing_context):
 
     results = resource_types_endpoint_methods(testing_context)
 
-    assert len(results) == 4
-    assert all(result.status == Status.SUCCESS for result in results)
-    for i, method in enumerate(["POST", "PUT", "PATCH", "DELETE"]):
-        assert (
-            f"{method} /ResourceTypes correctly returned 405 Method Not Allowed"
-            in results[i].reason
-        )
+    assert len(results) == 1
+    assert results[0].status == Status.SUCCESS
+    assert results[0].reason == (
+        "POST, PUT, PATCH, DELETE /ResourceTypes correctly returned 405 Method Not Allowed"
+    )
 
 
 def test_query_resource_type_by_id_client_returns_error(httpserver, testing_context):
