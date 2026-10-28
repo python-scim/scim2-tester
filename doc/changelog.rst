@@ -10,6 +10,9 @@ Added
 
 Changed
 ^^^^^^^
+- A server can answer 501 to the creation of a resource type (:rfc:`7644` §3.12).
+  ``object_creation`` reports it as acceptable, and the checks that need such a resource are
+  skipped. They used to fail, each with the same error.
 - The checks of the HTTP methods on the discovery endpoints report a 404, a 501 or another 4xx
   status as a deviation. They used to report an error. A 405 is still the expected status.
 

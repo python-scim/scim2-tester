@@ -17,8 +17,11 @@ from scim2_tester.checkers.resource import resource_type_tests
 from scim2_tester.checkers.resource_delete import object_deletion
 from scim2_tester.checkers.resource_get import _model_from_resource_type
 from scim2_tester.checkers.resource_get import object_query_without_id
+from scim2_tester.checkers.resource_post import object_creation
 from scim2_tester.checkers.resource_put import object_replacement
 from scim2_tester.filling import fill_with_random_values
+from scim2_tester.utils import CheckConfig
+from scim2_tester.utils import CheckContext
 from scim2_tester.utils import Status
 
 
@@ -241,3 +244,55 @@ def test_object_replacement_fails_when_no_mutable_fields(testing_context):
         assert result[0].status == Status.ERROR
         assert "Could not modify User object with mutable fields" in result[0].reason
         assert isinstance(result[0].data, ValueError)
+
+
+def _refuse_user_creation(httpserver):
+    httpserver.expect_request(uri="/Users", method="POST").respond_with_json(
+        {
+            "schemas": ["urn:ietf:params:scim:api:messages:2.0:Error"],
+            "status": "501",
+            "detail": "Cannot create Users.",
+        },
+        status=501,
+    )
+
+
+def test_object_creation_refused_with_501_is_acceptable(httpserver, testing_context):
+    """A server answering 501 to the creation of a resource type is acceptable."""
+    _refuse_user_creation(httpserver)
+
+    results = object_creation(testing_context, User)
+
+    assert len(results) == 1
+    assert results[0].status == Status.ACCEPTABLE
+    assert results[0].reason == (
+        "The server does not support creating User resources (501): "
+        "Cannot create Users."
+    )
+
+
+def test_checks_needing_a_resource_refused_with_501_are_skipped(
+    httpserver, testing_context
+):
+    """The checks needing a resource the server refuses to create with 501 are skipped."""
+    _refuse_user_creation(httpserver)
+
+    results = object_deletion(testing_context, User)
+
+    assert len(results) == 1
+    assert results[0].status == Status.SKIPPED
+    assert results[0].reason == (
+        "The server does not support creating User resources (501): "
+        "Cannot create Users."
+    )
+
+
+def test_checks_needing_a_resource_refused_with_501_are_skipped_when_raising(
+    httpserver, scim_client
+):
+    """A 501 to a creation skips the checks needing it, even when exceptions are raised."""
+    _refuse_user_creation(httpserver)
+    context = CheckContext(scim_client, CheckConfig(raise_exceptions=True))
+
+    assert object_creation(context, User)[0].status == Status.ACCEPTABLE
+    assert object_deletion(context, User)[0].status == Status.SKIPPED
