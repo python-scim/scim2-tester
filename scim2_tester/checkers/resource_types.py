@@ -29,7 +29,7 @@ def _resource_types_endpoint(context: CheckContext) -> list[CheckResult]:
     - :attr:`~scim2_tester.Status.SUCCESS`: All sub-checks completed successfully
     - :attr:`~scim2_tester.Status.ERROR`: One or more sub-checks failed
 
-    .. pull-quote:: :rfc:`RFC 7644 Section 4 - Discovery <7644#section-4>`
+    .. pull-quote:: :rfc:`RFC 7644 Section 4 - Service Provider Configuration Endpoints <7644#section-4>`
 
        "An HTTP GET to this endpoint is used to discover the types of resources
        available on a SCIM service provider (e.g., Users and Groups)."
@@ -63,19 +63,24 @@ def resource_types_endpoint_methods(
     """Validate that unsupported HTTP methods return 405 Method Not Allowed.
 
     Tests that POST, PUT, PATCH, and DELETE methods on the ``/ResourceTypes``
-    endpoint correctly return HTTP 405 Method Not Allowed status, as only GET is supported.
+    endpoint return HTTP 405 Method Not Allowed, as :rfc:`7644` §4 only defines GET.
 
     **Status:**
 
-    - :attr:`~scim2_tester.Status.SUCCESS`: All unsupported methods return 405 status
-    - :attr:`~scim2_tester.Status.ERROR`: One or more methods return unexpected status
+    - :attr:`~scim2_tester.Status.SUCCESS`: The method returns 405
+    - :attr:`~scim2_tester.Status.DEVIATION`: The method returns 404, 501 or another 4xx status
+    - :attr:`~scim2_tester.Status.ERROR`: The method succeeds, or returns another 5xx status
 
-    .. pull-quote:: :rfc:`RFC 7644 Section 4 - Discovery <7644#section-4>`
+    .. pull-quote:: :rfc:`RFC 7644 Section 4 - Service Provider Configuration Endpoints <7644#section-4>`
 
        "An HTTP GET to this endpoint is used to discover the types of resources
        available on a SCIM service provider."
 
-       Only GET method is specified, other methods should return appropriate errors.
+    .. pull-quote:: :rfc:`RFC 9110 Section 15.5.6 - 405 Method Not Allowed <9110#section-15.5.6>`
+
+       "The 405 (Method Not Allowed) status code indicates that the method
+       received in the request-line is known by the origin server but not
+       supported by the target resource."
     """
     return _test_discovery_endpoint_methods(context, "/ResourceTypes")
 
@@ -95,7 +100,7 @@ def resource_types_schema_validation(
     - :attr:`~scim2_tester.Status.SUCCESS`: All ResourceType schemas are accessible
     - :attr:`~scim2_tester.Status.ERROR`: One or more ResourceType schemas are missing or inaccessible
 
-    .. pull-quote:: :rfc:`RFC 7644 Section 4 - Discovery <7644#section-4>`
+    .. pull-quote:: :rfc:`RFC 7644 Section 4 - Service Provider Configuration Endpoints <7644#section-4>`
 
        "Each resource type defines the endpoint, the core schema URI that defines
        the resource, and any supported schema extensions."
@@ -149,7 +154,7 @@ def query_all_resource_types(context: CheckContext) -> list[CheckResult]:
     - :attr:`~scim2_tester.Status.SUCCESS`: Endpoint returns valid list of :class:`~scim2_models.ResourceType` objects
     - :attr:`~scim2_tester.Status.ERROR`: Endpoint is inaccessible or returns invalid response
 
-    .. pull-quote:: :rfc:`RFC 7644 Section 4 - Discovery <7644#section-4>`
+    .. pull-quote:: :rfc:`RFC 7644 Section 4 - Service Provider Configuration Endpoints <7644#section-4>`
 
        "An HTTP GET to this endpoint is used to discover the types of resources
        available on a SCIM service provider (e.g., Users and Groups)."
@@ -197,7 +202,7 @@ def query_resource_type_by_id(
     - :attr:`~scim2_tester.Status.SUCCESS`: :class:`~scim2_models.ResourceType` retrieved successfully with valid data
     - :attr:`~scim2_tester.Status.ERROR`: Failed to retrieve or received invalid response
 
-    .. pull-quote:: :rfc:`RFC 7644 Section 4 - Discovery <7644#section-4>`
+    .. pull-quote:: :rfc:`RFC 7644 Section 4 - Service Provider Configuration Endpoints <7644#section-4>`
 
        "Each resource type defines the endpoint, the core schema URI that defines
        the resource, and any supported schema extensions."

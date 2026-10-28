@@ -1,5 +1,6 @@
 """Test discovery endpoints functionality."""
 
+import pytest
 from scim2_client import SCIMClientException
 from scim2_client.engines.wsgi import WSGISCIMClient
 
@@ -31,7 +32,7 @@ def test_discovery_endpoint_methods_return_405(httpserver, testing_context):
 
 
 def test_discovery_endpoint_methods_wrong_status_codes(httpserver, testing_context):
-    """Test that non-405 responses are reported as errors."""
+    """A success or a server error is an error, a 404 is a deviation."""
     endpoint = "/ResourceTypes"
 
     # Mock methods to return wrong status codes
@@ -56,7 +57,7 @@ def test_discovery_endpoint_methods_wrong_status_codes(httpserver, testing_conte
     assert len(results) == 4
     assert results[0].status == Status.ERROR
     assert "POST /ResourceTypes returned 200 instead of 405" in results[0].reason
-    assert results[1].status == Status.ERROR
+    assert results[1].status == Status.DEVIATION
     assert "PUT /ResourceTypes returned 404 instead of 405" in results[1].reason
     assert results[2].status == Status.ERROR
     assert "PATCH /ResourceTypes returned 500 instead of 405" in results[2].reason
@@ -97,3 +98,34 @@ def test_discovery_endpoint_methods_with_the_wsgi_engine():
     results = _test_discovery_endpoint_methods(context, "/Schemas")
 
     assert [result.status for result in results] == [Status.SUCCESS] * 4
+
+
+@pytest.mark.parametrize("status_code", [400, 403, 404, 501])
+def test_discovery_endpoint_methods_refused_without_405_deviate(
+    httpserver, testing_context, status_code
+):
+    """A discovery endpoint refusing a method with a 4xx or 501 status other than 405 deviates."""
+    for method in ["POST", "PUT", "PATCH", "DELETE"]:
+        httpserver.expect_request(uri="/Schemas", method=method).respond_with_data(
+            "", status=status_code
+        )
+
+    results = _test_discovery_endpoint_methods(testing_context, "/Schemas")
+
+    assert [result.status for result in results] == [Status.DEVIATION] * 4
+    assert results[0].reason == f"POST /Schemas returned {status_code} instead of 405"
+
+
+@pytest.mark.parametrize("status_code", [201, 204, 500, 503])
+def test_discovery_endpoint_methods_accepted_or_crashing_fail(
+    httpserver, testing_context, status_code
+):
+    """A discovery endpoint accepting a method, or failing with a 5xx status other than 501, is an error."""
+    for method in ["POST", "PUT", "PATCH", "DELETE"]:
+        httpserver.expect_request(uri="/Schemas", method=method).respond_with_data(
+            "", status=status_code
+        )
+
+    results = _test_discovery_endpoint_methods(testing_context, "/Schemas")
+
+    assert [result.status for result in results] == [Status.ERROR] * 4

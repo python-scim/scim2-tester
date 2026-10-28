@@ -28,7 +28,7 @@ def _schemas_endpoint(context: CheckContext) -> list[CheckResult]:
     - :attr:`~scim2_tester.Status.SUCCESS`: All sub-checks completed successfully
     - :attr:`~scim2_tester.Status.ERROR`: One or more sub-checks failed
 
-    .. pull-quote:: :rfc:`RFC 7644 Section 4 - Discovery <7644#section-4>`
+    .. pull-quote:: :rfc:`RFC 7644 Section 4 - Service Provider Configuration Endpoints <7644#section-4>`
 
        "An HTTP GET to this endpoint is used to retrieve information about
        resource schemas supported by a SCIM service provider."
@@ -62,7 +62,7 @@ def query_all_schemas(context: CheckContext) -> list[CheckResult]:
     - :attr:`~scim2_tester.Status.SUCCESS`: Endpoint returns valid list of :class:`~scim2_models.Schema` objects
     - :attr:`~scim2_tester.Status.ERROR`: Endpoint is inaccessible or returns invalid response
 
-    .. pull-quote:: :rfc:`RFC 7644 Section 4 - Discovery <7644#section-4>`
+    .. pull-quote:: :rfc:`RFC 7644 Section 4 - Service Provider Configuration Endpoints <7644#section-4>`
 
        "An HTTP GET to this endpoint is used to retrieve information about
        resource schemas supported by a SCIM service provider."
@@ -166,19 +166,24 @@ def schemas_endpoint_methods(
     """Validate that unsupported HTTP methods return 405 Method Not Allowed.
 
     Tests that POST, PUT, PATCH, and DELETE methods on the ``/Schemas``
-    endpoint correctly return HTTP 405 Method Not Allowed status, as only GET is supported.
+    endpoint return HTTP 405 Method Not Allowed, as :rfc:`7644` §4 only defines GET.
 
     **Status:**
 
-    - :attr:`~scim2_tester.Status.SUCCESS`: All unsupported methods return 405 status
-    - :attr:`~scim2_tester.Status.ERROR`: One or more methods return unexpected status
+    - :attr:`~scim2_tester.Status.SUCCESS`: The method returns 405
+    - :attr:`~scim2_tester.Status.DEVIATION`: The method returns 404, 501 or another 4xx status
+    - :attr:`~scim2_tester.Status.ERROR`: The method succeeds, or returns another 5xx status
 
-    .. pull-quote:: :rfc:`RFC 7644 Section 4 - Discovery <7644#section-4>`
+    .. pull-quote:: :rfc:`RFC 7644 Section 4 - Service Provider Configuration Endpoints <7644#section-4>`
 
        "An HTTP GET to this endpoint is used to retrieve information about
        resource schemas supported by a SCIM service provider."
 
-       Only GET method is specified, other methods should return appropriate errors.
+    .. pull-quote:: :rfc:`RFC 9110 Section 15.5.6 - 405 Method Not Allowed <9110#section-15.5.6>`
+
+       "The 405 (Method Not Allowed) status code indicates that the method
+       received in the request-line is known by the origin server but not
+       supported by the target resource."
     """
     return _test_discovery_endpoint_methods(context, "/Schemas")
 
@@ -261,7 +266,7 @@ def core_schemas_validation(
     - :attr:`~scim2_tester.Status.SUCCESS`: All mandatory core schemas are present
     - :attr:`~scim2_tester.Status.ERROR`: One or more mandatory schemas are missing
 
-    .. pull-quote:: :rfc:`RFC 7644 Section 4 - Discovery <7644#section-4>`
+    .. pull-quote:: :rfc:`RFC 7644 Section 4 - Service Provider Configuration Endpoints <7644#section-4>`
 
        "Service providers MUST provide this endpoint."
 
