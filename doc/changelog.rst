@@ -8,6 +8,11 @@ Added
 ^^^^^
 - Support for Python 3.15.
 
+Changed
+^^^^^^^
+- The checks of the HTTP methods on the discovery endpoints report a 404, a 501 or another 4xx
+  status as a deviation. They used to report an error. A 405 is still the expected status.
+
 Fixed
 ^^^^^
 - ``random_url``, ``access_invalid_schema`` and ``access_invalid_resource_type`` give the tested
