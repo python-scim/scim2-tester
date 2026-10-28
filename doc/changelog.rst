@@ -20,6 +20,9 @@ Fixed
 ^^^^^
 - ``random_url``, ``access_invalid_schema`` and ``access_invalid_resource_type`` give the tested
   URL and the HTTP status when the server answers an error without a SCIM error body.
+- The ``patch:add`` and ``patch:replace`` checks compare a reference, such as a group member,
+  on its ``value``, and on its ``type`` when one was sent. The server can fill the ``display``
+  and the ``$ref`` itself (:rfc:`7643` §2.4).
 
 [0.5.2] - 2026-10-06
 --------------------

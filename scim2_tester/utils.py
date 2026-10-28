@@ -426,7 +426,33 @@ def parametrize(generic: type[GenericT], model: type[Any]) -> type[GenericT]:
     return cast("type[GenericT]", cast(Any, generic)[model])
 
 
+def _is_reference(value: Any) -> bool:
+    """Tell whether a value is a complex attribute referencing a resource, such as a group member."""
+    return isinstance(value, BaseModel) and "ref" in type(value).model_fields
+
+
 def fields_equality(expected: Any, actual: Any) -> bool:
+    """Tell whether the server returned the value it was sent.
+
+    A reference is compared on its ``value``, and on its ``type`` when one was
+    sent. The server may fill its ``display`` and its ``$ref`` itself
+    (:rfc:`7643` §2.4).
+    """
+    if isinstance(expected, list) and isinstance(actual, list):
+        return len(expected) == len(actual) and all(
+            fields_equality(expected_item, actual_item)
+            for expected_item, actual_item in zip(expected, actual, strict=True)
+        )
+
+    if _is_reference(expected) and _is_reference(actual):
+        expected_type = getattr(expected, "type", None)
+        return bool(
+            getattr(expected, "value", None) == getattr(actual, "value", None)
+            and (
+                expected_type is None or expected_type == getattr(actual, "type", None)
+            )
+        )
+
     expected = expected.model_dump() if isinstance(expected, BaseModel) else expected
     actual = actual.model_dump() if isinstance(actual, BaseModel) else actual
 
