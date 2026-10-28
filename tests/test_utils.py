@@ -9,6 +9,8 @@ except ImportError:
     from httpx import Response
 
 from scim2_client import SCIMClientException
+from scim2_models import GroupMember
+from scim2_models import Manager
 from scim2_models import SCIMException
 from scim2_models import User
 
@@ -395,6 +397,52 @@ def test_fields_equality_with_none_values():
 
     # Test when both are None - they are equal
     assert fields_equality(None, None) is True
+
+
+def test_fields_equality_ignores_the_display_and_ref_the_server_fills():
+    """A member is the one sent when its value and type match, whatever its display and $ref."""
+    sent = [GroupMember(value="1", type="User", display="random")]
+    returned = [
+        GroupMember(
+            value="1",
+            type="User",
+            display="Barbara Jensen",
+            ref="https://example.test/v2/Users/1",
+        )
+    ]
+
+    assert fields_equality(sent, returned) is True
+
+
+def test_fields_equality_compares_the_value_of_the_references():
+    """A member with another value is not the one sent."""
+    sent = [GroupMember(value="1", type="User")]
+
+    assert fields_equality(sent, [GroupMember(value="2", type="User")]) is False
+
+
+def test_fields_equality_compares_the_type_of_the_references_when_sent():
+    """The type of a member is compared only when one was sent."""
+    returned = [GroupMember(value="1", type="Group")]
+
+    assert fields_equality([GroupMember(value="1", type="User")], returned) is False
+    assert fields_equality([GroupMember(value="1")], returned) is True
+
+
+def test_fields_equality_compares_references_without_type():
+    """A reference without type, such as the enterprise manager, is compared on its value."""
+    sent = Manager(value="1", display_name="random")
+
+    assert fields_equality(sent, Manager(value="1", display_name="Boss")) is True
+    assert fields_equality(sent, Manager(value="2")) is False
+
+
+def test_fields_equality_compares_list_lengths():
+    """A list with a missing or an extra item is not the one sent."""
+    sent = [GroupMember(value="1"), GroupMember(value="2")]
+
+    assert fields_equality(sent, [GroupMember(value="1")]) is False
+    assert fields_equality(sent[:1], sent) is False
 
 
 def test_check_result_repr():
