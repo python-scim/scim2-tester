@@ -1,6 +1,14 @@
 Changelog
 =========
 
+[0.6.2] - Unreleased
+--------------------
+
+Added
+^^^^^
+- ``object_creation_without_required_attribute`` checks that POST rejects a resource without
+  one of its required attributes, with a 400 ``invalidValue``.
+
 [0.6.1] - 2026-10-29
 --------------------
 

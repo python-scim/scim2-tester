@@ -1,13 +1,19 @@
+from collections.abc import Callable
 from typing import Any
 
+from scim2_models import Context
+from scim2_models import Path
+from scim2_models import Required
 from scim2_models import Resource
 
+from ..filling import fill_with_random_values
 from ..utils import CheckContext
 from ..utils import CheckResult
 from ..utils import CreationNotSupportedError
 from ..utils import Status
 from ..utils import check_result
 from ..utils import checker
+from ._required_utils import check_required_attributes
 
 
 @checker("crud:create")
@@ -53,3 +59,54 @@ def object_creation(
             data=created_obj,
         )
     ]
+
+
+@checker("crud:create")
+def object_creation_without_required_attribute(
+    context: CheckContext, model: type[Resource[Any]]
+) -> list[CheckResult]:
+    """Validate that POST rejects a resource without one of its required attributes.
+
+    For each required attribute, sends a resource with all the other required
+    attributes, and without this one. Returns one result per attribute.
+
+    **Status:**
+
+    - :attr:`~scim2_tester.Status.SUCCESS`: The server answers 400 ``invalidValue``
+    - :attr:`~scim2_tester.Status.ACCEPTABLE`: The server answers 400 without a ``scimType``
+    - :attr:`~scim2_tester.Status.DEVIATION`: The server answers 400 with another
+      ``scimType``, another 4xx status, or an error without a SCIM body
+    - :attr:`~scim2_tester.Status.ERROR`: The server creates the resource, or answers 5xx
+    - :attr:`~scim2_tester.Status.SKIPPED`: The resource has no required attribute to check
+
+    .. pull-quote:: :rfc:`RFC 7644 Section 3.12 <7644#section-3.12>`
+
+       "invalidValue: A required value was missing, or the value specified was
+       not compatible with the operation or attribute type."
+
+    The ``scimType`` is optional in an error response, so a 400 without it is acceptable.
+    """
+
+    def request_for(path: Path[Any], endpoint: str) -> tuple[str, Callable[[], Any]]:
+        obj = fill_with_random_values(context, model(), required=[Required.true])
+        path.delete(obj)
+        payload = obj.model_dump(scim_ctx=Context.RESOURCE_CREATION_REQUEST)
+
+        def send() -> Any:
+            response = context.client.create(
+                model,
+                payload,
+                check_request_payload=False,
+                expected_status_codes=None,
+                raise_scim_errors=False,
+                url=endpoint,
+            )
+            if isinstance(response, dict) and response.get("id"):
+                context.resource_manager.register(model(id=response["id"]))
+            return response
+
+        return f"POST {endpoint} without {path}", send
+
+    return check_required_attributes(
+        context, model, "invalidValue", Status.ACCEPTABLE, request_for
+    )

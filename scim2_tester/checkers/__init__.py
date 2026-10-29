@@ -19,6 +19,7 @@ from .resource_delete import object_deletion
 from .resource_get import object_query
 from .resource_get import object_query_without_id
 from .resource_post import object_creation
+from .resource_post import object_creation_without_required_attribute
 from .resource_put import object_replacement
 from .resource_query_attributes import object_list_with_attributes
 from .resource_query_attributes import object_list_with_excluded_attributes
@@ -53,6 +54,7 @@ __all__ = [
     "access_invalid_schema",
     "core_schemas_validation",
     "object_creation",
+    "object_creation_without_required_attribute",
     "object_query",
     "object_query_without_id",
     "object_query_with_attributes",

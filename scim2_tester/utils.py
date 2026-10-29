@@ -356,11 +356,15 @@ class ResourceManager:
 
         # Handle the case where create might return Error or dict
         if isinstance(created, Resource):
-            self.resources.append(created)
+            self.register(created)
             return created
         else:
             # This shouldn't happen with valid inputs, but handle for type safety
             raise ValueError(f"Failed to create resource: {created}")
+
+    def register(self, resource: Resource[Any]) -> None:
+        """Register a resource created on the server, to delete it on cleanup."""
+        self.resources.append(resource)
 
     def cleanup(self) -> None:
         """Clean up all registered resources in reverse order."""
