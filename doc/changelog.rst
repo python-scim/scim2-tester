@@ -12,6 +12,7 @@ Added
   and ``/Schemas/{id}`` answer 405 to POST, PUT, PATCH and DELETE. :issue:`16`
 - :func:`~scim2_tester.iter_check_server` yields each result as soon as its check ends,
   so a long run can display its progress.
+  :class:`~scim2_tester.testing.ScimServerContract` uses it to report each check as soon as it ends.
 
 Fixed
 ^^^^^

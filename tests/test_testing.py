@@ -27,14 +27,14 @@ CALLS = []
 RESULTS = [{results}]
 
 
-def fake_check_server(client, **kwargs):
+def fake_iter_check_server(client, **kwargs):
     CALLS.append(kwargs)
-    return RESULTS
+    return iter(RESULTS)
 
 
 @pytest.fixture(autouse=True)
 def fake(monkeypatch):
-    monkeypatch.setattr(scim2_tester.testing, "check_server", fake_check_server)
+    monkeypatch.setattr(scim2_tester.testing, "iter_check_server", fake_iter_check_server)
 
 
 class TestServer(ScimServerContract):
@@ -119,16 +119,16 @@ def delete_resource():
     raise RuntimeError("the storage is down")
 
 
-def fake_check_server(client, **kwargs):
+def fake_iter_check_server(client, **kwargs):
     try:
         delete_resource()
     except RuntimeError as exc:
-        return [CheckResult(status=Status.ERROR, title="a_check", reason=str(exc), data=exc)]
+        yield CheckResult(status=Status.ERROR, title="a_check", reason=str(exc), data=exc)
 
 
 @pytest.fixture(autouse=True)
 def fake(monkeypatch):
-    monkeypatch.setattr(scim2_tester.testing, "check_server", fake_check_server)
+    monkeypatch.setattr(scim2_tester.testing, "iter_check_server", fake_iter_check_server)
 
 
 class TestServer(ScimServerContract):
@@ -203,7 +203,7 @@ def test_deviations_fail_when_their_warning_is_an_error(pytester):
 
 
 def test_the_class_attributes_select_the_checks(pytester):
-    """The class attributes are given to check_server to select the checks."""
+    """The class attributes are given to iter_check_server to select the checks."""
     pytester.makepyfile(
         fake_server("SUCCESS")
         + """
@@ -248,7 +248,7 @@ def test_subtests_tell_the_resource_type_and_the_attribute(pytester):
 
 
 def test_a_random_seed_is_printed_without_a_seed(pytester):
-    """Without a seed, the test draws one, gives it to check_server and prints it."""
+    """Without a seed, the test draws one, gives it to iter_check_server and prints it."""
     pytester.makepyfile(
         fake_server("ERROR")
         + """
@@ -507,3 +507,55 @@ def test_an_expected_status_without_reason_that_now_passes_fails(pytester):
             "Remove it from expected_results."
         ]
     )
+
+
+def test_each_result_is_reported_as_soon_as_its_check_ends(pytester):
+    """A result is reported as a subtest before the next checks run."""
+    pytester.makeconftest(
+        """
+SUBTEST_REPORTS = []
+
+
+def pytest_runtest_logreport(report):
+    if type(report).__name__ == "SubtestReport" and report.when == "call":
+        SUBTEST_REPORTS.append(report)
+"""
+    )
+    pytester.makepyfile(
+        """
+import pytest
+
+import scim2_tester.testing
+from conftest import SUBTEST_REPORTS
+from scim2_tester import CheckResult
+from scim2_tester import Status
+from scim2_tester.testing import ScimServerContract
+
+REPORTED_BEFORE_THE_SECOND_CHECK = []
+
+
+def fake_iter_check_server(client, **kwargs):
+    yield CheckResult(status=Status.SUCCESS, title="first_check")
+    REPORTED_BEFORE_THE_SECOND_CHECK.append(len(SUBTEST_REPORTS))
+    yield CheckResult(status=Status.SUCCESS, title="second_check")
+
+
+@pytest.fixture(autouse=True)
+def fake(monkeypatch):
+    monkeypatch.setattr(scim2_tester.testing, "iter_check_server", fake_iter_check_server)
+
+
+class TestServer(ScimServerContract):
+    @pytest.fixture
+    def scim_client(self):
+        return None
+
+
+def test_reports():
+    assert REPORTED_BEFORE_THE_SECOND_CHECK == [1]
+"""
+    )
+
+    result = pytester.runpytest("-v", "-p", "no:randomly")
+
+    result.assert_outcomes(passed=2)

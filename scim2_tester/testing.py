@@ -23,7 +23,7 @@ from typing import NoReturn
 import pytest
 from scim2_client import BaseSyncSCIMClient
 
-from scim2_tester.checker import check_server
+from scim2_tester.checker import iter_check_server
 from scim2_tester.utils import CheckResult
 from scim2_tester.utils import Outcome
 from scim2_tester.utils import Status
@@ -120,13 +120,20 @@ class ScimServerContract:
     ) -> None:
         """The server passes the checks of scim2-tester."""
         seed = secrets.randbelow(2**32) if self.seed is None else self.seed
-        results = check_server(
+        print(f"scim2-tester seed: {seed}")
+        results = []
+        for result in iter_check_server(
             scim_client,
             include_tags=self.include_tags,
             exclude_tags=self.exclude_tags,
             resource_types=self.resource_types,
             seed=seed,
-        )
+        ):
+            results.append(result)
+            expected = self.expected_results.get(result_key(result))
+            with subtests.test(result.title, **_subtest_parameters(result)):
+                _report(result, expected)
+
         statuses = _statuses_by_key(results)
         ambiguous = sorted(
             (
@@ -137,14 +144,8 @@ class ScimServerContract:
             key=_sort_key,
         )
 
-        print(f"scim2-tester seed: {seed}")
         if failures := _failures(results, self.expected_results, ambiguous):
             print(f"Failures, in the format of expected_results:\n{failures}")
-
-        for result in results:
-            expected = self.expected_results.get(result_key(result))
-            with subtests.test(result.title, **_subtest_parameters(result)):
-                _report(result, expected)
 
         problems = []
         missing = [key for key in self.expected_results if key not in statuses]
