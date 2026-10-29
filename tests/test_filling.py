@@ -9,6 +9,7 @@ import pytest
 from pydantic import Field
 from scim2_models import Email
 from scim2_models import EnterpriseUser
+from scim2_models import External
 from scim2_models import Group
 from scim2_models import GroupMember
 from scim2_models import GroupMembership
@@ -476,3 +477,75 @@ def test_different_seeds_generate_different_values(scim_client):
 def test_without_seed_each_context_generates_new_values(scim_client):
     """Without a seed, each context generates new values."""
     assert _filled_user(scim_client, None) != _filled_user(scim_client, None)
+
+
+def _expect_user_creation(httpserver, user_id="member-id"):
+    """Answer the creation of a user with a user located on the server."""
+    httpserver.expect_request("/Users", method="POST").respond_with_json(
+        {
+            "schemas": ["urn:ietf:params:scim:schemas:core:2.0:User"],
+            "id": user_id,
+            "userName": user_id,
+            "meta": {
+                "resourceType": "User",
+                "location": f"http://localhost:{httpserver.port}/Users/{user_id}",
+            },
+        },
+        status=201,
+    )
+
+
+class RequiredValueMember(ComplexAttribute):
+    value: Annotated[str | None, Required.true] = None
+    ref: Reference[Union["User", "Group"]] | None = Field(
+        None, serialization_alias="$ref"
+    )
+
+
+class Team(Resource):
+    __schema__ = "urn:test:Team"
+
+    members: Annotated[list[RequiredValueMember] | None, Required.true] = None
+
+
+def test_fill_required_member_value_points_to_a_created_resource(
+    testing_context, httpserver
+):
+    """A member whose value is required and ref is not points to a created resource."""
+    _expect_user_creation(httpserver)
+
+    team = fill_with_random_values(testing_context, Team(), required=[Required.true])
+
+    member = team.members[0]
+    assert member.ref == f"http://localhost:{httpserver.port}/Users/member-id"
+    assert member.value == "member-id"
+    assert [r.id for r in testing_context.resource_manager.resources] == ["member-id"]
+
+
+def test_fix_ref_value_creates_the_resource_of_a_value_without_ref(
+    testing_context, httpserver
+):
+    """A value set without ref is replaced by the id of a created resource."""
+    _expect_user_creation(httpserver)
+    member = GroupMember(value="random")
+
+    _fix_ref_value(testing_context, member)
+
+    assert member.ref == f"http://localhost:{httpserver.port}/Users/member-id"
+    assert member.value == "member-id"
+
+
+def test_fix_ref_value_keeps_a_value_whose_ref_is_external(testing_context):
+    """A value set without an external ref is left unchanged, and no resource is created."""
+
+    class Link(ComplexAttribute):
+        value: str | None = None
+        ref: Reference[External] | None = None
+
+    link = Link(value="random")
+
+    _fix_ref_value(testing_context, link)
+
+    assert link.ref is None
+    assert link.value == "random"
+    assert testing_context.resource_manager.resources == []

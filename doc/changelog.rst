@@ -9,6 +9,11 @@ Added
 - :class:`~scim2_tester.Outcome` and :attr:`Status.outcome <scim2_tester.Status.outcome>` tell
   whether a result passes, warns, fails or is skipped, without the ``testing`` extra.
 
+Fixed
+^^^^^
+- A generated reference ``value`` without its ``$ref``, such as a group member when only the
+  required attributes are filled, points to a resource created for it.
+
 Removed
 ^^^^^^^
 - Support of the :class:`~scim2_client.engines.werkzeug.TestSCIMClient` engine, deprecated by

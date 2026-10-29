@@ -3,6 +3,7 @@ from enum import Enum
 from inspect import isclass
 from typing import TYPE_CHECKING
 from typing import Any
+from typing import TypeGuard
 from typing import TypeVar
 
 from pydantic import BaseModel
@@ -56,6 +57,28 @@ def get_model_from_ref_type(
         return models[0]
 
     return acceptable_models[0]
+
+
+def _references_resources(field_type: Any) -> TypeGuard[type[Reference[Any]]]:
+    """Tell whether a type is a reference to SCIM resources."""
+    if not (isclass(field_type) and issubclass(field_type, Reference)):
+        return False
+
+    ref_types = field_type.__reference_types__
+    return bool(ref_types) and "external" not in ref_types and "uri" not in ref_types
+
+
+def _create_referenced_resource(
+    context: "CheckContext",
+    ref_type: type[Reference[Any]],
+    different_than: type[BaseModel] | None,
+) -> str | None:
+    """Create a resource that a reference type can point to, and return its location."""
+    ref_model = get_model_from_ref_type(
+        context, ref_type, different_than=different_than
+    )
+    ref_obj = context.resource_manager.create_and_register(ref_model)
+    return ref_obj.meta.location if ref_obj.meta else None
 
 
 def generate_random_value(
@@ -117,15 +140,11 @@ def generate_random_value(
     elif field_type is bool:
         value = context.random.choice([True, False])
 
+    elif _references_resources(field_type):
+        value = _create_referenced_resource(context, field_type, different_than=model)
+
     elif isclass(field_type) and issubclass(field_type, Reference):
-        ref_type: type[Reference[Any]] = field_type
-        ref_types = ref_type.__reference_types__
-        if not ref_types or "external" in ref_types or "uri" in ref_types:
-            value = f"https://{context.random_uuid()}.test"
-        else:
-            ref_model = get_model_from_ref_type(context, ref_type, different_than=model)
-            ref_obj = context.resource_manager.create_and_register(ref_model)
-            value = ref_obj.meta.location if ref_obj.meta else None
+        value = f"https://{context.random_uuid()}.test"
 
     elif isclass(field_type) and issubclass(field_type, Enum):
         value = context.random.choice(list(field_type))
@@ -218,7 +237,19 @@ def fix_reference_values(context: "CheckContext", obj: BaseModel) -> None:
 
 
 def _fix_ref_value(context: "CheckContext", obj: Any) -> None:
-    """Make ``value`` and ``type`` match the resource that ``ref`` points to."""
+    """Make ``value`` and ``type`` match the resource that ``ref`` points to.
+
+    When ``value`` is set without ``ref``, and ``ref`` can point to a resource,
+    such a resource is created first, so ``value`` points to a real resource.
+    """
+    if getattr(obj, "value", None) and hasattr(obj, "ref") and not obj.ref:
+        binding = parametrize(Path, type(obj))("ref").resolve()
+        ref_type = binding.target_type if binding else None
+        if _references_resources(ref_type):
+            obj.ref = _create_referenced_resource(
+                context, ref_type, different_than=type(obj)
+            )
+
     ref = getattr(obj, "ref", None)
     if not ref:
         return
