@@ -1453,7 +1453,7 @@ requires-dist = [
     { name = "pytest", marker = "extra == 'testing'", specifier = ">=9.1.1" },
     { name = "scim2-client", specifier = ">=0.13.2" },
     { name = "scim2-client", extras = ["httpx2"], marker = "extra == 'httpx2'", specifier = ">=0.13.2" },
-    { name = "scim2-models", specifier = ">=0.10.3" },
+    { name = "scim2-models", specifier = ">=0.12.1" },
 ]
 provides-extras = ["httpx2", "testing"]
 

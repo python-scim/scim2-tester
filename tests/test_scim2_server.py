@@ -85,8 +85,19 @@ def test_attribute_filtering_results_identify_their_attribute(scim_client):
         for r in results
         if r.status != Status.SKIPPED and "crud:read:attributes" in r.tags
     ]
-    assert len(executed) == 6
-    assert {r.attribute for r in executed} == {"externalId", "name"}
+    keys = [(r.title, r.attribute) for r in executed]
+    assert len(keys) == len(set(keys))
+    assert {r.title for r in executed} == {
+        "object_query_with_attributes",
+        "object_query_with_excluded_attributes",
+        "object_list_with_attributes",
+        "object_list_with_excluded_attributes",
+        "search_with_attributes",
+        "search_with_excluded_attributes",
+    }
+    attributes = {r.attribute for r in executed}
+    assert {"userName", "nickName", "password"} <= attributes
+    assert None not in attributes
 
 
 @pytest.mark.parametrize("tag", get_all_available_tags())

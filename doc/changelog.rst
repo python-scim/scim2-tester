@@ -9,6 +9,14 @@ Added
 - :attr:`~scim2_tester.testing.ScimServerContract.expected_results` accepts a status alone,
   without a reason.
 
+Changed
+^^^^^^^
+- The ``attributes`` and ``excludedAttributes`` checks test each attribute, and follow its
+  ``returned`` setting (:rfc:`7644` §3.4.2.5).
+- ``excludedAttributes`` has its own ``*_with_excluded_attributes`` checks. Their keys in
+  ``expected_results`` change.
+- A failed request gives an error on its attribute only.
+
 [0.6.0] - 2026-10-29
 --------------------
 

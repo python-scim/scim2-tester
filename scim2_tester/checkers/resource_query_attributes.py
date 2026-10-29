@@ -1,183 +1,273 @@
+from collections.abc import Callable
 from typing import Any
 
-from scim2_models import ListResponse
+from scim2_client import SCIMClientException
 from scim2_models import Mutability
 from scim2_models import NotImplementedException
 from scim2_models import Path
-from scim2_models import Required
 from scim2_models import Resource
 from scim2_models import ResponseParameters
 from scim2_models import Returned
+from scim2_models import SCIMException
 from scim2_models import SearchRequest
 
 from ..utils import CheckContext
 from ..utils import CheckResult
 from ..utils import Status
+from ..utils import _exception_reason
 from ..utils import check_result
 from ..utils import checker
+from ..utils import parametrize
+
+ATTRIBUTES = "attributes"
+EXCLUDED_ATTRIBUTES = "excludedAttributes"
+
+Fetch = Callable[
+    [
+        CheckContext,
+        type[Resource[Any]],
+        str | None,
+        ResponseParameters[Any] | None,
+    ],
+    Any,
+]
+"""Return a resource from an endpoint, or :data:`None` if it is not in the response."""
 
 
-def _pick_attribute_names(
+def _is_assigned(value: Any) -> bool:
+    """Tell whether a value is assigned. Per RFC 7643 §2.5, an empty array is not."""
+    return value is not None and value != []
+
+
+def _candidate_attributes(
     model: type[Resource[Any]],
-) -> tuple[str | None, str | None]:
-    """Pick two default-returned, non-required attribute names for testing.
+) -> list[tuple[Path[Any], Returned, Mutability | None]]:
+    """Return the attributes of a model, with their returned and mutability annotations."""
+    candidates = []
+    for path in parametrize(Path, model).iter_paths(include_subattributes=False):
+        binding = path.resolve()
+        returned = binding.get_annotation(Returned) if binding else None
+        if binding is None or returned is None:
+            continue
 
-    Returns a tuple ``(included, excluded)`` of serialization aliases.
-    Either may be :data:`None` if the model does not have enough suitable attributes.
+        candidates.append((path, returned, binding.get_annotation(Mutability)))
+    return candidates
+
+
+def _is_testable(
+    path: Path[Any],
+    returned: Returned,
+    mutability: Mutability | None,
+    baseline: Resource[Any],
+) -> bool:
+    """Tell whether the server has a value to return for an attribute.
+
+    Attributes returned by default must be in the response without parameters.
+    Attributes returned on request are not, but the check sent them a value,
+    unless they are read-only.
     """
-    candidates: list[str] = []
-    for field_name, field_info in model.model_fields.items():
-        returnability = model.get_field_annotation(field_name, Returned)
-        mutability = model.get_field_annotation(field_name, Mutability)
-        required = model.get_field_annotation(field_name, Required)
-        if (
-            returnability == Returned.default
-            and mutability != Mutability.read_only
-            and required != Required.true
-            and field_name not in ("schemas", "meta", "id")
+    if returned == Returned.never:
+        return True
+
+    if returned == Returned.request:
+        return mutability != Mutability.read_only
+
+    return _is_assigned(path.get(baseline))
+
+
+def _returned_attributes(
+    model: type[Resource[Any]], parameter: str, path: Path[Any]
+) -> set[str]:
+    """Return the attributes a response keeps when a parameter holds one attribute."""
+    attributes = [path] if parameter == ATTRIBUTES else None
+    excluded = [path] if parameter == EXCLUDED_ATTRIBUTES else None
+    paths = parametrize(Path, model).iter_paths(
+        include_subattributes=False,
+        attributes=attributes,
+        excluded_attributes=excluded,
+    )
+    return {str(returned) for returned in paths}
+
+
+def _attribute_problems(
+    candidates: list[tuple[Path[Any], Returned, Mutability | None]],
+    baseline: Resource[Any],
+    resource: Resource[Any],
+    returned: set[str],
+    requested: str,
+) -> tuple[list[str], list[str]]:
+    """Return the attributes missing from a response, and the unexpected ones."""
+    missing = []
+    unexpected = []
+    for path, _, _ in candidates:
+        attribute = str(path)
+        expected = attribute in returned
+        present = _is_assigned(path.get(resource))
+        if present and not expected:
+            unexpected.append(attribute)
+        elif (
+            expected
+            and not present
+            and (attribute == requested or _is_assigned(path.get(baseline)))
         ):
-            alias = field_info.serialization_alias or field_name
-            candidates.append(alias)
-
-    included = candidates[0] if len(candidates) >= 1 else None
-    excluded = candidates[1] if len(candidates) >= 2 else None
-    return included, excluded
+            missing.append(attribute)
+    return missing, unexpected
 
 
-def _check_attribute_filtering(
-    response_data: dict[str, Any],
-    included: str | None,
-    excluded: str | None,
-    model_name: str,
-    endpoint: str,
-) -> tuple[Status, str]:
-    """Verify that the response honours ``attributes`` or ``excludedAttributes``.
-
-    Returns a ``(status, reason)`` pair.
-    """
-    if included is not None and included not in response_data:
-        return (
-            Status.ERROR,
-            f"{endpoint}: requested attribute '{included}' missing "
-            f"from {model_name} response",
-        )
-
-    if excluded is not None and excluded in response_data:
-        return (
-            Status.ERROR,
-            f"{endpoint}: excluded attribute '{excluded}' still present "
-            f"in {model_name} response",
-        )
-
-    return Status.SUCCESS, f"{endpoint}: attribute filtering honoured for {model_name}"
+def _find_resource(response: Any, resource_id: str | None) -> Resource[Any] | None:
+    """Return a resource of a list response by its id, or :data:`None`."""
+    resources = response.resources or []
+    return next((r for r in resources if r.id == resource_id), None)
 
 
-def _find_resource_in_list(
-    response: ListResponse[Resource[Any]] | Any,
-    resource_id: str | None,
-) -> dict[str, Any] | None:
-    """Find a resource by id in a list response and return its dumped dict."""
-    if isinstance(response, ListResponse):
-        for r in response.resources or []:
-            if r.id == resource_id:
-                return r.model_dump()
-    return None
-
-
-def _run_single_attribute_check(
+def _get_resource(
     context: CheckContext,
     model: type[Resource[Any]],
-    test_obj: Resource[Any],
-    query_parameters: ResponseParameters[Any],
-    included: str | None,
-    excluded: str | None,
-    query_fn: Any,
+    resource_id: str | None,
+    parameters: ResponseParameters[Any] | None,
+) -> Any:
+    return context.client.query(
+        model,
+        resource_id,
+        query_parameters=parameters,
+        expected_status_codes=context.conf.expected_status_codes or [200],
+    )
+
+
+def _list_resource(
+    context: CheckContext,
+    model: type[Resource[Any]],
+    resource_id: str | None,
+    parameters: ResponseParameters[Any] | None,
+) -> Any:
+    response = context.client.query(
+        model,
+        query_parameters=parameters,
+        expected_status_codes=context.conf.expected_status_codes or [200],
+    )
+    return _find_resource(response, resource_id)
+
+
+def _search_resource(
+    context: CheckContext,
+    model: type[Resource[Any]],
+    resource_id: str | None,
+    parameters: ResponseParameters[Any] | None,
+) -> Any:
+    search_request = SearchRequest(
+        attributes=parameters.attributes if parameters else None,
+        excluded_attributes=parameters.excluded_attributes if parameters else None,
+    )
+    response = context.client.search(
+        search_request=search_request,
+        expected_status_codes=context.conf.expected_status_codes or [200],
+        raise_scim_errors=True,
+    )
+    return _find_resource(response, resource_id)
+
+
+def _check_attribute(
+    context: CheckContext,
+    model: type[Resource[Any]],
+    candidates: list[tuple[Path[Any], Returned, Mutability | None]],
+    baseline: Resource[Any],
+    fetch: Fetch,
     endpoint: str,
+    parameter: str,
+    path: Path[Any],
 ) -> CheckResult:
-    """Run a single inclusion or exclusion check.
-
-    :param query_fn: callable that takes a :class:`ResponseParameters` and returns
-        a single :class:`Resource` or a :class:`ListResponse`.
-    :param endpoint: human-readable endpoint label for messages.
-    """
-    response = query_fn(query_parameters)
-    attribute = included or excluded
-
-    response_data: dict[str, Any] | None
-    if isinstance(response, Resource) and not isinstance(response, ListResponse):
-        response_data = response.model_dump()
-    elif isinstance(response, ListResponse):
-        response_data = _find_resource_in_list(response, test_obj.id)
-        if response_data is None:
-            return check_result(
-                context,
-                status=Status.ERROR,
-                reason=f"{endpoint}: could not find {model.__name__} "
-                f"with id {test_obj.id} in filtered results",
-                data=response,
-                attribute=attribute,
-            )
-    else:
+    """Request a resource with one attribute in a parameter, and check the response."""
+    attribute = str(path)
+    request = f"{endpoint} with {parameter}={attribute}"
+    parameters: ResponseParameters[Any] = (
+        ResponseParameters(attributes=[path])
+        if parameter == ATTRIBUTES
+        else ResponseParameters(excluded_attributes=[path])
+    )
+    try:
+        resource = fetch(context, model, baseline.id, parameters)
+    except (SCIMClientException, SCIMException) as exc:
         return check_result(
             context,
             status=Status.ERROR,
-            reason=f"{endpoint}: unexpected response type {type(response).__name__}",
-            data=response,
+            reason=f"{request} failed: {_exception_reason(exc)}",
+            data=exc,
             attribute=attribute,
         )
 
-    status, reason = _check_attribute_filtering(
-        response_data, included, excluded, model.__name__, endpoint
+    if resource is None:
+        return check_result(
+            context,
+            status=Status.ERROR,
+            reason=f"{request}: the {model.__name__} {baseline.id} is not in the response",
+            attribute=attribute,
+        )
+
+    returned = _returned_attributes(model, parameter, path)
+    missing, unexpected = _attribute_problems(
+        candidates, baseline, resource, returned, attribute
     )
+    if not missing and not unexpected:
+        return check_result(
+            context,
+            status=Status.SUCCESS,
+            reason=f"{request}: the response has the expected attributes",
+            data=resource,
+            attribute=attribute,
+        )
+
+    problems = []
+    if missing:
+        problems.append(f"missing {', '.join(missing)}")
+    if unexpected:
+        problems.append(f"unexpected {', '.join(unexpected)}")
     return check_result(
-        context, status=status, reason=reason, data=response, attribute=attribute
+        context,
+        status=Status.ERROR,
+        reason=f"{request}: {'; '.join(problems)}",
+        data=resource,
+        attribute=attribute,
     )
 
 
-def _run_attribute_checks(
+def _check_parameter(
     context: CheckContext,
     model: type[Resource[Any]],
-    test_obj: Resource[Any],
-    included: str | None,
-    excluded: str | None,
-    query_fn: Any,
+    fetch: Fetch,
     endpoint: str,
+    parameter: str,
 ) -> list[CheckResult]:
-    """Run inclusion and exclusion checks using the given query function.
+    """Check a parameter on each attribute of a model, one result per attribute.
 
-    :param query_fn: callable that takes a :class:`ResponseParameters` and returns
-        a single :class:`Resource` or a :class:`ListResponse`.
-    :param endpoint: human-readable endpoint label for messages.
+    A request without parameters gives the attributes the server has a value for.
     """
-    results: list[CheckResult] = []
-
-    if included is not None:
-        results.append(
-            _run_single_attribute_check(
+    test_obj = context.resource_manager.create_and_register(model, fill_all=True)
+    baseline = fetch(context, model, test_obj.id, None)
+    if baseline is None:
+        return [
+            check_result(
                 context,
-                model,
-                test_obj,
-                ResponseParameters(attributes=[Path(included)]),
-                included=included,
-                excluded=None,
-                query_fn=query_fn,
-                endpoint=endpoint,
+                status=Status.ERROR,
+                reason=f"{endpoint}: the {model.__name__} {test_obj.id} is not in the response",
             )
-        )
+        ]
 
-    if excluded is not None:
-        results.append(
-            _run_single_attribute_check(
-                context,
-                model,
-                test_obj,
-                ResponseParameters(excluded_attributes=[Path(excluded)]),
-                included=None,
-                excluded=excluded,
-                query_fn=query_fn,
-                endpoint=endpoint,
-            )
+    candidates = _candidate_attributes(model)
+    results = [
+        _check_attribute(
+            context, model, candidates, baseline, fetch, endpoint, parameter, path
         )
+        for path, returned, mutability in candidates
+        if _is_testable(path, returned, mutability, baseline)
+    ]
+    if not results:
+        return [
+            check_result(
+                context,
+                status=Status.SKIPPED,
+                reason=f"No attribute of {model.__name__} to check {parameter} on",
+            )
+        ]
 
     return results
 
@@ -186,47 +276,61 @@ def _run_attribute_checks(
 def object_query_with_attributes(
     context: CheckContext, model: type[Resource[Any]]
 ) -> list[CheckResult]:
-    """Validate that GET on a single resource honours ``attributes`` and ``excludedAttributes``.
+    """Validate that GET on a single resource honours ``attributes``.
 
-    Creates a resource with all writable fields populated, then retrieves it
-    twice: once with ``attributes`` restricting the response to a single
-    attribute, and once with ``excludedAttributes`` hiding another attribute.
+    Creates a resource with all writable attributes, then retrieves it once per
+    attribute, with ``attributes`` set to this attribute. Returns one result per
+    attribute.
+
+    The response must have the requested attribute, unless it is never returned,
+    and the attributes that are always returned. It must not have the other
+    attributes.
 
     **Status:**
 
-    - :attr:`~scim2_tester.Status.SUCCESS`: Server correctly filters response attributes
-    - :attr:`~scim2_tester.Status.ERROR`: Server ignores attribute filtering parameters
-    - :attr:`~scim2_tester.Status.SKIPPED`: Model has no suitable attributes to test
+    - :attr:`~scim2_tester.Status.SUCCESS`: The response has the expected attributes
+    - :attr:`~scim2_tester.Status.ERROR`: An attribute is missing or unexpected
+    - :attr:`~scim2_tester.Status.SKIPPED`: The resource has no attribute to check
 
-    .. pull-quote:: :rfc:`RFC 7644 Section 3.4.1 <7644#section-3.4.1>`
+    .. pull-quote:: :rfc:`RFC 7644 Section 3.4.2.5 <7644#section-3.4.2.5>`
 
-       "Clients MAY request a partial resource representation on any
-       operation that returns a resource within the response by specifying
-       either of the mutually exclusive URL query parameters ``attributes``
-       or ``excludedAttributes``."
+       "attributes: A multi-valued list of strings indicating the names of
+       resource attributes to return in the response, overriding the set of
+       attributes that would be returned by default."
     """
-    included, excluded = _pick_attribute_names(model)
-    if included is None and excluded is None:
-        return [
-            check_result(
-                context,
-                status=Status.SKIPPED,
-                reason=f"No suitable attributes to test filtering on {model.__name__}",
-            )
-        ]
+    return _check_parameter(
+        context, model, _get_resource, "GET /Resource/{id}", ATTRIBUTES
+    )
 
-    test_obj = context.resource_manager.create_and_register(model, fill_all=True)
 
-    def query_fn(query_parameters: ResponseParameters[Any]) -> Any:
-        return context.client.query(
-            model,
-            test_obj.id,
-            query_parameters=query_parameters,
-            expected_status_codes=context.conf.expected_status_codes or [200],
-        )
+@checker("crud:read:attributes")
+def object_query_with_excluded_attributes(
+    context: CheckContext, model: type[Resource[Any]]
+) -> list[CheckResult]:
+    """Validate that GET on a single resource honours ``excludedAttributes``.
 
-    return _run_attribute_checks(
-        context, model, test_obj, included, excluded, query_fn, "GET /Resource/{id}"
+    Creates a resource with all writable attributes, then retrieves it once per
+    attribute, with ``excludedAttributes`` set to this attribute. Returns one
+    result per attribute.
+
+    The response must not have the excluded attribute, unless it is always
+    returned. It must have the other attributes returned by default.
+
+    **Status:**
+
+    - :attr:`~scim2_tester.Status.SUCCESS`: The response has the expected attributes
+    - :attr:`~scim2_tester.Status.ERROR`: An attribute is missing or unexpected
+    - :attr:`~scim2_tester.Status.SKIPPED`: The resource has no attribute to check
+
+    .. pull-quote:: :rfc:`RFC 7644 Section 3.4.2.5 <7644#section-3.4.2.5>`
+
+       "excludedAttributes: A multi-valued list of strings indicating the names
+       of resource attributes to be removed from the default set of attributes
+       to return. This parameter SHALL have no effect on attributes whose
+       schema "returned" setting is "always"."
+    """
+    return _check_parameter(
+        context, model, _get_resource, "GET /Resource/{id}", EXCLUDED_ATTRIBUTES
     )
 
 
@@ -234,45 +338,48 @@ def object_query_with_attributes(
 def object_list_with_attributes(
     context: CheckContext, model: type[Resource[Any]]
 ) -> list[CheckResult]:
-    """Validate that GET on the collection endpoint honours ``attributes`` and ``excludedAttributes``.
+    """Validate that GET on the collection endpoint honours ``attributes``.
 
-    Creates a resource with all writable fields populated, then lists the
-    collection twice: once with ``attributes`` and once with
-    ``excludedAttributes``.  Verifies that the created resource appears in
-    the list and that its serialized form respects the filtering parameters.
+    Same as ``object_query_with_attributes``, on the list of the resources.
 
     **Status:**
 
-    - :attr:`~scim2_tester.Status.SUCCESS`: Server correctly filters list response attributes
-    - :attr:`~scim2_tester.Status.ERROR`: Server ignores attribute filtering on list endpoint
-    - :attr:`~scim2_tester.Status.SKIPPED`: Model has no suitable attributes to test
+    - :attr:`~scim2_tester.Status.SUCCESS`: The response has the expected attributes
+    - :attr:`~scim2_tester.Status.ERROR`: An attribute is missing or unexpected,
+      or the resource is not in the list
+    - :attr:`~scim2_tester.Status.SKIPPED`: The resource has no attribute to check
 
     .. pull-quote:: :rfc:`RFC 7644 Section 3.4.2 <7644#section-3.4.2>`
 
        "Clients MAY use the ``attributes`` query parameter to request
        particular attributes be included in a query response."
     """
-    included, excluded = _pick_attribute_names(model)
-    if included is None and excluded is None:
-        return [
-            check_result(
-                context,
-                status=Status.SKIPPED,
-                reason=f"No suitable attributes to test filtering on {model.__name__}",
-            )
-        ]
+    return _check_parameter(context, model, _list_resource, "GET /Resource", ATTRIBUTES)
 
-    test_obj = context.resource_manager.create_and_register(model, fill_all=True)
 
-    def query_fn(query_parameters: ResponseParameters[Any]) -> Any:
-        return context.client.query(
-            model,
-            query_parameters=query_parameters,
-            expected_status_codes=context.conf.expected_status_codes or [200],
-        )
+@checker("crud:read:attributes")
+def object_list_with_excluded_attributes(
+    context: CheckContext, model: type[Resource[Any]]
+) -> list[CheckResult]:
+    """Validate that GET on the collection endpoint honours ``excludedAttributes``.
 
-    return _run_attribute_checks(
-        context, model, test_obj, included, excluded, query_fn, "GET /Resource"
+    Same as ``object_query_with_excluded_attributes``, on the list of the resources.
+
+    **Status:**
+
+    - :attr:`~scim2_tester.Status.SUCCESS`: The response has the expected attributes
+    - :attr:`~scim2_tester.Status.ERROR`: An attribute is missing or unexpected,
+      or the resource is not in the list
+    - :attr:`~scim2_tester.Status.SKIPPED`: The resource has no attribute to check
+
+    .. pull-quote:: :rfc:`RFC 7644 Section 3.4.2.5 <7644#section-3.4.2.5>`
+
+       "excludedAttributes: A multi-valued list of strings indicating the names
+       of resource attributes to be removed from the default set of attributes
+       to return."
+    """
+    return _check_parameter(
+        context, model, _list_resource, "GET /Resource", EXCLUDED_ATTRIBUTES
     )
 
 
@@ -280,17 +387,16 @@ def object_list_with_attributes(
 def search_with_attributes(
     context: CheckContext, model: type[Resource[Any]]
 ) -> list[CheckResult]:
-    """Validate that POST ``/.search`` honours ``attributes`` and ``excludedAttributes``.
+    """Validate that POST ``/.search`` honours ``attributes``.
 
-    Creates a resource with all writable fields populated, then issues
-    ``/.search`` requests with attribute filtering.  Verifies that the
-    created resource appears in the results and respects the filtering.
+    Same as ``object_query_with_attributes``, on a search at the root.
 
     **Status:**
 
-    - :attr:`~scim2_tester.Status.SUCCESS`: Server correctly filters search response attributes
-    - :attr:`~scim2_tester.Status.ERROR`: Server ignores attribute filtering on search endpoint
-    - :attr:`~scim2_tester.Status.SKIPPED`: Model has no suitable attributes to test,
+    - :attr:`~scim2_tester.Status.SUCCESS`: The response has the expected attributes
+    - :attr:`~scim2_tester.Status.ERROR`: An attribute is missing or unexpected,
+      or the resource is not in the results
+    - :attr:`~scim2_tester.Status.SKIPPED`: The resource has no attribute to check,
       or the server does not search several resource types at once
 
     .. pull-quote:: :rfc:`RFC 7644 Section 3.4.3 <7644#section-3.4.3>`
@@ -306,31 +412,42 @@ def search_with_attributes(
     A server that does not search several resource types at once answers 501.
     The service provider configuration has no attribute to announce it.
     """
-    included, excluded = _pick_attribute_names(model)
-    if included is None and excluded is None:
-        return [
-            check_result(
-                context,
-                status=Status.SKIPPED,
-                reason=f"No suitable attributes to test filtering on {model.__name__}",
-            )
-        ]
+    return _check_search(context, model, ATTRIBUTES)
 
-    test_obj = context.resource_manager.create_and_register(model, fill_all=True)
 
-    def query_fn(query_parameters: ResponseParameters[Any]) -> Any:
-        return context.client.search(
-            search_request=SearchRequest(
-                attributes=query_parameters.attributes,
-                excluded_attributes=query_parameters.excluded_attributes,
-            ),
-            expected_status_codes=context.conf.expected_status_codes or [200],
-            raise_scim_errors=True,
-        )
+@checker("crud:read:attributes")
+def search_with_excluded_attributes(
+    context: CheckContext, model: type[Resource[Any]]
+) -> list[CheckResult]:
+    """Validate that POST ``/.search`` honours ``excludedAttributes``.
 
+    Same as ``object_query_with_excluded_attributes``, on a search at the root.
+
+    **Status:**
+
+    - :attr:`~scim2_tester.Status.SUCCESS`: The response has the expected attributes
+    - :attr:`~scim2_tester.Status.ERROR`: An attribute is missing or unexpected,
+      or the resource is not in the results
+    - :attr:`~scim2_tester.Status.SKIPPED`: The resource has no attribute to check,
+      or the server does not search several resource types at once
+
+    .. pull-quote:: :rfc:`RFC 7644 Section 3.4.3 <7644#section-3.4.3>`
+
+       "Clients MAY execute queries without passing parameters on the URL by
+       using the HTTP POST verb combined with the ``/.search`` path extension."
+
+    A server that does not search several resource types at once answers 501.
+    """
+    return _check_search(context, model, EXCLUDED_ATTRIBUTES)
+
+
+def _check_search(
+    context: CheckContext, model: type[Resource[Any]], parameter: str
+) -> list[CheckResult]:
+    """Check a parameter on a search at the root, or skip if the server answers 501."""
     try:
-        return _run_attribute_checks(
-            context, model, test_obj, included, excluded, query_fn, "POST /.search"
+        return _check_parameter(
+            context, model, _search_resource, "POST /.search", parameter
         )
     except NotImplementedException:
         return [

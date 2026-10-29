@@ -1,22 +1,35 @@
 """Unit tests for attribute filtering compliance checkers."""
 
 import json
+from typing import Annotated
 from unittest.mock import patch
 
-from scim2_models import Error
+import pytest
+from scim2_models import Mutability
+from scim2_models import Resource
+from scim2_models import Returned
 from scim2_models import User
 from werkzeug.wrappers import Response
 
-from scim2_tester.checkers.resource_query_attributes import _check_attribute_filtering
-from scim2_tester.checkers.resource_query_attributes import _find_resource_in_list
-from scim2_tester.checkers.resource_query_attributes import _pick_attribute_names
-from scim2_tester.checkers.resource_query_attributes import _run_attribute_checks
+from scim2_tester.checkers.resource_query_attributes import ATTRIBUTES
+from scim2_tester.checkers.resource_query_attributes import EXCLUDED_ATTRIBUTES
+from scim2_tester.checkers.resource_query_attributes import _attribute_problems
+from scim2_tester.checkers.resource_query_attributes import _candidate_attributes
+from scim2_tester.checkers.resource_query_attributes import _is_testable
+from scim2_tester.checkers.resource_query_attributes import _returned_attributes
 from scim2_tester.checkers.resource_query_attributes import object_list_with_attributes
+from scim2_tester.checkers.resource_query_attributes import (
+    object_list_with_excluded_attributes,
+)
 from scim2_tester.checkers.resource_query_attributes import object_query_with_attributes
+from scim2_tester.checkers.resource_query_attributes import (
+    object_query_with_excluded_attributes,
+)
 from scim2_tester.checkers.resource_query_attributes import search_with_attributes
+from scim2_tester.checkers.resource_query_attributes import (
+    search_with_excluded_attributes,
+)
 from scim2_tester.utils import Status
-
-INCLUDED_ATTR, EXCLUDED_ATTR = _pick_attribute_names(User)
 
 USER_PAYLOAD = {
     "schemas": ["urn:ietf:params:scim:schemas:core:2.0:User"],
@@ -26,6 +39,15 @@ USER_PAYLOAD = {
     "nickName": "Babs",
     "externalId": "ext-123",
     "name": {"givenName": "Barbara", "familyName": "Jensen"},
+}
+
+CHECKED_ATTRIBUTES = {
+    "externalId",
+    "userName",
+    "name",
+    "displayName",
+    "nickName",
+    "password",
 }
 
 
@@ -41,293 +63,469 @@ def _setup_creation_and_deletion(httpserver):
 
 
 def _filter_payload(payload, attributes=None, excluded_attributes=None):
-    """Apply attribute filtering to a payload dict."""
+    """Apply attribute filtering to a payload dict, as a compliant server does."""
     result = dict(payload)
-    if attributes is not None:
+    if attributes:
         keep = set(attributes) | {"schemas", "id"}
         result = {k: v for k, v in result.items() if k in keep}
-    if excluded_attributes is not None:
+    if excluded_attributes:
         drop = set(excluded_attributes)
         result = {k: v for k, v in result.items() if k not in drop}
     return result
 
 
-def _compliant_get_handler(request):
-    """Return a filtered response depending on query params."""
-    qs = request.args
-    attrs = (
-        [a.strip() for a in qs["attributes"].split(",")] if "attributes" in qs else None
-    )
-    excl = (
-        [a.strip() for a in qs["excludedAttributes"].split(",")]
-        if "excludedAttributes" in qs
-        else None
-    )
-    payload = _filter_payload(USER_PAYLOAD, attrs, excl)
+def _scim_response(payload, status=200):
     return Response(
         json.dumps(payload),
-        status=200,
+        status=status,
         headers={"Content-Type": "application/scim+json"},
     )
 
 
-def _unfiltered_get_handler(request):
-    """Return the full payload, ignoring filter params."""
-    return Response(
-        json.dumps(USER_PAYLOAD),
-        status=200,
-        headers={"Content-Type": "application/scim+json"},
-    )
-
-
-def _compliant_list_handler(request):
-    """Return a ListResponse with filtering applied."""
-    qs = request.args
-    attrs = (
-        [a.strip() for a in qs["attributes"].split(",")] if "attributes" in qs else None
-    )
-    excl = (
-        [a.strip() for a in qs["excludedAttributes"].split(",")]
-        if "excludedAttributes" in qs
-        else None
-    )
-    resource = _filter_payload(USER_PAYLOAD, attrs, excl)
-    payload = {
-        "schemas": ["urn:ietf:params:scim:api:messages:2.0:ListResponse"],
-        "totalResults": 1,
-        "Resources": [resource],
-    }
-    return Response(
-        json.dumps(payload),
-        status=200,
-        headers={"Content-Type": "application/scim+json"},
-    )
-
-
-def _compliant_search_handler(request):
-    """Return a ListResponse with filtering applied from POST body."""
-    body = json.loads(request.get_data(as_text=True)) if request.data else {}
-    attrs = body.get("attributes")
-    excl = body.get("excludedAttributes")
-    resource = _filter_payload(USER_PAYLOAD, attrs, excl)
-    payload = {
-        "schemas": ["urn:ietf:params:scim:api:messages:2.0:ListResponse"],
-        "totalResults": 1,
-        "Resources": [resource],
-    }
-    return Response(
-        json.dumps(payload),
-        status=200,
-        headers={"Content-Type": "application/scim+json"},
-    )
-
-
-def _empty_list_response():
+def _list_response(resources):
     return {
         "schemas": ["urn:ietf:params:scim:api:messages:2.0:ListResponse"],
-        "totalResults": 0,
-        "Resources": [],
+        "totalResults": len(resources),
+        "Resources": resources,
     }
 
 
-def test_pick_attribute_names_returns_two_candidates():
-    """User model has enough default-returned attributes to pick two."""
-    included, excluded = _pick_attribute_names(User)
-    assert included is not None
-    assert excluded is not None
-    assert included != excluded
+def _query_parameters(request):
+    """Return the attributes and excludedAttributes of a GET or a search request."""
+    if request.method == "POST":
+        body = json.loads(request.get_data(as_text=True)) if request.data else {}
+        return body.get("attributes"), body.get("excludedAttributes")
+
+    def split(name):
+        value = request.args.get(name)
+        return [v.strip() for v in value.split(",")] if value else None
+
+    return split("attributes"), split("excludedAttributes")
 
 
-def test_check_attribute_filtering_success():
-    """Returns SUCCESS when included attribute is present and excluded is absent."""
-    data = {"userName": "test", "id": "1"}
-    status, _ = _check_attribute_filtering(data, "userName", None, "User", "GET")
-    assert status == Status.SUCCESS
+def _resource_handler(server):
+    """Return a handler answering the resource as the server function does."""
+
+    def handler(request):
+        attributes, excluded = _query_parameters(request)
+        return _scim_response(server(attributes, excluded))
+
+    return handler
 
 
-def test_check_attribute_filtering_missing_included():
-    """Returns ERROR when the requested attribute is missing from the response."""
-    data = {"id": "1"}
-    status, reason = _check_attribute_filtering(data, "userName", None, "User", "GET")
-    assert status == Status.ERROR
-    assert "missing" in reason
+def _list_handler(server):
+    """Return a handler answering a list of the resource as the server function does."""
+
+    def handler(request):
+        attributes, excluded = _query_parameters(request)
+        return _scim_response(_list_response([server(attributes, excluded)]))
+
+    return handler
 
 
-def test_check_attribute_filtering_excluded_still_present():
-    """Returns ERROR when the excluded attribute is still in the response."""
-    data = {"userName": "test", "displayName": "Test", "id": "1"}
-    status, reason = _check_attribute_filtering(
-        data, None, "displayName", "User", "GET"
+def _compliant(attributes, excluded):
+    return _filter_payload(USER_PAYLOAD, attributes, excluded)
+
+
+def _ignoring(attributes, excluded):
+    return USER_PAYLOAD
+
+
+def _expect_get(httpserver, server):
+    httpserver.expect_request(uri="/Users/123", method="GET").respond_with_handler(
+        _resource_handler(server)
     )
-    assert status == Status.ERROR
-    assert "still present" in reason
+
+
+def _by_attribute(results):
+    return {r.attribute: r for r in results}
+
+
+class Badge(Resource):
+    __schema__: str = "urn:test:Badge"
+
+    label: Annotated[str | None, Returned.default] = None
+    color: Annotated[str | None, Returned.default] = None
+    code: Annotated[str | None, Returned.request] = None
+    secret: Annotated[str | None, Returned.never] = None
+    serial: Annotated[str | None, Returned.always] = None
+
+
+BADGE_ATTRIBUTES = {
+    str(path): (path, returned, mutability)
+    for path, returned, mutability in _candidate_attributes(Badge)
+}
+
+
+@pytest.mark.parametrize(
+    ("parameter", "attribute", "expected"),
+    [
+        (ATTRIBUTES, "label", {"label", "serial"}),
+        (ATTRIBUTES, "code", {"code", "serial"}),
+        (ATTRIBUTES, "secret", {"serial"}),
+        (ATTRIBUTES, "serial", {"serial"}),
+        (EXCLUDED_ATTRIBUTES, "label", {"externalId", "color", "serial"}),
+        (EXCLUDED_ATTRIBUTES, "code", {"externalId", "label", "color", "serial"}),
+        (EXCLUDED_ATTRIBUTES, "secret", {"externalId", "label", "color", "serial"}),
+        (EXCLUDED_ATTRIBUTES, "serial", {"externalId", "label", "color", "serial"}),
+    ],
+)
+def test_returned_attributes_follow_the_returned_annotation(
+    parameter, attribute, expected
+):
+    """A response keeps the attributes given by their returned annotation and the parameter."""
+    path = BADGE_ATTRIBUTES[attribute][0]
+    returned = _returned_attributes(Badge, parameter, path)
+    assert returned & set(BADGE_ATTRIBUTES) == expected
+
+
+def test_never_returned_attributes_are_always_checked():
+    """An attribute never returned is checked even without a value in the response."""
+    assert _is_testable(*BADGE_ATTRIBUTES["secret"], Badge())
+
+
+def test_attributes_returned_on_request_are_checked_when_writable():
+    """An attribute returned on request is checked when the check could give it a value."""
+    path, returned, _ = BADGE_ATTRIBUTES["code"]
+    assert _is_testable(path, returned, Mutability.read_write, Badge())
+    assert not _is_testable(path, returned, Mutability.read_only, Badge())
+
+
+def test_attributes_returned_by_default_are_checked_when_the_server_has_a_value():
+    """An attribute returned by default is checked when the response without parameters has it."""
+    assert not _is_testable(*BADGE_ATTRIBUTES["label"], Badge())
+    assert _is_testable(*BADGE_ATTRIBUTES["label"], Badge(label="Gold"))
+
+
+def test_attribute_returned_on_request_must_be_in_the_response_when_requested():
+    """An attribute returned on request is missing when requested and not returned."""
+    path = BADGE_ATTRIBUTES["code"][0]
+    returned = _returned_attributes(Badge, ATTRIBUTES, path)
+
+    missing, unexpected = _attribute_problems(
+        list(BADGE_ATTRIBUTES.values()), Badge(), Badge(), returned, "code"
+    )
+
+    assert missing == ["code"]
+    assert unexpected == []
+
+
+def test_attribute_returned_on_request_must_not_be_in_the_response_otherwise():
+    """An attribute returned on request is unexpected when another one is requested."""
+    path = BADGE_ATTRIBUTES["label"][0]
+    returned = _returned_attributes(Badge, ATTRIBUTES, path)
+
+    missing, unexpected = _attribute_problems(
+        list(BADGE_ATTRIBUTES.values()),
+        Badge(label="Gold"),
+        Badge(label="Gold", code="1234"),
+        returned,
+        "label",
+    )
+
+    assert missing == []
+    assert unexpected == ["code"]
 
 
 def test_object_query_with_attributes_compliant_server(httpserver, testing_context):
-    """GET /Users/{id} with attribute filtering succeeds on a compliant server."""
+    """GET /Users/{id} with attributes gives one success per attribute on a compliant server."""
     _setup_creation_and_deletion(httpserver)
-    httpserver.expect_request(uri="/Users/123", method="GET").respond_with_handler(
-        _compliant_get_handler
-    )
+    _expect_get(httpserver, _compliant)
 
     results = object_query_with_attributes(testing_context, User)
+
+    assert {r.attribute for r in results} == CHECKED_ATTRIBUTES
     assert all(r.status == Status.SUCCESS for r in results)
 
 
-def test_object_query_with_attributes_server_ignores_filter(
+def test_object_query_with_excluded_attributes_compliant_server(
     httpserver, testing_context
 ):
-    """GET /Users/{id} returns ERROR when server ignores excludedAttributes."""
+    """GET /Users/{id} with excludedAttributes gives one success per attribute on a compliant server."""
     _setup_creation_and_deletion(httpserver)
-    httpserver.expect_request(uri="/Users/123", method="GET").respond_with_handler(
-        _unfiltered_get_handler
+    _expect_get(httpserver, _compliant)
+
+    results = object_query_with_excluded_attributes(testing_context, User)
+
+    assert {r.attribute for r in results} == CHECKED_ATTRIBUTES
+    assert all(r.status == Status.SUCCESS for r in results)
+
+
+def test_object_query_with_attributes_server_ignores_the_parameter(
+    httpserver, testing_context
+):
+    """A server returning all the attributes despite attributes gives the unexpected ones."""
+    _setup_creation_and_deletion(httpserver)
+    _expect_get(httpserver, _ignoring)
+
+    results = _by_attribute(object_query_with_attributes(testing_context, User))
+
+    assert results["nickName"].status == Status.ERROR
+    assert results["nickName"].reason == (
+        "GET /Resource/{id} with attributes=nickName: "
+        "unexpected externalId, userName, name, displayName"
     )
 
-    results = object_query_with_attributes(testing_context, User)
-    error_results = [r for r in results if r.status == Status.ERROR]
-    assert len(error_results) >= 1
+
+def test_object_query_with_excluded_attributes_server_ignores_the_parameter(
+    httpserver, testing_context
+):
+    """A server returning an excluded attribute gives it as unexpected."""
+    _setup_creation_and_deletion(httpserver)
+    _expect_get(httpserver, _ignoring)
+
+    results = _by_attribute(
+        object_query_with_excluded_attributes(testing_context, User)
+    )
+
+    assert results["nickName"].status == Status.ERROR
+    assert results["nickName"].reason == (
+        "GET /Resource/{id} with excludedAttributes=nickName: unexpected nickName"
+    )
+    assert results["password"].status == Status.SUCCESS
+
+
+def test_object_query_with_excluded_attributes_server_drops_other_attributes(
+    httpserver, testing_context
+):
+    """A server dropping attributes that were not excluded gives them as missing."""
+    _setup_creation_and_deletion(httpserver)
+
+    def server(attributes, excluded):
+        if excluded:
+            return {"schemas": USER_PAYLOAD["schemas"], "id": "123"}
+        return USER_PAYLOAD
+
+    _expect_get(httpserver, server)
+
+    results = _by_attribute(
+        object_query_with_excluded_attributes(testing_context, User)
+    )
+
+    assert results["nickName"].status == Status.ERROR
+    assert results["nickName"].reason == (
+        "GET /Resource/{id} with excludedAttributes=nickName: "
+        "missing externalId, userName, name, displayName"
+    )
+
+
+def test_object_query_with_attributes_server_returns_a_never_returned_attribute(
+    httpserver, testing_context
+):
+    """A server returning the password when it is requested gives it as unexpected."""
+    _setup_creation_and_deletion(httpserver)
+
+    def server(attributes, excluded):
+        if attributes == ["password"]:
+            return {**_compliant(attributes, excluded), "password": "secret"}
+        return _compliant(attributes, excluded)
+
+    _expect_get(httpserver, server)
+
+    results = _by_attribute(object_query_with_attributes(testing_context, User))
+
+    assert results["password"].status == Status.ERROR
+    assert results["password"].reason.startswith(
+        "GET /Resource/{id} with attributes=password failed:"
+    )
+    assert "returnability 'never'" in results["password"].reason
+    assert results["nickName"].status == Status.SUCCESS
+
+
+def test_object_query_with_attributes_server_drops_the_id(httpserver, testing_context):
+    """A server dropping the id, which is always returned, gives an error."""
+    _setup_creation_and_deletion(httpserver)
+
+    def server(attributes, excluded):
+        payload = _compliant(attributes, excluded)
+        if attributes:
+            del payload["id"]
+        return payload
+
+    _expect_get(httpserver, server)
+
+    results = _by_attribute(object_query_with_attributes(testing_context, User))
+
+    assert results["nickName"].status == Status.ERROR
+    assert "returnability 'always'" in results["nickName"].reason
+
+
+def test_object_query_with_attributes_failure_on_one_attribute(
+    httpserver, testing_context
+):
+    """A request failing on one attribute gives an error for this attribute, and the others are checked."""
+    _setup_creation_and_deletion(httpserver)
+
+    def handler(request):
+        attributes, excluded = _query_parameters(request)
+        if attributes == ["nickName"]:
+            return _scim_response(
+                {
+                    "schemas": ["urn:ietf:params:scim:api:messages:2.0:Error"],
+                    "status": "500",
+                    "detail": "Something went wrong",
+                },
+                status=500,
+            )
+        return _scim_response(_compliant(attributes, excluded))
+
+    httpserver.expect_request(uri="/Users/123", method="GET").respond_with_handler(
+        handler
+    )
+
+    results = _by_attribute(object_query_with_attributes(testing_context, User))
+
+    assert set(results) == CHECKED_ATTRIBUTES
+    assert results["nickName"].status == Status.ERROR
+    assert results["nickName"].reason.startswith(
+        "GET /Resource/{id} with attributes=nickName failed:"
+    )
+    assert results["userName"].status == Status.SUCCESS
+
+
+def test_object_query_with_attributes_invalid_response(httpserver, testing_context):
+    """A response that is not a valid resource gives an error for the attribute."""
+    _setup_creation_and_deletion(httpserver)
+
+    def server(attributes, excluded):
+        if attributes == ["nickName"]:
+            return {**_compliant(attributes, excluded), "active": "maybe"}
+        return _compliant(attributes, excluded)
+
+    _expect_get(httpserver, server)
+
+    results = _by_attribute(object_query_with_attributes(testing_context, User))
+
+    assert results["nickName"].status == Status.ERROR
+    assert "active" in results["nickName"].reason
+
+
+def test_object_query_skipped_when_no_attribute_to_check(httpserver, testing_context):
+    """GET /Users/{id} is skipped when the resource has no attribute to check."""
+    _setup_creation_and_deletion(httpserver)
+    _expect_get(httpserver, _compliant)
+
+    with patch(
+        "scim2_tester.checkers.resource_query_attributes._candidate_attributes",
+        return_value=[],
+    ):
+        results = object_query_with_attributes(testing_context, User)
+
+    assert len(results) == 1
+    assert results[0].status == Status.SKIPPED
+    assert results[0].reason == "No attribute of User to check attributes on"
 
 
 def test_object_list_with_attributes_compliant_server(httpserver, testing_context):
-    """GET /Users with attribute filtering succeeds on a compliant server."""
+    """GET /Users with attributes gives one success per attribute on a compliant server."""
     _setup_creation_and_deletion(httpserver)
     httpserver.expect_request(uri="/Users", method="GET").respond_with_handler(
-        _compliant_list_handler
+        _list_handler(_compliant)
     )
 
     results = object_list_with_attributes(testing_context, User)
+
+    assert {r.attribute for r in results} == CHECKED_ATTRIBUTES
     assert all(r.status == Status.SUCCESS for r in results)
 
 
-def test_object_list_with_attributes_resource_not_found(httpserver, testing_context):
-    """GET /Users returns ERROR when the created resource is not in the filtered list."""
+def test_object_list_with_excluded_attributes_compliant_server(
+    httpserver, testing_context
+):
+    """GET /Users with excludedAttributes gives one success per attribute on a compliant server."""
     _setup_creation_and_deletion(httpserver)
-
-    def empty_handler(request):
-        return Response(
-            json.dumps(_empty_list_response()),
-            status=200,
-            headers={"Content-Type": "application/scim+json"},
-        )
-
     httpserver.expect_request(uri="/Users", method="GET").respond_with_handler(
-        empty_handler
+        _list_handler(_compliant)
+    )
+
+    results = object_list_with_excluded_attributes(testing_context, User)
+
+    assert {r.attribute for r in results} == CHECKED_ATTRIBUTES
+    assert all(r.status == Status.SUCCESS for r in results)
+
+
+def test_object_list_without_the_created_resource(httpserver, testing_context):
+    """GET /Users gives one error when the created resource is not in the list."""
+    _setup_creation_and_deletion(httpserver)
+    httpserver.expect_request(uri="/Users", method="GET").respond_with_json(
+        _list_response([]), content_type="application/scim+json"
     )
 
     results = object_list_with_attributes(testing_context, User)
-    error_results = [r for r in results if r.status == Status.ERROR]
-    assert len(error_results) >= 1
-    assert any("could not find" in r.reason for r in error_results)
+
+    assert len(results) == 1
+    assert results[0].status == Status.ERROR
+    assert results[0].attribute is None
+    assert results[0].reason == "GET /Resource: the User 123 is not in the response"
+
+
+def test_object_list_with_attributes_loses_the_resource(httpserver, testing_context):
+    """GET /Users gives an error per attribute when the resource is only listed without parameters."""
+    _setup_creation_and_deletion(httpserver)
+
+    def handler(request):
+        attributes, excluded = _query_parameters(request)
+        resources = [] if attributes else [USER_PAYLOAD]
+        return _scim_response(_list_response(resources))
+
+    httpserver.expect_request(uri="/Users", method="GET").respond_with_handler(handler)
+
+    results = _by_attribute(object_list_with_attributes(testing_context, User))
+
+    assert results["nickName"].status == Status.ERROR
+    assert results["nickName"].reason == (
+        "GET /Resource with attributes=nickName: the User 123 is not in the response"
+    )
 
 
 def test_search_with_attributes_compliant_server(httpserver, testing_context):
-    """POST /.search with attribute filtering succeeds on a compliant server."""
+    """POST /.search with attributes gives one success per attribute on a compliant server."""
     _setup_creation_and_deletion(httpserver)
     httpserver.expect_request(uri="/.search", method="POST").respond_with_handler(
-        _compliant_search_handler
+        _list_handler(_compliant)
     )
 
     results = search_with_attributes(testing_context, User)
+
+    assert {r.attribute for r in results} == CHECKED_ATTRIBUTES
     assert all(r.status == Status.SUCCESS for r in results)
 
 
-def test_search_with_attributes_resource_not_found(httpserver, testing_context):
-    """POST /.search returns ERROR when the created resource is absent from results."""
+def test_search_with_excluded_attributes_compliant_server(httpserver, testing_context):
+    """POST /.search with excludedAttributes gives one success per attribute on a compliant server."""
     _setup_creation_and_deletion(httpserver)
-
-    def empty_handler(request):
-        return Response(
-            json.dumps(_empty_list_response()),
-            status=200,
-            headers={"Content-Type": "application/scim+json"},
-        )
-
     httpserver.expect_request(uri="/.search", method="POST").respond_with_handler(
-        empty_handler
+        _list_handler(_compliant)
     )
 
-    results = search_with_attributes(testing_context, User)
-    error_results = [r for r in results if r.status == Status.ERROR]
-    assert len(error_results) >= 1
-    assert any("could not find" in r.reason for r in error_results)
+    results = search_with_excluded_attributes(testing_context, User)
+
+    assert {r.attribute for r in results} == CHECKED_ATTRIBUTES
+    assert all(r.status == Status.SUCCESS for r in results)
 
 
-def test_find_resource_in_list_with_non_list_response():
-    """Returns None when the input is not a ListResponse."""
-    assert _find_resource_in_list({"some": "dict"}, "123") is None
-
-
-def test_run_attribute_checks_skips_none_attributes(httpserver, testing_context):
-    """Inclusion check is skipped when included is None."""
-    _setup_creation_and_deletion(httpserver)
-    httpserver.expect_request(uri="/Users/123", method="GET").respond_with_handler(
-        _compliant_get_handler
-    )
-
-    test_obj = testing_context.resource_manager.create_and_register(User, fill_all=True)
-
-    def query_fn(query_parameters):
-        return testing_context.client.query(
-            User,
-            test_obj.id,
-            query_parameters=query_parameters,
-            expected_status_codes=[200],
-        )
-
-    results = _run_attribute_checks(
-        testing_context, User, test_obj, None, EXCLUDED_ATTR, query_fn, "GET /test"
-    )
-    assert len(results) == 1
-    assert results[0].status == Status.SUCCESS
-
-
-def test_run_attribute_checks_unexpected_response_type(httpserver, testing_context):
-    """Returns ERROR when the query returns an unexpected type like Error."""
-    _setup_creation_and_deletion(httpserver)
-    test_obj = testing_context.resource_manager.create_and_register(User, fill_all=True)
-
-    error_obj = Error(status="400", detail="bad request")
-
-    def query_fn(query_parameters):
-        return error_obj
-
-    results = _run_attribute_checks(
-        testing_context, User, test_obj, INCLUDED_ATTR, None, query_fn, "GET /test"
-    )
-    assert len(results) == 1
-    assert results[0].status == Status.ERROR
-    assert "unexpected response type" in results[0].reason
-
-
-_NO_ATTRS = "scim2_tester.checkers.resource_query_attributes._pick_attribute_names"
-
-
-def test_object_query_skipped_when_no_suitable_attributes(httpserver, testing_context):
-    """GET /Resource/{id} is skipped when the model has no suitable attributes."""
-    with patch(_NO_ATTRS, return_value=(None, None)):
-        results = object_query_with_attributes(testing_context, User)
-    assert len(results) == 1
-    assert results[0].status == Status.SKIPPED
-
-
-def test_object_list_skipped_when_no_suitable_attributes(httpserver, testing_context):
-    """GET /Resource is skipped when the model has no suitable attributes."""
-    with patch(_NO_ATTRS, return_value=(None, None)):
-        results = object_list_with_attributes(testing_context, User)
-    assert len(results) == 1
-    assert results[0].status == Status.SKIPPED
-
-
-def test_search_skipped_when_no_suitable_attributes(httpserver, testing_context):
-    """POST /.search is skipped when the model has no suitable attributes."""
-    with patch(_NO_ATTRS, return_value=(None, None)):
-        results = search_with_attributes(testing_context, User)
-    assert len(results) == 1
-    assert results[0].status == Status.SKIPPED
-
-
-def test_search_skipped_when_the_server_does_not_search_at_the_root(
+def test_search_with_excluded_attributes_server_ignores_the_parameter(
     httpserver, testing_context
+):
+    """A search returning an excluded attribute gives it as unexpected."""
+    _setup_creation_and_deletion(httpserver)
+    httpserver.expect_request(uri="/.search", method="POST").respond_with_handler(
+        _list_handler(_ignoring)
+    )
+
+    results = _by_attribute(search_with_excluded_attributes(testing_context, User))
+
+    assert results["displayName"].status == Status.ERROR
+    assert results["displayName"].reason == (
+        "POST /.search with excludedAttributes=displayName: unexpected displayName"
+    )
+
+
+@pytest.mark.parametrize(
+    "check", [search_with_attributes, search_with_excluded_attributes]
+)
+def test_search_skipped_when_the_server_does_not_search_at_the_root(
+    httpserver, testing_context, check
 ):
     """POST /.search is skipped when the server answers 501 Not Implemented."""
     _setup_creation_and_deletion(httpserver)
@@ -341,7 +539,7 @@ def test_search_skipped_when_the_server_does_not_search_at_the_root(
         content_type="application/scim+json",
     )
 
-    results = search_with_attributes(testing_context, User)
+    results = check(testing_context, User)
 
     assert len(results) == 1
     assert results[0].status == Status.SKIPPED
@@ -349,21 +547,8 @@ def test_search_skipped_when_the_server_does_not_search_at_the_root(
 
 
 def _respond_to_search_with(httpserver, resources):
-    def handler(request):
-        return Response(
-            json.dumps(
-                {
-                    "schemas": ["urn:ietf:params:scim:api:messages:2.0:ListResponse"],
-                    "totalResults": len(resources),
-                    "Resources": resources,
-                }
-            ),
-            status=200,
-            headers={"Content-Type": "application/scim+json"},
-        )
-
-    httpserver.expect_request(uri="/.search", method="POST").respond_with_handler(
-        handler
+    httpserver.expect_request(uri="/.search", method="POST").respond_with_json(
+        _list_response(resources), content_type="application/scim+json"
     )
 
 
