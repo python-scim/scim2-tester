@@ -8,6 +8,9 @@ Added
 ^^^^^
 - The ``seed`` parameter of :func:`~scim2_tester.check_server` sets the seed of the generated
   values. Two runs with the same seed send the same values, which helps to replay a failure.
+- :class:`~scim2_tester.testing.ScimServerContract` runs the checks as a pytest test, with a
+  subtest per result. It needs the ``testing`` extra. Its ``expected_results`` lists the known
+  failures of a server, and its ``seed`` replays a run.
 
 Changed
 ^^^^^^^

@@ -12,3 +12,9 @@ Public API
 
 .. automodule:: scim2_tester
    :members:
+
+Testing
+-------
+
+.. automodule:: scim2_tester.testing
+   :members:

@@ -10,6 +10,8 @@ from scim2_tester.utils import CheckConfig
 from scim2_tester.utils import CheckContext
 from tests.utils import Client
 
+pytest_plugins = ["pytester"]
+
 
 @pytest.fixture
 def provider():

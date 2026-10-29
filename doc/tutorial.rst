@@ -17,6 +17,15 @@ You can check the :ref:`scim2-cli test command reference <scim2_cli:reference:te
 Code integration
 ================
 
+.. warning::
+
+    The checks create, modify and delete resources on the server.
+    Never run them against a production server.
+
+.. note::
+
+    Some checks list all the resources of a type, which can be slow on a server with many resources.
+
 If you need to integrate the tester in your code, you can initialize a :doc:`scim2-client engine <scim2_client:reference/engines>`
 and pass it to the :meth:`~scim2_tester.check_server` method:
 
@@ -106,10 +115,115 @@ Filters can be combined for precise control using both :paramref:`~scim2_tester.
 Unit test suite integration
 ===========================
 
-If you build a Python SCIM sever application and need a complete test suite to check you implementation, you can integrate `scim2-tester` in your test suite with little effort.
-Thanks to scim2-client :class:`~scim2_client.engines.wsgi.WSGISCIMClient` engine, no real HTTP request is made, but the server code is directly executed.
-In combination with :paramref:`~scim2_tester.check_server.raise_exceptions`, this allows you to catch server exceptions in the test contexts, which is very handy for development.
+If you build a Python SCIM server application, you can run the checks of `scim2-tester` in its test suite.
+With the scim2-client :class:`~scim2_client.engines.wsgi.WSGISCIMClient` engine, no real HTTP request is made: the server code runs directly.
 This engine only needs the standard library, and works with any WSGI framework.
+
+pytest suite
+~~~~~~~~~~~~
+
+:class:`~scim2_tester.testing.ScimServerContract` runs the checks as a pytest test.
+It needs the ``testing`` extra, which installs pytest:
+
+.. code-block:: console
+
+    pip install scim2-tester[testing]
+
+Subclass it in your tests, and give it a ``scim_client`` fixture:
+
+.. code-block:: python
+
+    import pytest
+    from scim2_client.engines.wsgi import WSGISCIMClient
+    from scim2_tester.testing import ScimServerContract
+    from myapp import create_app
+
+
+    class TestMyServer(ScimServerContract):
+        @pytest.fixture
+        def scim_client(self):
+            app = create_app(...)
+            return WSGISCIMClient(app, base_url="http://localhost/scim/v2")
+
+The test runs the checks once, and reports each result as a subtest.
+Successful, compliant and acceptable results pass.
+Skipped results are skipped.
+Errors and critical results fail.
+Run pytest with ``-v`` to see each subtest.
+
+Deviations pass with a :class:`~scim2_tester.testing.ScimDeviationWarning`.
+To make them fail, turn the warning into an error:
+
+.. code-block:: toml
+
+    [tool.pytest.ini_options]
+    filterwarnings = ["error::scim2_tester.testing.ScimDeviationWarning"]
+
+The class attributes select the checks, as the parameters of :func:`~scim2_tester.check_server` do:
+
+.. code-block:: python
+
+    class TestMyServer(ScimServerContract):
+        include_tags = {"crud", "patch"}
+        exclude_tags = {"patch:remove"}
+        resource_types = ["User", "Group"]
+
+Known failures
+~~~~~~~~~~~~~~
+
+When you check a server you do not maintain, some checks may fail until the server is fixed.
+List them in :attr:`~scim2_tester.testing.ScimServerContract.expected_results`, with their status and a reason.
+The reason is free text, printed in the report, such as a ticket URL or an explanation:
+
+.. code-block:: python
+
+    from scim2_tester import Status
+
+
+    class TestThirdPartyServer(ScimServerContract):
+        expected_results = {
+            ("User", "check_add_attribute", "nickName"): (
+                Status.ERROR,
+                "https://github.com/example/scim-server/issues/123",
+            ),
+            (None, "schemas_endpoint_methods", None): (
+                Status.DEVIATION,
+                "The server answers 404 to unknown methods",
+            ),
+        }
+
+The key of a result is its resource type, its title and its attribute.
+A result with the expected status is reported as an expected failure.
+A result with another status fails, including a result that now passes: remove it from the list.
+An expected result that the checks no longer return also fails the test.
+A key applies to all the results that have it.
+When these results have different statuses and one of them fails, the key cannot be expected, and the test fails.
+
+When the test fails, its output prints the current failures in the format of ``expected_results``.
+Copy them into your test class, and replace each ``TODO`` with a reason.
+
+Replaying a run
+~~~~~~~~~~~~~~~
+
+The checks send random values.
+When the test fails, its output prints the seed of these values:
+
+.. code-block:: console
+
+    scim2-tester seed: 2826105314
+
+Set :attr:`~scim2_tester.testing.ScimServerContract.seed` to send the same values again:
+
+.. code-block:: python
+
+    class TestMyServer(ScimServerContract):
+        seed = 2826105314
+
+Debugging a check
+~~~~~~~~~~~~~~~~~
+
+With :paramref:`~scim2_tester.check_server.raise_exceptions`, :func:`~scim2_tester.check_server` raises the first error instead of returning it.
+The traceback leads to the server code that failed:
 
 .. code-block:: python
 
@@ -121,27 +235,3 @@ This engine only needs the standard library, and works with any WSGI framework.
         app = create_app(...)
         client = WSGISCIMClient(app, base_url="http://localhost/scim/v2")
         check_server(client, raise_exceptions=True)
-
-Parametrized testing
-~~~~~~~~~~~~~~~~~~~~
-
-For comprehensive test coverage, you can create parametrized tests that exercise different combinations of tags and resource types using :func:`~scim2_tester.discovery.get_all_available_tags` and :func:`~scim2_tester.discovery.get_standard_resource_types`:
-
-.. code-block:: python
-
-    import pytest
-    from scim2_tester import Status, check_server
-    from scim2_tester.discovery import get_all_available_tags, get_standard_resource_types
-
-    @pytest.mark.parametrize("tag", get_all_available_tags())
-    @pytest.mark.parametrize("resource_type", [None] + get_standard_resource_types())
-    def test_individual_filters(scim_client, tag, resource_type):
-        for result in check_server(
-            scim_client,
-            raise_exceptions=True,
-            include_tags={tag},
-            resource_types=resource_type
-        ):
-            assert result.status in (Status.SKIPPED, Status.SUCCESS)
-
-This parametrized approach automatically discovers all available tags and resource types, ensuring that your test suite covers all possible combinations as your SCIM implementation evolves. Each test verifies that results have either :attr:`~scim2_tester.Status.SUCCESS` or :attr:`~scim2_tester.Status.SKIPPED` status.

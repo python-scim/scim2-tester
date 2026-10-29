@@ -47,13 +47,16 @@ module-root = ""
 httpx2 = [
     "scim2-client[httpx2]>=0.13.2",
 ]
+testing = [
+    "pytest>=9.1.1",
+]
 
 [dependency-groups]
 dev = [
     "mypy>=1.13.0",
     "portpicker>=1.6.0",
     "prek>=0.1.0",
-    "pytest>=8.2.1",
+    "pytest>=9.1.1",
     "pytest-cov>=6.0.0",
     "pytest-httpserver>=1.0.10",
     "pytest-scim2-server>=0.3.0",
@@ -149,7 +152,7 @@ env_list = [
 ]
 
 [tool.tox.env_run_base]
-extras = ["httpx2"]
+extras = ["httpx2", "testing"]
 runner = "uv-venv-lock-runner"
 dependency_groups = ["dev"]
 commands = [
