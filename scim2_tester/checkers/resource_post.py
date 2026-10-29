@@ -13,6 +13,10 @@ from ..utils import CreationNotSupportedError
 from ..utils import Status
 from ..utils import check_result
 from ..utils import checker
+from ..utils import resource_endpoint
+from ._rejection_utils import INVALID_JSON
+from ._rejection_utils import INVALID_JSON_HEADERS
+from ._rejection_utils import rejection_result
 from ._required_utils import check_required_attributes
 
 
@@ -110,3 +114,54 @@ def object_creation_without_required_attribute(
     return check_required_attributes(
         context, model, "invalidValue", Status.ACCEPTABLE, request_for
     )
+
+
+@checker("crud:create")
+def object_creation_with_invalid_syntax(
+    context: CheckContext, model: type[Resource[Any]]
+) -> list[CheckResult]:
+    """Validate that POST rejects a body that is not valid JSON.
+
+    Sends a truncated JSON body to the resource endpoint.
+
+    **Status:**
+
+    - :attr:`~scim2_tester.Status.SUCCESS`: The server answers 400 ``invalidSyntax``
+    - :attr:`~scim2_tester.Status.ACCEPTABLE`: The server answers 400 without a ``scimType``
+    - :attr:`~scim2_tester.Status.DEVIATION`: The server answers 400 with another
+      ``scimType``, another 4xx status, or an error without a SCIM body
+    - :attr:`~scim2_tester.Status.ERROR`: The server creates a resource, or answers 5xx
+
+    .. pull-quote:: :rfc:`RFC 7644 Section 3.12 <7644#section-3.12>`
+
+       "invalidSyntax: The request body message structure was invalid or did
+       not conform to the request schema."
+
+    The ``scimType`` is optional in an error response, so a 400 without it is acceptable.
+    """
+    endpoint = resource_endpoint(context, model)
+
+    def send() -> Any:
+        response = context.client.create(
+            model,
+            {},
+            check_request_payload=False,
+            expected_status_codes=None,
+            raise_scim_errors=False,
+            url=endpoint,
+            content=INVALID_JSON,
+            headers=INVALID_JSON_HEADERS,
+        )
+        if isinstance(response, dict) and response.get("id"):
+            context.resource_manager.register(model(id=response["id"]))
+        return response
+
+    return [
+        rejection_result(
+            context,
+            f"POST {endpoint} with invalid JSON",
+            send,
+            "invalidSyntax",
+            Status.ACCEPTABLE,
+        )
+    ]

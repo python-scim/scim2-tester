@@ -1,6 +1,14 @@
 Changelog
 =========
 
+[0.6.4] - Unreleased
+--------------------
+
+Added
+^^^^^
+- ``object_creation_with_invalid_syntax`` and ``object_replacement_with_invalid_syntax`` check
+  that POST and PUT reject a body that is not valid JSON, with a 400 ``invalidSyntax``.
+
 [0.6.3] - 2026-10-29
 --------------------
 

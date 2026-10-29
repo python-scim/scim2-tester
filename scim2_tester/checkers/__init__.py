@@ -20,8 +20,10 @@ from .resource_delete import object_deletion
 from .resource_get import object_query
 from .resource_get import object_query_without_id
 from .resource_post import object_creation
+from .resource_post import object_creation_with_invalid_syntax
 from .resource_post import object_creation_without_required_attribute
 from .resource_put import object_replacement
+from .resource_put import object_replacement_with_invalid_syntax
 from .resource_put import object_replacement_without_required_attribute
 from .resource_query_attributes import object_list_with_attributes
 from .resource_query_attributes import object_list_with_excluded_attributes
@@ -57,6 +59,7 @@ __all__ = [
     "core_schemas_validation",
     "object_creation",
     "object_creation_without_required_attribute",
+    "object_creation_with_invalid_syntax",
     "object_query",
     "object_query_without_id",
     "object_query_with_attributes",
@@ -67,6 +70,7 @@ __all__ = [
     "search_with_excluded_attributes",
     "object_replacement",
     "object_replacement_without_required_attribute",
+    "object_replacement_with_invalid_syntax",
     "object_deletion",
     "resource_type_tests",
     "check_add_attribute",

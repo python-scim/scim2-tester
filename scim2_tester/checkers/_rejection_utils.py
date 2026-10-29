@@ -15,6 +15,12 @@ from ..utils import _exception_data
 from ..utils import _exception_reason
 from ..utils import check_result
 
+INVALID_JSON = b'{"schemas": ['
+"""A request body that is not valid JSON."""
+
+INVALID_JSON_HEADERS = {"Content-Type": "application/scim+json"}
+"""The headers of :data:`INVALID_JSON`, so the server reads it as SCIM."""
+
 
 def rejection_status(
     response: Any, scim_type: str, without_scim_type: Status
