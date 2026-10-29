@@ -11,6 +11,9 @@ from scim2_tester.checkers._required_utils import rejection_status
 from scim2_tester.checkers.resource_post import (
     object_creation_without_required_attribute,
 )
+from scim2_tester.checkers.resource_put import (
+    object_replacement_without_required_attribute,
+)
 from scim2_tester.utils import Status
 
 ERROR_SCHEMA = "urn:ietf:params:scim:api:messages:2.0:Error"
@@ -22,11 +25,28 @@ class Note(Resource):
     text: str | None = None
 
 
+USER = {
+    "schemas": [User.__schema__],
+    "id": "123",
+    "userName": "bjensen@example.com",
+}
+
+
 def _error(status, scim_type=None):
     payload = {"schemas": [ERROR_SCHEMA], "status": str(status), "detail": "Rejected"}
     if scim_type:
         payload["scimType"] = scim_type
     return payload
+
+
+def _setup_user(httpserver):
+    """Register the creation and the deletion of a user."""
+    httpserver.expect_request(uri="/Users", method="POST").respond_with_json(
+        USER, status=201, content_type="application/scim+json"
+    )
+    httpserver.expect_request(uri="/Users/123", method="DELETE").respond_with_data(
+        "", status=204
+    )
 
 
 @pytest.mark.parametrize(
@@ -166,3 +186,41 @@ def test_creation_without_required_attribute_skipped(testing_context):
     assert len(results) == 1
     assert results[0].status == Status.SKIPPED
     assert results[0].reason == "No required attribute to check for Note"
+
+
+def test_replacement_without_required_attribute_rejected(httpserver, testing_context):
+    """A server rejecting a replacement without userName with 400 invalidValue succeeds."""
+    _setup_user(httpserver)
+    httpserver.expect_request(uri="/Users/123", method="PUT").respond_with_json(
+        _error(400, "invalidValue"), status=400, content_type="application/scim+json"
+    )
+
+    results = object_replacement_without_required_attribute(
+        testing_context, User[EnterpriseUser]
+    )
+
+    assert len(results) == 1
+    assert results[0].status == Status.SUCCESS
+    assert results[0].attribute == "userName"
+    assert results[0].reason == (
+        "PUT /Users/123 without userName: the server answered 400 invalidValue"
+    )
+    request = next(r for r, _ in httpserver.log if r.method == "PUT")
+    assert "userName" not in request.get_json()
+
+
+def test_replacement_without_required_attribute_accepted(httpserver, testing_context):
+    """A server replacing a resource without userName fails."""
+    _setup_user(httpserver)
+    httpserver.expect_request(uri="/Users/123", method="PUT").respond_with_json(
+        USER, status=200, content_type="application/scim+json"
+    )
+
+    results = object_replacement_without_required_attribute(
+        testing_context, User[EnterpriseUser]
+    )
+
+    assert results[0].status == Status.ERROR
+    assert results[0].reason == (
+        "PUT /Users/123 without userName: the server accepted the request"
+    )

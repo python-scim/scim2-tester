@@ -21,6 +21,7 @@ from .resource_get import object_query_without_id
 from .resource_post import object_creation
 from .resource_post import object_creation_without_required_attribute
 from .resource_put import object_replacement
+from .resource_put import object_replacement_without_required_attribute
 from .resource_query_attributes import object_list_with_attributes
 from .resource_query_attributes import object_list_with_excluded_attributes
 from .resource_query_attributes import object_query_with_attributes
@@ -64,6 +65,7 @@ __all__ = [
     "search_with_attributes",
     "search_with_excluded_attributes",
     "object_replacement",
+    "object_replacement_without_required_attribute",
     "object_deletion",
     "resource_type_tests",
     "check_add_attribute",
