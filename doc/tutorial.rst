@@ -220,6 +220,10 @@ Set :attr:`~scim2_tester.testing.ScimServerContract.seed` to send the same value
 Debugging a check
 ~~~~~~~~~~~~~~~~~
 
+When a check fails on an exception raised by the server code, the failed subtest shows its traceback.
+The server must let its exceptions through.
+For instance, a Flask application does it in testing mode only.
+
 With :paramref:`~scim2_tester.check_server.raise_exceptions`, :func:`~scim2_tester.check_server` raises the first error instead of returning it.
 The traceback leads to the server code that failed:
 

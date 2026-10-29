@@ -8,6 +8,8 @@ Added
 ^^^^^
 - :attr:`~scim2_tester.testing.ScimServerContract.expected_results` accepts a status alone,
   without a reason.
+- :class:`~scim2_tester.testing.ScimServerContract` shows the traceback of a check failing on
+  an exception.
 
 Changed
 ^^^^^^^

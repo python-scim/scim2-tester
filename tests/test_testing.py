@@ -106,6 +106,77 @@ def test_failing_results_fail(pytester, status):
     )
 
 
+SERVER_RAISING = """
+import pytest
+
+import scim2_tester.testing
+from scim2_tester import CheckResult
+from scim2_tester import Status
+from scim2_tester.testing import ScimServerContract
+
+
+def delete_resource():
+    raise RuntimeError("the storage is down")
+
+
+def fake_check_server(client, **kwargs):
+    try:
+        delete_resource()
+    except RuntimeError as exc:
+        return [CheckResult(status=Status.ERROR, title="a_check", reason=str(exc), data=exc)]
+
+
+@pytest.fixture(autouse=True)
+def fake(monkeypatch):
+    monkeypatch.setattr(scim2_tester.testing, "check_server", fake_check_server)
+
+
+class TestServer(ScimServerContract):
+    expected_results = {expected}
+
+    @pytest.fixture
+    def scim_client(self):
+        return None
+"""
+
+
+def test_failures_on_an_exception_show_its_traceback(pytester):
+    """A check failing on an exception shows the traceback down to the code that raised it."""
+    pytester.makepyfile(SERVER_RAISING.format(expected="{}"))
+
+    result = pytester.runpytest("-v")
+
+    result.assert_outcomes(failed=2)
+    result.stdout.fnmatch_lines(
+        [
+            "    def delete_resource():",
+            '>       raise RuntimeError("the storage is down")',
+            "E       RuntimeError: the storage is down",
+            "The above exception was the direct cause of the following exception:",
+            "E * Failed: (None, 'a_check', None) ERROR: the storage is down",
+        ]
+    )
+    result.stdout.no_fnmatch_line("*def _fail(*")
+
+
+def test_an_expected_result_with_another_status_shows_the_traceback(pytester):
+    """An expected failure with another status shows the traceback of the exception."""
+    pytester.makepyfile(
+        SERVER_RAISING.format(expected='{(None, "a_check", None): Status.DEVIATION}')
+    )
+
+    result = pytester.runpytest("-v")
+
+    result.assert_outcomes(failed=2)
+    result.stdout.fnmatch_lines(
+        [
+            "E       RuntimeError: the storage is down",
+            "E * Failed: (None, 'a_check', None) Expected DEVIATION, "
+            "got ERROR: the storage is down",
+        ]
+    )
+
+
 def test_deviations_pass_with_a_warning(pytester):
     """The deviations pass, and emit a ScimDeviationWarning."""
     pytester.makepyfile(fake_server("DEVIATION"))

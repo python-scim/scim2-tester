@@ -18,6 +18,7 @@ The suite needs the ``testing`` extra, which installs pytest.
 
 import secrets
 import warnings
+from typing import NoReturn
 
 import pytest
 from scim2_client import BaseSyncSCIMClient
@@ -61,6 +62,9 @@ class ScimServerContract:
       results fail.
 
     The results listed in :attr:`expected_results` are expected failures instead.
+
+    When a check fails on an exception, such as one raised by the server code,
+    the failed subtest shows its traceback.
 
     The seed of the generated values, and the failures in the format of
     :attr:`expected_results`, are printed in the output of the test.
@@ -217,6 +221,7 @@ def _report(result: CheckResult, expected: ExpectedResult | None) -> None:
     The messages start with the key of the result, as some reports, such as
     JUnit XML, do not tell the subtests apart.
     """
+    __tracebackhide__ = True
     key = result_key(result)
     reason = result.reason or ""
     if expected is not None:
@@ -229,13 +234,14 @@ def _report(result: CheckResult, expected: ExpectedResult | None) -> None:
         warnings.warn(f"{key!r} {reason}", ScimDeviationWarning, stacklevel=1)
 
     if result.status in (Status.ERROR, Status.CRITICAL):
-        pytest.fail(f"{key!r} {result.status.name}: {reason}", pytrace=False)
+        _fail(result, f"{key!r} {result.status.name}: {reason}")
 
 
 def _report_expected(
     result: CheckResult, status: Status, expected_reason: str | None
 ) -> None:
     """Report a result listed in the expected results."""
+    __tracebackhide__ = True
     key = result_key(result)
     if result.status == status:
         suffix = f": {expected_reason}" if expected_reason else ""
@@ -249,7 +255,20 @@ def _report_expected(
             pytrace=False,
         )
 
-    pytest.fail(
+    _fail(
+        result,
         f"{key!r} Expected {expected}, got {result.status.name}: {result.reason or ''}",
-        pytrace=False,
     )
+
+
+def _fail(result: CheckResult, message: str) -> NoReturn:
+    """Fail the current subtest.
+
+    When the check failed on an exception, such as one raised by the server
+    code, the failure shows its traceback.
+    """
+    __tracebackhide__ = True
+    if not isinstance(result.data, BaseException):
+        pytest.fail(message, pytrace=False)
+
+    raise pytest.fail.Exception(message, pytrace=True) from result.data
