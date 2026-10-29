@@ -271,6 +271,23 @@ def test_object_creation_refused_with_501_is_acceptable(httpserver, testing_cont
     )
 
 
+def test_object_creation_failure_keeps_the_server_response(httpserver, testing_context):
+    """A server error keeps the payload the server answered as the data of the result."""
+    payload = {
+        "schemas": ["urn:ietf:params:scim:api:messages:2.0:Error"],
+        "status": "500",
+        "detail": "The storage is down",
+    }
+    httpserver.expect_request(uri="/Users", method="POST").respond_with_json(
+        payload, status=500, content_type="application/scim+json"
+    )
+
+    results = object_creation(testing_context, User)
+
+    assert results[0].status == Status.ERROR
+    assert results[0].data == payload
+
+
 def test_checks_needing_a_resource_refused_with_501_are_skipped(
     httpserver, testing_context
 ):

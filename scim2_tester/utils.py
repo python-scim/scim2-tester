@@ -183,19 +183,19 @@ def _exception_data(exc: Exception) -> Any:
     the request has been sent, and the request payload when it could not be.
     Responses are unwrapped, as their representation holds nothing but a status.
     """
-    source: Any = getattr(exc, "source", None)
-    if not hasattr(source, "text"):
-        return source
+    response: Any = getattr(exc, "response", None)
+    if response is None:
+        return getattr(exc, "source", None)
 
     # httpx decodes the payload from a method, werkzeug from a property which
     # answers None instead of raising when the response carries no JSON.
     try:
-        payload = source.json
+        payload = response.json
         payload = payload() if callable(payload) else payload
     except ValueError:
         payload = None
 
-    return source.text if payload is None else payload
+    return response.text if payload is None else payload
 
 
 def _exception_reason(exc: Exception) -> str:

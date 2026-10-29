@@ -213,9 +213,10 @@ def test_server_scim_error_handling():
 
     @checker("test")
     def scim_error_check(context):
-        exc = SCIMException(detail="Server error")
-        exc.source = Response(400, json={"status": "400", "detail": "Server error"})
-        raise exc
+        raise SCIMException(
+            detail="Server error",
+            response=Response(400, json={"status": "400", "detail": "Server error"}),
+        )
 
     conf = CheckConfig(raise_exceptions=False)
     context = CheckContext(client=None, conf=conf)
@@ -233,7 +234,7 @@ def test_non_json_server_response_handling():
     def scim_error_check(context):
         raise SCIMClientException(
             "Unexpected content type: text/html",
-            source=Response(500, text="<html>Internal Server Error</html>"),
+            response=Response(500, text="<html>Internal Server Error</html>"),
         )
 
     conf = CheckConfig(raise_exceptions=False)
@@ -245,13 +246,14 @@ def test_non_json_server_response_handling():
 
 
 def test_werkzeug_server_response_handling():
-    """Test that the payload of a response the werkzeug engine returned is decoded."""
+    """Test that the payload of a response the werkzeug engine returned is decoded, rather than the request payload."""
 
     @checker("test")
     def scim_error_check(context):
         raise SCIMClientException(
             "Unexpected status code: 400",
-            source=werkzeug_response(
+            source={"schemas": ["urn:ietf:params:scim:schemas:core:2.0:User"]},
+            response=werkzeug_response(
                 b'{"status": "400", "detail": "Server error"}',
                 "application/scim+json",
             ),
@@ -271,7 +273,7 @@ def test_non_json_werkzeug_server_response_handling():
     def scim_error_check(context):
         raise SCIMClientException(
             "Unexpected content type: text/html",
-            source=werkzeug_response(
+            response=werkzeug_response(
                 b"<html>Internal Server Error</html>", "text/html"
             ),
         )
