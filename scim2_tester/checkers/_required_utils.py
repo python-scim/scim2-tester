@@ -13,6 +13,7 @@ from ..utils import CheckResult
 from ..utils import Status
 from ..utils import check_result
 from ..utils import parametrize
+from ..utils import resource_endpoint
 from ._rejection_utils import rejection_result
 
 RequestFor = Callable[[Path[Any], str], tuple[str, Callable[[], Any]]]
@@ -31,16 +32,6 @@ def required_attributes(model: type[Resource[Any]]) -> list[Path[Any]]:
             ],
             include_subattributes=False,
         )
-    )
-
-
-def resource_endpoint(context: CheckContext, model: type[Resource[Any]]) -> str:
-    """Return the endpoint of the resource type a model is served on."""
-    provider = context.client.provider
-    return next(
-        str(resource_type.endpoint)
-        for resource_type in provider.resource_types
-        if provider.model_for(resource_type) is model
     )
 
 

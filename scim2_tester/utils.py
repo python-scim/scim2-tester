@@ -504,6 +504,16 @@ def parametrize(generic: type[GenericT], model: type[Any]) -> type[GenericT]:
     return cast("type[GenericT]", cast(Any, generic)[model])
 
 
+def resource_endpoint(context: CheckContext, model: type[Resource[Any]]) -> str:
+    """Return the endpoint of the resource type a model is served on."""
+    provider = context.client.provider
+    return next(
+        str(resource_type.endpoint)
+        for resource_type in provider.resource_types
+        if provider.model_for(resource_type) is model
+    )
+
+
 def _is_reference(value: Any) -> bool:
     """Tell whether a value is a complex attribute referencing a resource, such as a group member."""
     return isinstance(value, BaseModel) and "ref" in type(value).model_fields
