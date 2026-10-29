@@ -16,6 +16,7 @@ from scim2_models import ServiceProviderConfig
 from scim2_models import User
 
 from scim2_tester.checker import check_server
+from scim2_tester.checker import iter_check_server
 from scim2_tester.utils import SCIMTesterError
 from scim2_tester.utils import Status
 from tests.utils import Client
@@ -218,3 +219,42 @@ def test_check_server_replays_the_values_of_a_seed(scim2_server_app):
     assert len(first) == 1
     assert _created_user_names(scim2_server_app, 1234) == first
     assert _created_user_names(scim2_server_app, 5678) != first
+
+
+def test_iter_check_server_yields_the_results_of_check_server(scim2_server_app):
+    """Iterating over the checks gives the results of check_server, in the same order."""
+    client = WSGISCIMClient(scim2_server_app)
+
+    def keys(results):
+        return [(r.resource_type, r.title, r.attribute, r.status) for r in results]
+
+    assert keys(iter_check_server(client, seed=1234)) == keys(
+        check_server(client, seed=1234)
+    )
+
+
+def test_iter_check_server_yields_before_the_end_of_the_run(scim2_server_app):
+    """The first result comes before the next checks send their requests."""
+    requests = []
+
+    def app(environ, start_response):
+        requests.append(environ["PATH_INFO"])
+        return scim2_server_app(environ, start_response)
+
+    results = iter_check_server(WSGISCIMClient(app))
+    first = next(results)
+
+    assert first.title == "service_provider_config_endpoint"
+    assert requests == ["/ServiceProviderConfig"]
+
+
+def test_stopping_iter_check_server_leaves_no_resource(scim2_server_app):
+    """Stopping the iteration during the resource checks leaves no resource on the server."""
+    client = WSGISCIMClient(scim2_server_app)
+    client.discover()
+
+    results = iter_check_server(client)
+    next(r for r in results if r.title == "object_query")
+    results.close()
+
+    assert client.query(User).total_results == 0

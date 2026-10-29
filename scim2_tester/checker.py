@@ -1,12 +1,13 @@
+from collections.abc import Iterator
 from typing import Any
 
 from scim2_client import BaseSyncSCIMClient
 from scim2_models import ScimProvider
 
 from scim2_tester.checkers import random_url
-from scim2_tester.checkers import resource_type_tests
 from scim2_tester.checkers import service_provider_config_endpoint
 from scim2_tester.checkers import service_provider_config_endpoint_methods
+from scim2_tester.checkers.resource import _iter_resource_type_tests
 from scim2_tester.checkers.resource_types import _resource_types_endpoint
 from scim2_tester.checkers.schemas import _schemas_endpoint
 from scim2_tester.utils import CheckConfig
@@ -74,15 +75,15 @@ def _describe_service(
     return described, []
 
 
-def check_server(
+def iter_check_server(
     client: BaseSyncSCIMClient,
     raise_exceptions: bool = False,
     include_tags: set[str] | None = None,
     exclude_tags: set[str] | None = None,
     resource_types: list[str] | None = None,
     seed: int | None = None,
-) -> list[CheckResult]:
-    """Perform a series of check to a SCIM server.
+) -> Iterator[CheckResult]:
+    """Perform a series of check to a SCIM server, and yield each result as soon as it is known.
 
     It starts by retrieving the standard :class:`~scim2_models.ServiceProviderConfig`,
     :class:`~scim2_models.Schema` and :class:`~scim2_models.ResourceType` endpoints.
@@ -91,6 +92,12 @@ def check_server(
 
     Then for all available resources (whether they have been manually configured in the client,
     or dynamically discovered by the checker), it perform a series of creation, query, replacement and deletion.
+
+    Checking a remote server can take a while. The results come as each check ends,
+    so they can be displayed during the run. Stopping the iteration stops the run,
+    and leaves no resource created by the checks on the server.
+    With ``raise_exceptions``, the error is raised during the iteration,
+    after the results of the previous checks.
 
     :param client: A SCIM client that will perform the requests.
     :param raise_exceptions: Whether exceptions should be raised or stored in a :class:`~scim2_tester.CheckResult` object.
@@ -114,6 +121,79 @@ def check_server(
 
     Example usage::
 
+        for result in iter_check_server(client):
+            print(result.status.name, result.title)
+
+        # Run CRUD tests except delete operations, on User resources only
+        for result in iter_check_server(
+            client,
+            include_tags={"crud"},
+            exclude_tags={"crud:delete"},
+            resource_types=["User"],
+        ):
+            print(result.status.name, result.title)
+    """
+    conf = CheckConfig(
+        raise_exceptions=raise_exceptions,
+        include_tags=include_tags,
+        exclude_tags=exclude_tags,
+        resource_types=resource_types,
+        seed=seed,
+    )
+    context = CheckContext(client, conf)
+
+    results_spc = service_provider_config_endpoint(context)
+    yield from results_spc
+    yield from service_provider_config_endpoint_methods(context)
+
+    results_resource_types = _resource_types_endpoint(context)
+    yield from results_resource_types
+
+    results_schemas = _schemas_endpoint(context)
+    yield from results_schemas
+
+    provider, results_description = _describe_service(
+        context, results_spc, results_resource_types, results_schemas
+    )
+    yield from results_description
+
+    if provider is None or not provider.config:
+        return
+
+    yield from random_url(context)
+
+    for resource_type in provider.resource_types:
+        if conf.resource_types and resource_type.name not in conf.resource_types:
+            continue
+
+        for result in _iter_resource_type_tests(context, resource_type):
+            result.resource_type = resource_type.name
+            yield result
+
+
+def check_server(
+    client: BaseSyncSCIMClient,
+    raise_exceptions: bool = False,
+    include_tags: set[str] | None = None,
+    exclude_tags: set[str] | None = None,
+    resource_types: list[str] | None = None,
+    seed: int | None = None,
+) -> list[CheckResult]:
+    """Perform a series of check to a SCIM server, and return all the results at once.
+
+    It performs the checks of :func:`~scim2_tester.iter_check_server`.
+    Use :func:`~scim2_tester.iter_check_server` to get the results as soon as they are known.
+
+    :param client: A SCIM client that will perform the requests.
+    :param raise_exceptions: Whether exceptions should be raised or stored in a :class:`~scim2_tester.CheckResult` object.
+    :param include_tags: Execute only checks with at least one of these tags.
+    :param exclude_tags: Skip checks with any of these tags.
+    :param resource_types: Filter by resource type names (e.g., ["User", "Group"]).
+    :param seed: The seed of the generated values. Two runs with the same seed send the
+        same values, which helps to replay a failure. Without a seed, each run sends new values.
+
+    Example usage::
+
         # Run only discovery tests
         results = check_server(client, include_tags={"discovery"})
 
@@ -130,44 +210,13 @@ def check_server(
             client, include_tags={"crud:create", "crud:read"}, resource_types=["User"]
         )
     """
-    conf = CheckConfig(
-        raise_exceptions=raise_exceptions,
-        include_tags=include_tags,
-        exclude_tags=exclude_tags,
-        resource_types=resource_types,
-        seed=seed,
+    return list(
+        iter_check_server(
+            client,
+            raise_exceptions=raise_exceptions,
+            include_tags=include_tags,
+            exclude_tags=exclude_tags,
+            resource_types=resource_types,
+            seed=seed,
+        )
     )
-    context = CheckContext(client, conf)
-    results = []
-
-    results_spc = service_provider_config_endpoint(context)
-    results.extend(results_spc)
-    results.extend(service_provider_config_endpoint_methods(context))
-
-    results_resource_types = _resource_types_endpoint(context)
-    results.extend(results_resource_types)
-
-    results_schemas = _schemas_endpoint(context)
-    results.extend(results_schemas)
-
-    provider, results_description = _describe_service(
-        context, results_spc, results_resource_types, results_schemas
-    )
-    results.extend(results_description)
-
-    if provider is None or not provider.config:
-        return results
-
-    result_random = random_url(context)
-    results.extend(result_random)
-
-    for resource_type in provider.resource_types:
-        if conf.resource_types and resource_type.name not in conf.resource_types:
-            continue
-
-        resource_results = resource_type_tests(context, resource_type)
-        for result in resource_results:
-            result.resource_type = resource_type.name
-        results.extend(resource_results)
-
-    return results

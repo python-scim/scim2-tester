@@ -1,3 +1,5 @@
+from collections.abc import Iterator
+
 from scim2_models import ResourceType
 
 from ..utils import CheckContext
@@ -47,38 +49,40 @@ def resource_type_tests(
        well as binding documents to provide patterns for exchanging this schema
        using standard protocols."
     """
+    return list(_iter_resource_type_tests(context, resource_type))
+
+
+def _iter_resource_type_tests(
+    context: CheckContext, resource_type: ResourceType
+) -> Iterator[CheckResult]:
+    """Run the checks of a resource type, and yield each result as soon as it is known."""
     model = _model_from_resource_type(context, resource_type)
     if not model:
-        return [
-            check_result(
-                context,
-                status=Status.ERROR,
-                reason=f"No Schema matching the ResourceType {resource_type.id}",
-            )
-        ]
+        yield check_result(
+            context,
+            status=Status.ERROR,
+            reason=f"No Schema matching the ResourceType {resource_type.id}",
+        )
+        return
 
-    results = []
-
-    results.extend(object_creation(context, model))
-    results.extend(object_creation_without_required_attribute(context, model))
-    results.extend(object_creation_with_invalid_syntax(context, model))
-    results.extend(object_query(context, model))
-    results.extend(object_query_without_id(context, model))
-    results.extend(object_query_with_attributes(context, model))
-    results.extend(object_query_with_excluded_attributes(context, model))
-    results.extend(object_list_with_attributes(context, model))
-    results.extend(object_list_with_excluded_attributes(context, model))
-    results.extend(search_with_attributes(context, model))
-    results.extend(search_with_excluded_attributes(context, model))
-    results.extend(object_replacement(context, model))
-    results.extend(object_replacement_without_required_attribute(context, model))
-    results.extend(object_replacement_with_invalid_syntax(context, model))
-    results.extend(object_deletion(context, model))
+    yield from object_creation(context, model)
+    yield from object_creation_without_required_attribute(context, model)
+    yield from object_creation_with_invalid_syntax(context, model)
+    yield from object_query(context, model)
+    yield from object_query_without_id(context, model)
+    yield from object_query_with_attributes(context, model)
+    yield from object_query_with_excluded_attributes(context, model)
+    yield from object_list_with_attributes(context, model)
+    yield from object_list_with_excluded_attributes(context, model)
+    yield from search_with_attributes(context, model)
+    yield from search_with_excluded_attributes(context, model)
+    yield from object_replacement(context, model)
+    yield from object_replacement_without_required_attribute(context, model)
+    yield from object_replacement_with_invalid_syntax(context, model)
+    yield from object_deletion(context, model)
 
     # PATCH operations
-    results.extend(check_add_attribute(context, model))
-    results.extend(check_remove_attribute(context, model))
-    results.extend(check_remove_required_attribute(context, model))
-    results.extend(check_replace_attribute(context, model))
-
-    return results
+    yield from check_add_attribute(context, model)
+    yield from check_remove_attribute(context, model)
+    yield from check_remove_required_attribute(context, model)
+    yield from check_replace_attribute(context, model)

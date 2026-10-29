@@ -27,30 +27,33 @@ Code integration
     Some checks list all the resources of a type, which can be slow on a server with many resources.
 
 If you need to integrate the tester in your code, you can initialize a :doc:`scim2-client engine <scim2_client:reference/engines>`
-and pass it to the :meth:`~scim2_tester.check_server` method:
+and pass it to :func:`~scim2_tester.iter_check_server`.
+It yields each result as soon as its check ends, so you can display the progress of a run:
 
 .. code-block:: python
 
     from httpx2 import Client
     from scim2_client.engines.httpx2 import SyncSCIMClient
-    from scim2_tester import check_server
+    from scim2_tester import iter_check_server
 
     httpx_client = Client(
         base_url="https://auth.example/scim/v2",
         headers={"Authorization": "Bearer foobar"},
     )
     scim_client = SyncSCIMClient(httpx_client)
-    results = check_server(scim_client)
-    for result in results:
+    for result in iter_check_server(scim_client):
         print(result.status.name, result.title)
 
+:func:`~scim2_tester.check_server` takes the same parameters, and returns all the results at once.
 The :attr:`~scim2_tester.Status.outcome` of a status tells whether the result passes, warns, fails or is skipped.
 Use it to decide whether the server passes the checks:
 
 .. code-block:: python
 
     from scim2_tester import Outcome
+    from scim2_tester import check_server
 
+    results = check_server(scim_client)
     failed = [r for r in results if r.status.outcome is Outcome.FAILED]
 
 
