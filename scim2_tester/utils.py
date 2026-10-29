@@ -219,15 +219,10 @@ def _exception_data(exc: Exception) -> Any:
     if response is None:
         return getattr(exc, "source", None)
 
-    # httpx decodes the payload from a method, werkzeug from a property which
-    # answers None instead of raising when the response carries no JSON.
     try:
-        payload = response.json
-        payload = payload() if callable(payload) else payload
+        return response.json()
     except ValueError:
-        payload = None
-
-    return response.text if payload is None else payload
+        return response.text
 
 
 def _exception_reason(exc: Exception) -> str:

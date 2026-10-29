@@ -9,6 +9,11 @@ Added
 - :class:`~scim2_tester.Outcome` and :attr:`Status.outcome <scim2_tester.Status.outcome>` tell
   whether a result passes, warns, fails or is skipped, without the ``testing`` extra.
 
+Removed
+^^^^^^^
+- Support of the :class:`~scim2_client.engines.werkzeug.TestSCIMClient` engine, deprecated by
+  scim2-client. Use :class:`~scim2_client.engines.wsgi.WSGISCIMClient` instead.
+
 [0.6.2] - 2026-10-29
 --------------------
 
