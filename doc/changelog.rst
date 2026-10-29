@@ -1,13 +1,13 @@
 Changelog
 =========
 
-[0.6.4] - Unreleased
+[0.6.4] - 2026-10-30
 --------------------
 
 Added
 ^^^^^
 - ``object_creation_with_invalid_syntax`` and ``object_replacement_with_invalid_syntax`` check
-  that POST and PUT reject a body that is not valid JSON, with a 400 ``invalidSyntax``.
+  that POST and PUT reject a body that is not valid JSON, with a 400 ``invalidSyntax``. :issue:`25`
 - ``resource_type_by_id_methods`` and ``schema_by_id_methods`` check that ``/ResourceTypes/{id}``
   and ``/Schemas/{id}`` answer 405 to POST, PUT, PATCH and DELETE. :issue:`16`
 - :func:`~scim2_tester.iter_check_server` yields each result as soon as its check ends,
