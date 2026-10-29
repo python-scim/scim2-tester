@@ -13,6 +13,10 @@ Changed
 ^^^^^^^
 - The checks of the HTTP methods on the discovery endpoints return one result per endpoint,
   with the worst status of the methods. The reason lists the methods that did not answer 405.
+- The results of ``query_resource_type_by_id`` and ``resource_types_schema_validation`` give the
+  queried resource type in :attr:`~scim2_tester.CheckResult.resource_type`. The results of
+  ``access_schema_by_id`` give the queried schema URN in :attr:`~scim2_tester.CheckResult.attribute`.
+  Each discovery result can then be told apart from the others.
 
 [0.5.3] - 2026-10-29
 --------------------

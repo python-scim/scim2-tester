@@ -55,10 +55,41 @@ def test_check_server_with_resource_type_filtering(scim2_server_app):
         r for r in filtered_results if getattr(r, "resource_type", None) == "User"
     ]
     group_filtered = [
-        r for r in filtered_results if getattr(r, "resource_type", None) == "Group"
+        r
+        for r in filtered_results
+        if r.resource_type == "Group" and "discovery" not in r.tags
     ]
     assert user_filtered
     assert not group_filtered
+
+
+def test_discovery_checks_check_every_published_resource_type(scim2_server_app):
+    """The discovery checks query every resource type the server publishes, even filtered ones."""
+    client = WSGISCIMClient(scim2_server_app)
+
+    results = check_server(client, resource_types=["User"], include_tags={"discovery"})
+
+    queried = {
+        r.resource_type
+        for r in results
+        if r.title in ("query_resource_type_by_id", "resource_types_schema_validation")
+    }
+    assert queried == {"User", "Group"}
+
+
+def test_each_discovery_result_has_its_own_key(scim2_server_app):
+    """The results of the discovery checks are told apart by their resource type or schema."""
+    client = WSGISCIMClient(scim2_server_app)
+
+    results = check_server(client, include_tags={"discovery"})
+
+    keys = [(r.resource_type, r.title, r.attribute) for r in results]
+    assert len(keys) == len(set(keys))
+    assert {r.attribute for r in results if r.title == "access_schema_by_id"} == {
+        "urn:ietf:params:scim:schemas:core:2.0:User",
+        "urn:ietf:params:scim:schemas:core:2.0:Group",
+        "urn:ietf:params:scim:schemas:extension:enterprise:2.0:User",
+    }
 
 
 def test_check_server_ignores_data_of_failed_discovery_checks(httpserver):

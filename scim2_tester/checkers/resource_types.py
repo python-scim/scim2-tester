@@ -45,7 +45,9 @@ def _resource_types_endpoint(context: CheckContext) -> list[CheckResult]:
 
     if resource_types_result.status == Status.SUCCESS:
         for resource_type in resource_types_result.data or []:
-            results.extend(query_resource_type_by_id(context, resource_type))
+            for result in query_resource_type_by_id(context, resource_type):
+                result.resource_type = resource_type.name
+                results.append(result)
 
         results.extend(resource_types_schema_validation(context))
 
@@ -129,6 +131,7 @@ def resource_types_schema_validation(
                     status=Status.SUCCESS,
                     reason=f"ResourceType '{resource_type.name}' schema '{schema_id}' is accessible",
                     data=schema_response,
+                    resource_type=resource_type.name,
                 )
             )
         except (SCIMClientException, SCIMException) as e:
@@ -137,6 +140,7 @@ def resource_types_schema_validation(
                     context,
                     status=Status.ERROR,
                     reason=f"ResourceType '{resource_type.name}' schema '{schema_id}' is not accessible: {str(e)}",
+                    resource_type=resource_type.name,
                 )
             )
 

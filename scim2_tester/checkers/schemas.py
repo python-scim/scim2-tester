@@ -215,6 +215,8 @@ def access_schema_by_id(
         ),
     )
 
+    # CheckResult has no field for the queried schema. Its URN goes in the
+    # attribute field, as an attribute path starts with the URN of its schema.
     results = []
     for schema in schemas_response.resources or []:
         if schema.id:
@@ -230,6 +232,7 @@ def access_schema_by_id(
                         status=Status.SUCCESS,
                         reason=f"Successfully accessed schema: {schema.id}",
                         data=response,
+                        attribute=schema.id,
                     )
                 )
             except (SCIMClientException, SCIMException) as e:
@@ -238,6 +241,7 @@ def access_schema_by_id(
                         context,
                         status=Status.ERROR,
                         reason=f"Failed to access schema {schema.id}: {str(e)}",
+                        attribute=schema.id,
                     )
                 )
 
