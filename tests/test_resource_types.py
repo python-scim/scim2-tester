@@ -124,8 +124,8 @@ def test_resource_type_by_id_methods(httpserver, testing_context):
     )
 
 
-def test_resource_type_without_id_methods_not_checked(httpserver, testing_context):
-    """The methods of a resource type without id are not checked, as it has no endpoint."""
+def test_resource_type_without_id_not_queried(httpserver, testing_context):
+    """A resource type without id is not queried, as it has no endpoint of its own."""
     resource_type = ResourceType(name="User", endpoint="/Users", schema_="urn:test")
     httpserver.expect_request("/ResourceTypes", method="GET").respond_with_json(
         ListResponse[ResourceType](
@@ -137,7 +137,9 @@ def test_resource_type_without_id_methods_not_checked(httpserver, testing_contex
 
     results = _resource_types_endpoint(testing_context)
 
-    assert "resource_type_by_id_methods" not in {result.title for result in results}
+    titles = {result.title for result in results}
+    assert "query_resource_type_by_id" not in titles
+    assert "resource_type_by_id_methods" not in titles
 
 
 def test_query_resource_type_by_id_client_returns_error(httpserver, testing_context):

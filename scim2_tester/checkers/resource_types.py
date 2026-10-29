@@ -45,11 +45,13 @@ def _resource_types_endpoint(context: CheckContext) -> list[CheckResult]:
 
     if resource_types_result.status == Status.SUCCESS:
         for resource_type in resource_types_result.data or []:
-            resource_type_results = query_resource_type_by_id(context, resource_type)
-            if resource_type.id:
-                resource_type_results.extend(
-                    resource_type_by_id_methods(context, resource_type)
-                )
+            if not resource_type.id:
+                continue
+
+            resource_type_results = [
+                *query_resource_type_by_id(context, resource_type),
+                *resource_type_by_id_methods(context, resource_type),
+            ]
             for result in resource_type_results:
                 result.resource_type = resource_type.name
                 results.append(result)

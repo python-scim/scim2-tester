@@ -11,6 +11,11 @@ Added
 - ``resource_type_by_id_methods`` and ``schema_by_id_methods`` check that ``/ResourceTypes/{id}``
   and ``/Schemas/{id}`` answer 405 to POST, PUT, PATCH and DELETE. :issue:`16`
 
+Fixed
+^^^^^
+- ``query_resource_type_by_id`` no longer succeeds on a resource type without ``id``, without
+  checking anything. Such a resource type has no endpoint of its own, so it is not queried.
+
 [0.6.3] - 2026-10-29
 --------------------
 
