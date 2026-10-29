@@ -64,6 +64,22 @@ def _matches_hierarchical_tags(func_tags: set[str], filter_tags: set[str]) -> bo
     return False
 
 
+class Outcome(Enum):
+    """Whether a result passes, warns, fails or is skipped."""
+
+    PASSED = auto()
+    """The server behavior is allowed by the RFCs."""
+
+    WARNING = auto()
+    """The server behavior deviates from a recommendation of the RFCs."""
+
+    FAILED = auto()
+    """The server behavior violates a requirement of the RFCs."""
+
+    SKIPPED = auto()
+    """The check was not executed."""
+
+
 class Status(Enum):
     SUCCESS = auto()
     """Server behavior strictly conforms to RFC requirements (MUST/MUST NOT)."""
@@ -87,6 +103,22 @@ class Status(Enum):
 
     SKIPPED = auto()
     """Check was not executed due to filtering or prerequisites."""
+
+    @property
+    def outcome(self) -> Outcome:
+        """Whether a result with this status passes, warns, fails or is skipped."""
+        return _OUTCOMES[self]
+
+
+_OUTCOMES = {
+    Status.SUCCESS: Outcome.PASSED,
+    Status.COMPLIANT: Outcome.PASSED,
+    Status.ACCEPTABLE: Outcome.PASSED,
+    Status.DEVIATION: Outcome.WARNING,
+    Status.ERROR: Outcome.FAILED,
+    Status.CRITICAL: Outcome.FAILED,
+    Status.SKIPPED: Outcome.SKIPPED,
+}
 
 
 @dataclass

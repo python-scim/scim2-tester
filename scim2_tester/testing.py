@@ -25,6 +25,7 @@ from scim2_client import BaseSyncSCIMClient
 
 from scim2_tester.checker import check_server
 from scim2_tester.utils import CheckResult
+from scim2_tester.utils import Outcome
 from scim2_tester.utils import Status
 
 ResultKey = tuple[str | None, str | None, str | None]
@@ -33,8 +34,9 @@ ResultKey = tuple[str | None, str | None, str | None]
 ExpectedResult = Status | tuple[Status, str]
 """The expected status of a result, alone or with a reason."""
 
-PASSING_STATUSES = (Status.SUCCESS, Status.COMPLIANT, Status.ACCEPTABLE)
-FAILING_STATUSES = (Status.DEVIATION, Status.ERROR, Status.CRITICAL)
+EXPECTABLE_STATUSES = frozenset(
+    status for status in Status if status.outcome in (Outcome.WARNING, Outcome.FAILED)
+)
 
 
 class ScimDeviationWarning(UserWarning):
@@ -51,7 +53,8 @@ class ScimDeviationWarning(UserWarning):
 class ScimServerContract:
     """The checks of :func:`~scim2_tester.check_server`, as a pytest test.
 
-    The test runs the checks once, and reports each result as a subtest:
+    The test runs the checks once, and reports each result as a subtest,
+    according to the :attr:`~scim2_tester.Status.outcome` of its status:
 
     - :attr:`~scim2_tester.Status.SUCCESS`, :attr:`~scim2_tester.Status.COMPLIANT`
       and :attr:`~scim2_tester.Status.ACCEPTABLE` results pass;
@@ -129,7 +132,7 @@ class ScimServerContract:
             (
                 key
                 for key, key_statuses in statuses.items()
-                if len(key_statuses) > 1 and key_statuses & set(FAILING_STATUSES)
+                if len(key_statuses) > 1 and key_statuses & EXPECTABLE_STATUSES
             ),
             key=_sort_key,
         )
@@ -193,7 +196,7 @@ def _failures(
     lines = {}
     for result in results:
         key = result_key(result)
-        if result.status not in FAILING_STATUSES or key in ambiguous:
+        if result.status not in EXPECTABLE_STATUSES or key in ambiguous:
             continue
         status = f"Status.{result.status.name}"
         _, reason = _expectation(expected_results.get(key, result.status))
@@ -227,13 +230,13 @@ def _report(result: CheckResult, expected: ExpectedResult | None) -> None:
     if expected is not None:
         _report_expected(result, *_expectation(expected))
 
-    if result.status == Status.SKIPPED:
+    if result.status.outcome is Outcome.SKIPPED:
         pytest.skip(f"{key!r} {reason}")
 
-    if result.status == Status.DEVIATION:
+    if result.status.outcome is Outcome.WARNING:
         warnings.warn(f"{key!r} {reason}", ScimDeviationWarning, stacklevel=1)
 
-    if result.status in (Status.ERROR, Status.CRITICAL):
+    if result.status.outcome is Outcome.FAILED:
         _fail(result, f"{key!r} {result.status.name}: {reason}")
 
 
@@ -248,7 +251,7 @@ def _report_expected(
         pytest.xfail(f"{key!r} {status.name}{suffix}")
 
     expected = f"{status.name} ({expected_reason})" if expected_reason else status.name
-    if result.status in PASSING_STATUSES:
+    if result.status.outcome is Outcome.PASSED:
         pytest.fail(
             f"{key!r} Expected {expected}, but the check now passes. "
             "Remove it from expected_results.",

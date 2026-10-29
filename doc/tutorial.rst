@@ -44,6 +44,15 @@ and pass it to the :meth:`~scim2_tester.check_server` method:
     for result in results:
         print(result.status.name, result.title)
 
+The :attr:`~scim2_tester.Status.outcome` of a status tells whether the result passes, warns, fails or is skipped.
+Use it to decide whether the server passes the checks:
+
+.. code-block:: python
+
+    from scim2_tester import Outcome
+
+    failed = [r for r in results if r.status.outcome is Outcome.FAILED]
+
 
 scim2-tester supports filtering tests using tags and resource types to run only specific subsets of checks.
 This is useful for targeted testing or when developing specific features.

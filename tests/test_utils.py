@@ -17,6 +17,7 @@ from scim2_models import User
 from scim2_tester.utils import CheckConfig
 from scim2_tester.utils import CheckContext
 from scim2_tester.utils import CheckResult
+from scim2_tester.utils import Outcome
 from scim2_tester.utils import ResourceManager
 from scim2_tester.utils import SCIMTesterError
 from scim2_tester.utils import Status
@@ -544,3 +545,20 @@ def test_check_result_returns_non_failures_when_configured_to_raise(status):
 def test_random_uuid_is_a_version_4_uuid(testing_context):
     """The generated UUIDs are random UUIDs, as uuid.uuid4 makes them."""
     assert testing_context.random_uuid().version == 4
+
+
+@pytest.mark.parametrize(
+    ("status", "outcome"),
+    [
+        (Status.SUCCESS, Outcome.PASSED),
+        (Status.COMPLIANT, Outcome.PASSED),
+        (Status.ACCEPTABLE, Outcome.PASSED),
+        (Status.DEVIATION, Outcome.WARNING),
+        (Status.ERROR, Outcome.FAILED),
+        (Status.CRITICAL, Outcome.FAILED),
+        (Status.SKIPPED, Outcome.SKIPPED),
+    ],
+)
+def test_status_outcome(status, outcome):
+    """Each status tells whether its results pass, warn, fail or are skipped."""
+    assert status.outcome is outcome

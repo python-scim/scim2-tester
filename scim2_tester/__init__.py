@@ -3,12 +3,14 @@ from scim2_tester.discovery import get_all_available_tags
 from scim2_tester.discovery import get_standard_resource_types
 from scim2_tester.utils import CheckConfig
 from scim2_tester.utils import CheckResult
+from scim2_tester.utils import Outcome
 from scim2_tester.utils import SCIMTesterError
 from scim2_tester.utils import Status
 
 __all__ = [
     "check_server",
     "Status",
+    "Outcome",
     "CheckResult",
     "CheckConfig",
     "SCIMTesterError",

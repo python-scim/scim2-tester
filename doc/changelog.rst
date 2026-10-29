@@ -1,6 +1,14 @@
 Changelog
 =========
 
+[0.6.3] - Unreleased
+--------------------
+
+Added
+^^^^^
+- :class:`~scim2_tester.Outcome` and :attr:`Status.outcome <scim2_tester.Status.outcome>` tell
+  whether a result passes, warns, fails or is skipped, without the ``testing`` extra.
+
 [0.6.2] - 2026-10-29
 --------------------
 
