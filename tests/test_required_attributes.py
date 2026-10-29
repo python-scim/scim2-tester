@@ -4,10 +4,14 @@ import pytest
 from scim2_client import UnexpectedStatusCodeException
 from scim2_models import EnterpriseUser
 from scim2_models import Error
+from scim2_models import Patch
 from scim2_models import Resource
+from scim2_models import ScimProvider
+from scim2_models import ServiceProviderConfig
 from scim2_models import User
 
 from scim2_tester.checkers._required_utils import rejection_status
+from scim2_tester.checkers.patch_remove import check_remove_required_attribute
 from scim2_tester.checkers.resource_post import (
     object_creation_without_required_attribute,
 )
@@ -224,3 +228,68 @@ def test_replacement_without_required_attribute_accepted(httpserver, testing_con
     assert results[0].reason == (
         "PUT /Users/123 without userName: the server accepted the request"
     )
+
+
+def test_remove_required_attribute_rejected(httpserver, testing_context):
+    """A server rejecting the removal of userName with 400 mutability succeeds."""
+    _setup_user(httpserver)
+    httpserver.expect_request(uri="/Users/123", method="PATCH").respond_with_json(
+        _error(400, "mutability"), status=400, content_type="application/scim+json"
+    )
+
+    results = check_remove_required_attribute(testing_context, User[EnterpriseUser])
+
+    assert len(results) == 1
+    assert results[0].status == Status.SUCCESS
+    assert results[0].attribute == "userName"
+    assert results[0].reason == (
+        "PATCH /Users/123 removing userName: the server answered 400 mutability"
+    )
+    request = next(r for r, _ in httpserver.log if r.method == "PATCH")
+    assert request.get_json()["Operations"] == [{"op": "remove", "path": "userName"}]
+
+
+@pytest.mark.parametrize("scim_type", ["invalidValue", None])
+def test_remove_required_attribute_rejected_without_mutability(
+    httpserver, testing_context, scim_type
+):
+    """A server rejecting the removal of userName without the mutability scimType deviates."""
+    _setup_user(httpserver)
+    httpserver.expect_request(uri="/Users/123", method="PATCH").respond_with_json(
+        _error(400, scim_type), status=400, content_type="application/scim+json"
+    )
+
+    results = check_remove_required_attribute(testing_context, User[EnterpriseUser])
+
+    assert results[0].status == Status.DEVIATION
+
+
+def test_remove_required_attribute_accepted(httpserver, testing_context):
+    """A server removing userName fails."""
+    _setup_user(httpserver)
+    httpserver.expect_request(uri="/Users/123", method="PATCH").respond_with_data(
+        "", status=204
+    )
+
+    results = check_remove_required_attribute(testing_context, User[EnterpriseUser])
+
+    assert results[0].status == Status.ERROR
+    assert results[0].reason == (
+        "PATCH /Users/123 removing userName: the server accepted the request"
+    )
+
+
+def test_remove_required_attribute_patch_not_supported(testing_context):
+    """The removal of a required attribute is skipped when PATCH is not supported."""
+    provider = testing_context.client.provider
+    testing_context.client.provider = ScimProvider(
+        provider.models,
+        provider.resource_types,
+        ServiceProviderConfig(patch=Patch(supported=False)),
+    )
+
+    results = check_remove_required_attribute(testing_context, User[EnterpriseUser])
+
+    assert len(results) == 1
+    assert results[0].status == Status.SKIPPED
+    assert results[0].reason == "PATCH operations not supported by server"

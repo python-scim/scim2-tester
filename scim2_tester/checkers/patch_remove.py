@@ -1,5 +1,6 @@
 """PATCH remove operation checkers for SCIM compliance testing."""
 
+from collections.abc import Callable
 from typing import Any
 
 from scim2_client import SCIMClientException
@@ -17,6 +18,7 @@ from ..utils import Status
 from ..utils import check_result
 from ..utils import checker
 from ..utils import parametrize
+from ._required_utils import check_required_attributes
 
 
 def _is_unassigned(value: Any) -> bool:
@@ -201,3 +203,64 @@ def check_remove_attribute(
             )
 
     return results
+
+
+@checker("patch:remove")
+def check_remove_required_attribute(
+    context: CheckContext, model: type[Resource[Any]]
+) -> list[CheckResult]:
+    """Validate that PATCH rejects the removal of a required attribute.
+
+    For each required attribute, creates a resource, then sends a PATCH remove
+    operation on this attribute. Returns one result per attribute.
+
+    **Status:**
+
+    - :attr:`~scim2_tester.Status.SUCCESS`: The server answers 400 ``mutability``
+    - :attr:`~scim2_tester.Status.DEVIATION`: The server answers 400 with another
+      ``scimType`` or without one, another 4xx status, or an error without a SCIM body
+    - :attr:`~scim2_tester.Status.ERROR`: The server removes the attribute, or answers 5xx
+    - :attr:`~scim2_tester.Status.SKIPPED`: The resource has no required attribute to
+      check, or PATCH is not supported
+
+    .. pull-quote:: :rfc:`RFC 7644 Section 3.5.2.2 - Remove Operation <7644#section-3.5.2.2>`
+
+       "If an attribute is removed or becomes unassigned and is defined as a
+       required attribute or a read-only attribute, the server SHALL return an
+       HTTP response status code and a JSON detail error response as defined in
+       Section 3.12, with a "scimType" error code of "mutability"."
+    """
+    config = context.client.provider.config
+    if config and config.patch and not config.patch.supported:
+        return [
+            check_result(
+                context,
+                status=Status.SKIPPED,
+                reason="PATCH operations not supported by server",
+            )
+        ]
+
+    def request_for(path: Path[Any], endpoint: str) -> tuple[str, Callable[[], Any]]:
+        resource = context.resource_manager.create_and_register(model)
+        url = f"{endpoint}/{resource.id}"
+        patch_op = {
+            "schemas": [PatchOp.__schema__],
+            "Operations": [{"op": "remove", "path": str(path)}],
+        }
+
+        def send() -> Any:
+            return context.client.modify(
+                model,
+                resource.id,
+                patch_op,
+                check_request_payload=False,
+                expected_status_codes=None,
+                raise_scim_errors=False,
+                url=url,
+            )
+
+        return f"PATCH {url} removing {path}", send
+
+    return check_required_attributes(
+        context, model, "mutability", Status.DEVIATION, request_for
+    )

@@ -9,6 +9,8 @@ Added
 - ``object_creation_without_required_attribute`` checks that POST rejects a resource without
   one of its required attributes, with a 400 ``invalidValue``.
 - ``object_replacement_without_required_attribute`` checks the same on PUT.
+- ``check_remove_required_attribute`` checks that PATCH rejects the removal of a required
+  attribute, with a 400 ``mutability``.
 
 [0.6.1] - 2026-10-29
 --------------------

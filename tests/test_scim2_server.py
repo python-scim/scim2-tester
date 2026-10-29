@@ -64,8 +64,14 @@ def test_patch_results_identify_their_attribute(scim_client):
         "check_add_attribute",
         "check_replace_attribute",
         "check_remove_attribute",
+        "check_remove_required_attribute",
     }
-    assert all(r.attribute == r.data["urn"] for r in executed)
+    assert all(
+        r.attribute == r.data["urn"]
+        for r in executed
+        if r.title != "check_remove_required_attribute"
+    )
+    assert all(r.attribute is not None for r in executed)
     assert (
         "urn:ietf:params:scim:schemas:extension:enterprise:2.0:User:employeeNumber"
         in {r.attribute for r in executed}

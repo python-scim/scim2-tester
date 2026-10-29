@@ -13,6 +13,7 @@ Available checker categories:
 from .misc import random_url
 from .patch_add import check_add_attribute
 from .patch_remove import check_remove_attribute
+from .patch_remove import check_remove_required_attribute
 from .patch_replace import check_replace_attribute
 from .resource import resource_type_tests
 from .resource_delete import object_deletion
@@ -70,6 +71,7 @@ __all__ = [
     "resource_type_tests",
     "check_add_attribute",
     "check_remove_attribute",
+    "check_remove_required_attribute",
     "check_replace_attribute",
     "random_url",
 ]
