@@ -14,6 +14,7 @@ from scim2_models import SearchRequest
 from ..utils import CheckContext
 from ..utils import CheckResult
 from ..utils import Status
+from ..utils import _exception_data
 from ..utils import _exception_reason
 from ..utils import check_result
 from ..utils import checker
@@ -191,7 +192,7 @@ def _check_attribute(
             context,
             status=Status.ERROR,
             reason=f"{request} failed: {_exception_reason(exc)}",
-            data=exc,
+            data=_exception_data(exc),
             attribute=attribute,
         )
 

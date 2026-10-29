@@ -329,6 +329,7 @@ def test_object_query_with_attributes_server_returns_a_never_returned_attribute(
         "GET /Resource/{id} with attributes=password failed:"
     )
     assert "returnability 'never'" in results["password"].reason
+    assert results["password"].data["password"] == "secret"
     assert results["nickName"].status == Status.SUCCESS
 
 
@@ -380,6 +381,7 @@ def test_object_query_with_attributes_failure_on_one_attribute(
     assert results["nickName"].reason.startswith(
         "GET /Resource/{id} with attributes=nickName failed:"
     )
+    assert results["nickName"].data["detail"] == "Something went wrong"
     assert results["userName"].status == Status.SUCCESS
 
 
