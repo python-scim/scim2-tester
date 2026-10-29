@@ -34,12 +34,14 @@ from .resource_query_attributes import search_with_excluded_attributes
 from .resource_types import access_invalid_resource_type
 from .resource_types import query_all_resource_types
 from .resource_types import query_resource_type_by_id
+from .resource_types import resource_type_by_id_methods
 from .resource_types import resource_types_endpoint_methods
 from .resource_types import resource_types_schema_validation
 from .schemas import access_invalid_schema
 from .schemas import access_schema_by_id
 from .schemas import core_schemas_validation
 from .schemas import query_all_schemas
+from .schemas import schema_by_id_methods
 from .schemas import schemas_endpoint_methods
 from .service_provider_config import service_provider_config_endpoint
 from .service_provider_config import service_provider_config_endpoint_methods
@@ -51,10 +53,12 @@ __all__ = [
     "resource_types_schema_validation",
     "query_all_resource_types",
     "query_resource_type_by_id",
+    "resource_type_by_id_methods",
     "access_invalid_resource_type",
     "schemas_endpoint_methods",
     "query_all_schemas",
     "access_schema_by_id",
+    "schema_by_id_methods",
     "access_invalid_schema",
     "core_schemas_validation",
     "object_creation",

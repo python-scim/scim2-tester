@@ -47,6 +47,8 @@ def test_unsupported_methods_on_discovery_endpoints(scim_client):
         "service_provider_config_endpoint_methods",
         "resource_types_endpoint_methods",
         "schemas_endpoint_methods",
+        "resource_type_by_id_methods",
+        "schema_by_id_methods",
     }
     method_results = [r for r in results if r.title in method_checks]
     assert {r.title for r in method_results} == method_checks

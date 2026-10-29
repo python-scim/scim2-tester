@@ -45,7 +45,12 @@ def _resource_types_endpoint(context: CheckContext) -> list[CheckResult]:
 
     if resource_types_result.status == Status.SUCCESS:
         for resource_type in resource_types_result.data or []:
-            for result in query_resource_type_by_id(context, resource_type):
+            resource_type_results = query_resource_type_by_id(context, resource_type)
+            if resource_type.id:
+                resource_type_results.extend(
+                    resource_type_by_id_methods(context, resource_type)
+                )
+            for result in resource_type_results:
                 result.resource_type = resource_type.name
                 results.append(result)
 
@@ -86,6 +91,39 @@ def resource_types_endpoint_methods(
        supported by the target resource."
     """
     return _test_discovery_endpoint_methods(context, "/ResourceTypes")
+
+
+@checker("discovery", "resource-types")
+def resource_type_by_id_methods(
+    context: CheckContext, resource_type: ResourceType
+) -> list[CheckResult]:
+    """Validate that unsupported HTTP methods on a resource type return 405 Method Not Allowed.
+
+    Tests that POST, PUT, PATCH, and DELETE methods on the ``/ResourceTypes/{id}``
+    endpoint return HTTP 405 Method Not Allowed, as :rfc:`7644` §4 only defines GET.
+
+    **Status:**
+
+    - :attr:`~scim2_tester.Status.SUCCESS`: Every method returns 405
+    - :attr:`~scim2_tester.Status.DEVIATION`: A method returns 404, 501 or another 4xx status
+    - :attr:`~scim2_tester.Status.ERROR`: A method succeeds, or returns another 5xx status
+
+    The check returns one result, with the worst status of the methods.
+
+    .. pull-quote:: :rfc:`RFC 7644 Section 4 - Service Provider Configuration Endpoints <7644#section-4>`
+
+       "SCIM defines three endpoints to facilitate discovery of SCIM service
+       provider features and schema that MAY be retrieved using HTTP GET"
+
+    .. pull-quote:: :rfc:`RFC 9110 Section 15.5.6 - 405 Method Not Allowed <9110#section-15.5.6>`
+
+       "The 405 (Method Not Allowed) status code indicates that the method
+       received in the request-line is known by the origin server but not
+       supported by the target resource."
+    """
+    return _test_discovery_endpoint_methods(
+        context, f"/ResourceTypes/{resource_type.id}"
+    )
 
 
 @checker("discovery", "resource-types")

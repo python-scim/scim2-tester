@@ -10,6 +10,7 @@ from scim2_tester.checkers.schemas import access_invalid_schema
 from scim2_tester.checkers.schemas import access_schema_by_id
 from scim2_tester.checkers.schemas import core_schemas_validation
 from scim2_tester.checkers.schemas import query_all_schemas
+from scim2_tester.checkers.schemas import schema_by_id_methods
 from scim2_tester.checkers.schemas import schemas_endpoint_methods
 from scim2_tester.utils import CheckConfig
 from scim2_tester.utils import CheckContext
@@ -34,6 +35,10 @@ def test_schemas_endpoint(httpserver, testing_context):
         content_type="application/scim+json",
     )
     for schema in schemas:
+        for method in ("POST", "PUT", "PATCH", "DELETE"):
+            httpserver.expect_request(
+                f"/Schemas/{schema.id}", method=method
+            ).respond_with_data("", status=405)
         httpserver.expect_request(
             re.compile(rf"^/Schemas/{schema.id}$")
         ).respond_with_json(
@@ -50,6 +55,9 @@ def test_schemas_endpoint(httpserver, testing_context):
     results = _schemas_endpoint(testing_context)
 
     assert all(result.status == Status.SUCCESS for result in results)
+    assert {
+        result.attribute for result in results if result.title == "schema_by_id_methods"
+    } == {schema.id for schema in schemas}
 
 
 def test_missing_individual_schema_endpoints(httpserver, testing_context):
@@ -275,6 +283,38 @@ def test_schemas_endpoint_http_methods(httpserver, testing_context):
     assert results[0].reason == (
         "POST, PUT, PATCH, DELETE /Schemas correctly returned 405 Method Not Allowed"
     )
+
+
+def test_schema_by_id_methods(httpserver, testing_context):
+    """A schema endpoint answering 405 to the methods other than GET succeeds."""
+    urn = "urn:ietf:params:scim:schemas:core:2.0:User"
+    for method in ["POST", "PUT", "PATCH", "DELETE"]:
+        httpserver.expect_request(
+            uri=f"/Schemas/{urn}", method=method
+        ).respond_with_data("", status=405)
+
+    results = schema_by_id_methods(testing_context, Schema(id=urn, name="User"))
+
+    assert len(results) == 1
+    assert results[0].status == Status.SUCCESS
+    assert results[0].reason == (
+        f"POST, PUT, PATCH, DELETE /Schemas/{urn} correctly returned 405 Method Not Allowed"
+    )
+
+
+def test_schema_without_id_methods_not_checked(httpserver, testing_context):
+    """The methods of a schema without id are not checked, as it has no endpoint."""
+    httpserver.expect_request("/Schemas", method="GET").respond_with_json(
+        ListResponse[Schema](
+            resources=[Schema(name="User")], total_results=1
+        ).model_dump(scim_ctx=Context.RESOURCE_QUERY_RESPONSE),
+        status=200,
+        content_type="application/scim+json",
+    )
+
+    results = _schemas_endpoint(testing_context)
+
+    assert "schema_by_id_methods" not in {result.title for result in results}
 
 
 def test_query_all_schemas_without_any_schema(httpserver, testing_context):

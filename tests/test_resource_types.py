@@ -10,6 +10,7 @@ from scim2_tester.checkers.resource_types import _resource_types_endpoint
 from scim2_tester.checkers.resource_types import access_invalid_resource_type
 from scim2_tester.checkers.resource_types import query_all_resource_types
 from scim2_tester.checkers.resource_types import query_resource_type_by_id
+from scim2_tester.checkers.resource_types import resource_type_by_id_methods
 from scim2_tester.checkers.resource_types import resource_types_endpoint_methods
 from scim2_tester.utils import CheckConfig
 from scim2_tester.utils import CheckContext
@@ -33,6 +34,10 @@ def test_resource_types_endpoint(httpserver, testing_context):
         content_type="application/scim+json",
     )
     for resource_type in testing_context.client.provider.resource_types:
+        for method in ("POST", "PUT", "PATCH", "DELETE"):
+            httpserver.expect_request(
+                f"/ResourceTypes/{resource_type.id}", method=method
+            ).respond_with_data("", status=405)
         httpserver.expect_request(
             re.compile(rf"^/ResourceTypes/{resource_type.id}$")
         ).respond_with_json(
@@ -61,6 +66,11 @@ def test_resource_types_endpoint(httpserver, testing_context):
     results = _resource_types_endpoint(testing_context)
 
     assert all(result.status == Status.SUCCESS for result in results)
+    assert {
+        result.resource_type
+        for result in results
+        if result.title == "resource_type_by_id_methods"
+    } == {"User", "Group"}
 
 
 def test_resource_missing_query_endpoint(httpserver, testing_context):
@@ -93,6 +103,41 @@ def test_resource_types_endpoint_methods(httpserver, testing_context):
     assert results[0].reason == (
         "POST, PUT, PATCH, DELETE /ResourceTypes correctly returned 405 Method Not Allowed"
     )
+
+
+def test_resource_type_by_id_methods(httpserver, testing_context):
+    """A resource type endpoint answering 405 to the methods other than GET succeeds."""
+    for method in ["POST", "PUT", "PATCH", "DELETE"]:
+        httpserver.expect_request(
+            uri="/ResourceTypes/User", method=method
+        ).respond_with_data("", status=405)
+    resource_type = ResourceType(
+        id="User", name="User", endpoint="/Users", schema_="urn:test"
+    )
+
+    results = resource_type_by_id_methods(testing_context, resource_type)
+
+    assert len(results) == 1
+    assert results[0].status == Status.SUCCESS
+    assert results[0].reason == (
+        "POST, PUT, PATCH, DELETE /ResourceTypes/User correctly returned 405 Method Not Allowed"
+    )
+
+
+def test_resource_type_without_id_methods_not_checked(httpserver, testing_context):
+    """The methods of a resource type without id are not checked, as it has no endpoint."""
+    resource_type = ResourceType(name="User", endpoint="/Users", schema_="urn:test")
+    httpserver.expect_request("/ResourceTypes", method="GET").respond_with_json(
+        ListResponse[ResourceType](
+            resources=[resource_type], total_results=1
+        ).model_dump(scim_ctx=Context.RESOURCE_QUERY_RESPONSE),
+        status=200,
+        content_type="application/scim+json",
+    )
+
+    results = _resource_types_endpoint(testing_context)
+
+    assert "resource_type_by_id_methods" not in {result.title for result in results}
 
 
 def test_query_resource_type_by_id_client_returns_error(httpserver, testing_context):

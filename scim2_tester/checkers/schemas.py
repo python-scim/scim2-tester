@@ -42,6 +42,11 @@ def _schemas_endpoint(context: CheckContext) -> list[CheckResult]:
 
     if schemas_result.status == Status.SUCCESS:
         results.extend(access_schema_by_id(context))
+        for schema in schemas_result.data or []:
+            if schema.id:
+                for result in schema_by_id_methods(context, schema):
+                    result.attribute = schema.id
+                    results.append(result)
 
     results.extend(access_invalid_schema(context))
     results.extend(schemas_endpoint_methods(context))
@@ -187,6 +192,35 @@ def schemas_endpoint_methods(
        supported by the target resource."
     """
     return _test_discovery_endpoint_methods(context, "/Schemas")
+
+
+@checker("discovery", "schemas")
+def schema_by_id_methods(context: CheckContext, schema: Schema) -> list[CheckResult]:
+    """Validate that unsupported HTTP methods on a schema return 405 Method Not Allowed.
+
+    Tests that POST, PUT, PATCH, and DELETE methods on the ``/Schemas/{id}``
+    endpoint return HTTP 405 Method Not Allowed, as :rfc:`7644` §4 only defines GET.
+
+    **Status:**
+
+    - :attr:`~scim2_tester.Status.SUCCESS`: Every method returns 405
+    - :attr:`~scim2_tester.Status.DEVIATION`: A method returns 404, 501 or another 4xx status
+    - :attr:`~scim2_tester.Status.ERROR`: A method succeeds, or returns another 5xx status
+
+    The check returns one result, with the worst status of the methods.
+
+    .. pull-quote:: :rfc:`RFC 7644 Section 4 - Service Provider Configuration Endpoints <7644#section-4>`
+
+       "Individual schema definitions can be returned by appending the schema
+       URI to the /Schemas endpoint."
+
+    .. pull-quote:: :rfc:`RFC 9110 Section 15.5.6 - 405 Method Not Allowed <9110#section-15.5.6>`
+
+       "The 405 (Method Not Allowed) status code indicates that the method
+       received in the request-line is known by the origin server but not
+       supported by the target resource."
+    """
+    return _test_discovery_endpoint_methods(context, f"/Schemas/{schema.id}")
 
 
 @checker("discovery", "schemas")
