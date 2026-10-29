@@ -222,9 +222,9 @@ def test_the_failures_are_printed_as_expected_results(pytester):
         [
             "Failures, in the format of expected_results:",
             "{",
-            "    (None, 'a_check', None): (Status.ERROR, 'TODO'),",
+            "    (None, 'a_check', None): Status.ERROR,",
             "    (None, 'other_check', None): (Status.ERROR, 'server#1'),",
-            "    (None, 'third_check', None): (Status.DEVIATION, 'TODO'),",
+            "    (None, 'third_check', None): Status.DEVIATION,",
             "}",
         ]
     )
@@ -344,9 +344,9 @@ def test_the_printed_failures_are_sorted_by_key(pytester):
     result.stdout.fnmatch_lines(
         [
             "{",
-            "    (None, 'a_check', None): (Status.ERROR, 'TODO'),",
-            "    ('Group', 'a_check', None): (Status.ERROR, 'TODO'),",
-            "    ('User', 'b_check', None): (Status.ERROR, 'TODO'),",
+            "    (None, 'a_check', None): Status.ERROR,",
+            "    ('Group', 'a_check', None): Status.ERROR,",
+            "    ('User', 'b_check', None): Status.ERROR,",
             "}",
         ]
     )
@@ -390,3 +390,49 @@ def test_the_failure_messages_tell_the_key_in_junit_reports(pytester):
 
     report = (pytester.path / "report.xml").read_text()
     assert "('User', 'a_check', 'nickName') ERROR: the reason" in report
+
+
+def test_an_expected_status_without_reason_is_an_expected_failure(pytester):
+    """An expected result can be a status alone, without a reason."""
+    pytester.makepyfile(
+        fake_server("ERROR", expected='{(None, "a_check", None): Status.ERROR}')
+    )
+
+    result = pytester.runpytest("-v", "-rx")
+
+    result.stdout.fnmatch_lines(
+        [
+            "SUBXFAIL[[]a_check[]] *(None, 'a_check', None) ERROR",
+            "*= 1 passed, 1 xfailed in *",
+        ]
+    )
+
+
+def test_an_expected_status_without_reason_tells_the_expected_status(pytester):
+    """A result with another status than an expected status without reason fails."""
+    pytester.makepyfile(
+        fake_server("DEVIATION", expected='{(None, "a_check", None): Status.ERROR}')
+    )
+
+    result = pytester.runpytest("-v")
+
+    result.assert_outcomes(failed=2)
+    result.stdout.fnmatch_lines(
+        ["(None, 'a_check', None) Expected ERROR, got DEVIATION: the reason"]
+    )
+
+
+def test_an_expected_status_without_reason_that_now_passes_fails(pytester):
+    """An expected status without reason that now passes fails, to be removed."""
+    pytester.makepyfile(
+        fake_server("SUCCESS", expected='{(None, "a_check", None): Status.ERROR}')
+    )
+
+    result = pytester.runpytest("-v")
+
+    result.stdout.fnmatch_lines(
+        [
+            "(None, 'a_check', None) Expected ERROR, but the check now passes. "
+            "Remove it from expected_results."
+        ]
+    )

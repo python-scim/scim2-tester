@@ -172,7 +172,8 @@ Known failures
 ~~~~~~~~~~~~~~
 
 When you check a server you do not maintain, some checks may fail until the server is fixed.
-List them in :attr:`~scim2_tester.testing.ScimServerContract.expected_results`, with their status and a reason.
+List them in :attr:`~scim2_tester.testing.ScimServerContract.expected_results`, with their status.
+You can add a reason to the status.
 The reason is free text, printed in the report, such as a ticket URL or an explanation:
 
 .. code-block:: python
@@ -186,10 +187,7 @@ The reason is free text, printed in the report, such as a ticket URL or an expla
                 Status.ERROR,
                 "https://github.com/example/scim-server/issues/123",
             ),
-            (None, "schemas_endpoint_methods", None): (
-                Status.DEVIATION,
-                "The server answers 404 to unknown methods",
-            ),
+            (None, "schemas_endpoint_methods", None): Status.DEVIATION,
         }
 
 The key of a result is its resource type, its title and its attribute.
@@ -200,7 +198,7 @@ A key applies to all the results that have it.
 When these results have different statuses and one of them fails, the key cannot be expected, and the test fails.
 
 When the test fails, its output prints the current failures in the format of ``expected_results``.
-Copy them into your test class, and replace each ``TODO`` with a reason.
+Copy them into your test class, and add a reason where it helps.
 
 Replaying a run
 ~~~~~~~~~~~~~~~

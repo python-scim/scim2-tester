@@ -1,6 +1,14 @@
 Changelog
 =========
 
+[0.6.1] - Unreleased
+--------------------
+
+Added
+^^^^^
+- :attr:`~scim2_tester.testing.ScimServerContract.expected_results` accepts a status alone,
+  without a reason.
+
 [0.6.0] - 2026-10-29
 --------------------
 

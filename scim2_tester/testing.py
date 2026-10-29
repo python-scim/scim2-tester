@@ -29,6 +29,9 @@ from scim2_tester.utils import Status
 ResultKey = tuple[str | None, str | None, str | None]
 """The key of a result: its resource type, its title and its attribute."""
 
+ExpectedResult = Status | tuple[Status, str]
+"""The expected status of a result, alone or with a reason."""
+
 PASSING_STATUSES = (Status.SUCCESS, Status.COMPLIANT, Status.ACCEPTABLE)
 FAILING_STATUSES = (Status.DEVIATION, Status.ERROR, Status.CRITICAL)
 
@@ -79,23 +82,21 @@ class ScimServerContract:
     to replay it.
     """
 
-    expected_results: dict[ResultKey, tuple[Status, str]] = {}
-    """The known failures of the server, with their status and a reason.
+    expected_results: dict[ResultKey, ExpectedResult] = {}
+    """The known failures of the server, with their status and an optional reason.
 
     The key of a result is its :attr:`~scim2_tester.CheckResult.resource_type`, its
     :attr:`~scim2_tester.CheckResult.title` and its
-    :attr:`~scim2_tester.CheckResult.attribute`. The reason is free text, printed
-    in the report, such as a ticket URL or an explanation::
+    :attr:`~scim2_tester.CheckResult.attribute`. The value is the expected status,
+    or a tuple of the status and a reason. The reason is free text, printed in the
+    report, such as a ticket URL or an explanation::
 
         expected_results = {
             ("User", "check_add_attribute", "nickName"): (
                 Status.ERROR,
                 "https://github.com/example/scim-server/issues/123",
             ),
-            (None, "schemas_endpoint_methods", None): (
-                Status.DEVIATION,
-                "The server answers 404 to unknown methods",
-            ),
+            (None, "schemas_endpoint_methods", None): Status.DEVIATION,
         }
 
     A result with the expected status is an expected failure. A result with
@@ -181,7 +182,7 @@ def _subtest_parameters(result: CheckResult) -> dict[str, str]:
 
 def _failures(
     results: list[CheckResult],
-    expected_results: dict[ResultKey, tuple[Status, str]],
+    expected_results: dict[ResultKey, ExpectedResult],
     ambiguous: list[ResultKey],
 ) -> str:
     """Return the failures of a run, in the format of the expected results, if any."""
@@ -190,8 +191,10 @@ def _failures(
         key = result_key(result)
         if result.status not in FAILING_STATUSES or key in ambiguous:
             continue
-        reason = expected_results.get(key, (result.status, "TODO"))[1]
-        lines[key] = f"    {key!r}: (Status.{result.status.name}, {reason!r}),"
+        status = f"Status.{result.status.name}"
+        _, reason = _expectation(expected_results.get(key, result.status))
+        value = status if reason is None else f"({status}, {reason!r})"
+        lines[key] = f"    {key!r}: {value},"
 
     if not lines:
         return ""
@@ -201,7 +204,14 @@ def _failures(
     )
 
 
-def _report(result: CheckResult, expected: tuple[Status, str] | None) -> None:
+def _expectation(expected: ExpectedResult) -> tuple[Status, str | None]:
+    """Return the expected status of a result, and its reason if any."""
+    if isinstance(expected, Status):
+        return expected, None
+    return expected
+
+
+def _report(result: CheckResult, expected: ExpectedResult | None) -> None:
     """Report a result as the outcome of the current subtest.
 
     The messages start with the key of the result, as some reports, such as
@@ -210,7 +220,7 @@ def _report(result: CheckResult, expected: tuple[Status, str] | None) -> None:
     key = result_key(result)
     reason = result.reason or ""
     if expected is not None:
-        _report_expected(result, *expected)
+        _report_expected(result, *_expectation(expected))
 
     if result.status == Status.SKIPPED:
         pytest.skip(f"{key!r} {reason}")
@@ -222,21 +232,24 @@ def _report(result: CheckResult, expected: tuple[Status, str] | None) -> None:
         pytest.fail(f"{key!r} {result.status.name}: {reason}", pytrace=False)
 
 
-def _report_expected(result: CheckResult, status: Status, expected_reason: str) -> None:
+def _report_expected(
+    result: CheckResult, status: Status, expected_reason: str | None
+) -> None:
     """Report a result listed in the expected results."""
     key = result_key(result)
     if result.status == status:
-        pytest.xfail(f"{key!r} {status.name}: {expected_reason}")
+        suffix = f": {expected_reason}" if expected_reason else ""
+        pytest.xfail(f"{key!r} {status.name}{suffix}")
 
+    expected = f"{status.name} ({expected_reason})" if expected_reason else status.name
     if result.status in PASSING_STATUSES:
         pytest.fail(
-            f"{key!r} Expected {status.name} ({expected_reason}), but the check now "
-            "passes. Remove it from expected_results.",
+            f"{key!r} Expected {expected}, but the check now passes. "
+            "Remove it from expected_results.",
             pytrace=False,
         )
 
     pytest.fail(
-        f"{key!r} Expected {status.name} ({expected_reason}), "
-        f"got {result.status.name}: {result.reason or ''}",
+        f"{key!r} Expected {expected}, got {result.status.name}: {result.reason or ''}",
         pytrace=False,
     )
