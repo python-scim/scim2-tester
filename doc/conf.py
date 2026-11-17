@@ -16,11 +16,10 @@ extensions = [
     "sphinx.ext.intersphinx",
     "sphinx.ext.todo",
     "sphinx.ext.viewcode",
-    "sphinx_click",
     "sphinx_issues",
     "sphinx_paramlinks",
+    "sphinx_reredirects",
     "sphinxcontrib.autodoc_pydantic",
-    "myst_parser",
 ]
 
 templates_path = ["_templates"]
@@ -29,11 +28,6 @@ project = "scim2-tester"
 year = datetime.datetime.now().strftime("%Y")
 copyright = f"{year}, Yaal Coop"
 author = "Yaal Coop"
-source_suffix = {
-    ".rst": "restructuredtext",
-    ".txt": "markdown",
-    ".md": "markdown",
-}
 
 version = metadata.version("scim2_tester")
 language = "en"
@@ -41,6 +35,7 @@ pygments_style = "sphinx"
 todo_include_todos = True
 toctree_collapse = False
 suppress_warnings = ["autosectionlabel.changelog"]
+autosectionlabel_prefix_document = True
 
 intersphinx_mapping = {
     "python": ("https://docs.python.org/3", None),
@@ -141,6 +136,12 @@ html_context = {
     "source_repo": "scim2-tester",
     "source_version": "main",
     "source_docs_path": "/doc/",
+}
+
+# -- Options for sphinx-reredirects -------------------------------
+
+redirects = {
+    "tutorial": "overview.html",
 }
 
 # -- Options for sphinx-issues -------------------------------------

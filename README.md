@@ -31,7 +31,7 @@ pip install scim2-tester
 
 ## Usage
 
-Check the [tutorial](https://scim2-tester.readthedocs.io/en/latest/tutorial.html) and the [reference](https://scim2-tester.readthedocs.io/en/latest/reference.html) for more details.
+Check the [overview](https://scim2-tester.readthedocs.io/en/latest/overview.html), the [how-to guides](https://scim2-tester.readthedocs.io/en/latest/how-to/index.html) and the [reference](https://scim2-tester.readthedocs.io/en/latest/reference.html) for more details.
 
 scim2-tester belongs in a collection of SCIM tools developed by [Yaal Coop](https://yaal.coop),
 with [scim2-models](https://github.com/python-scim/scim2-models),

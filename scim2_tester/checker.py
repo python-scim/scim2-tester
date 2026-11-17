@@ -99,17 +99,7 @@ def iter_check_server(
         same values, which helps to replay a failure. Without a seed, each run sends new values.
     :raises ValueError: If a tag is not in :func:`~scim2_tester.get_all_available_tags`.
 
-    Available tags:
-        - **discovery**: Tests for configuration endpoints (ServiceProviderConfig, ResourceTypes, Schemas)
-        - **service-provider-config**: Tests for ServiceProviderConfig endpoint
-        - **resource-types**: Tests for ResourceTypes endpoint
-        - **schemas**: Tests for Schemas endpoint
-        - **crud**: All CRUD operation tests
-        - **crud:create**: Resource creation tests
-        - **crud:read**: Resource reading tests
-        - **crud:update**: Resource update tests
-        - **crud:delete**: Resource deletion tests
-        - **misc**: Miscellaneous tests (e.g., random URL access)
+    :func:`~scim2_tester.get_all_available_tags` lists the tags.
 
     Example usage::
 

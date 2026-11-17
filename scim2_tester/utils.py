@@ -115,7 +115,7 @@ class CheckConfig:
     """Configuration for check behavior."""
 
     raise_exceptions: bool = False
-    """Whether to raise exceptions or store them in a :class:`~scim2_tester.Result` object."""
+    """Whether to raise exceptions or store them in a :class:`~scim2_tester.CheckResult` object."""
 
     expected_status_codes: list[int] | None = None
     """The expected response status codes."""
@@ -240,6 +240,7 @@ class CheckResult:
     """Store a check result."""
 
     status: Status
+    """How the server behaved."""
 
     title: str | None = None
     """The title of the check."""
