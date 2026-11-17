@@ -10,6 +10,7 @@ from scim2_tester.checkers import service_provider_config_endpoint_methods
 from scim2_tester.checkers.resource import _iter_resource_type_tests
 from scim2_tester.checkers.resource_types import _resource_types_endpoint
 from scim2_tester.checkers.schemas import _schemas_endpoint
+from scim2_tester.discovery import get_all_available_tags
 from scim2_tester.utils import CheckConfig
 from scim2_tester.utils import CheckContext
 from scim2_tester.utils import CheckResult
@@ -106,6 +107,7 @@ def iter_check_server(
     :param resource_types: Filter by resource type names (e.g., ["User", "Group"]).
     :param seed: The seed of the generated values. Two runs with the same seed send the
         same values, which helps to replay a failure. Without a seed, each run sends new values.
+    :raises ValueError: If a tag is not in :func:`~scim2_tester.get_all_available_tags`.
 
     Available tags:
         - **discovery**: Tests for configuration endpoints (ServiceProviderConfig, ResourceTypes, Schemas)
@@ -133,6 +135,12 @@ def iter_check_server(
         ):
             print(result.status.name, result.title)
     """
+    unknown_tags = ((include_tags or set()) | (exclude_tags or set())) - set(
+        get_all_available_tags()
+    )
+    if unknown_tags:
+        raise ValueError(f"Unknown tags: {', '.join(sorted(unknown_tags))}")
+
     conf = CheckConfig(
         raise_exceptions=raise_exceptions,
         include_tags=include_tags,
@@ -191,6 +199,7 @@ def check_server(
     :param resource_types: Filter by resource type names (e.g., ["User", "Group"]).
     :param seed: The seed of the generated values. Two runs with the same seed send the
         same values, which helps to replay a failure. Without a seed, each run sends new values.
+    :raises ValueError: If a tag is not in :func:`~scim2_tester.get_all_available_tags`.
 
     Example usage::
 

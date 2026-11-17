@@ -258,3 +258,13 @@ def test_stopping_iter_check_server_leaves_no_resource(scim2_server_app):
     results.close()
 
     assert client.query(User).total_results == 0
+
+
+@pytest.mark.parametrize(
+    "tags", [{"include_tags": {"read"}}, {"exclude_tags": {"crud", "crud:unknown"}}]
+)
+def test_check_server_refuses_an_unknown_tag(scim2_server_app, tags):
+    """A tag that selects no check is refused, instead of silently skipping the checks."""
+    client = WSGISCIMClient(scim2_server_app)
+    with pytest.raises(ValueError, match="Unknown tags: (read|crud:unknown)$"):
+        check_server(client, **tags)

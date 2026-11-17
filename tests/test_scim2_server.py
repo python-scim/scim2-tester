@@ -191,3 +191,13 @@ def test_tag_discovery_utility(scim2_server_app):
         results = check_server(client, raise_exceptions=False, include_tags={tag})
         executed = [r for r in results if r.status != Status.SKIPPED]
         assert len(executed) > 0, f"Tag '{tag}' produced no executed results"
+
+
+def test_the_available_tags_hold_the_tags_above_the_check_tags():
+    """The tags that select several groups of checks can be listed."""
+    tags = get_all_available_tags()
+    assert {"crud", "crud:read", "crud:read:attributes", "patch", "patch:add"} <= set(
+        tags
+    )
+    assert "*" not in tags
+    assert tags == sorted(tags)

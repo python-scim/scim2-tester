@@ -91,11 +91,16 @@ Available tags include:
 - **crud**: All CRUD operation tests
 - **crud:create**: Resource creation tests
 - **crud:read**: Resource reading tests
+- **crud:read:attributes**: ``attributes`` and ``excludedAttributes`` parameter tests
 - **crud:update**: Resource update tests
 - **crud:delete**: Resource deletion tests
+- **patch**: All PATCH operation tests
+- **patch:add**, **patch:replace**, **patch:remove**: PATCH tests of each operation
 - **misc**: Miscellaneous tests
 
-The tag system is hierarchical, so ``crud`` will match ``crud:create``, ``crud:read``, etc.
+A tag selects the tags under it: ``crud`` selects ``crud:create`` and ``crud:read:attributes``,
+and ``crud:read`` selects ``crud:read:attributes``.
+:func:`~scim2_tester.get_all_available_tags` lists all the tags.
 
 Resource type filtering
 ~~~~~~~~~~~~~~~~~~~~~~~
