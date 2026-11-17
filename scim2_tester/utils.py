@@ -269,6 +269,29 @@ class CheckResult:
     ``urn:ietf:params:scim:schemas:extension:enterprise:2.0:User:employeeNumber``.
     """
 
+    @property
+    def id(self) -> str:
+        """The identifier of the result among the results of a run.
+
+        It reads ``title[resource_type][attribute]``, for instance
+        ``check_add_attribute[User][name.givenName]``.
+        A result without resource type has empty brackets, as in
+        ``schema_by_id_methods[][urn:ietf:params:scim:schemas:core:2.0:User]``.
+        The trailing empty brackets are left out, as in ``random_url`` or
+        ``object_creation[User]``.
+
+        Two results of a run have different identifiers, unless the server
+        publishes two resource types with the same name, or two schemas with
+        the same id.
+
+        The identifier is stable across versions.
+        The changelog announces each renamed check.
+        """
+        parts = [self.resource_type or "", self.attribute or ""]
+        while parts and not parts[-1]:
+            parts.pop()
+        return (self.title or "") + "".join(f"[{part}]" for part in parts)
+
     def __repr__(self) -> str:
         """Return string representation without verbose description field."""
         parts = [f"CheckResult(status={self.status!r}"]

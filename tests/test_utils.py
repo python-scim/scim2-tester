@@ -463,6 +463,31 @@ def test_check_result_repr():
     assert "Status.SUCCESS" in repr_str
 
 
+@pytest.mark.parametrize(
+    "resource_type,attribute,expected",
+    [
+        ("User", "name.givenName", "check_add_attribute[User][name.givenName]"),
+        ("User", None, "check_add_attribute[User]"),
+        (None, "urn:x", "check_add_attribute[][urn:x]"),
+        (None, None, "check_add_attribute"),
+    ],
+)
+def test_check_result_id(resource_type, attribute, expected):
+    """The identifier joins the title, the resource type and the attribute."""
+    result = CheckResult(
+        status=Status.SUCCESS,
+        title="check_add_attribute",
+        resource_type=resource_type,
+        attribute=attribute,
+    )
+    assert result.id == expected
+
+
+def test_check_result_id_without_title():
+    """A result without title has an identifier made of its other parts."""
+    assert CheckResult(status=Status.SUCCESS, resource_type="User").id == "[User]"
+
+
 def test_build_nested_response_with_unknown_extension_urn():
     """Test build_nested_response initializes namespace for unknown extension URNs."""
     base_response = {"id": "123", "userName": "test"}
