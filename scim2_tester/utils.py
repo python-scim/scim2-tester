@@ -6,6 +6,7 @@ import uuid
 from collections.abc import Callable
 from dataclasses import dataclass
 from dataclasses import field
+from dataclasses import replace
 from enum import Enum
 from enum import auto
 from typing import Any
@@ -44,11 +45,7 @@ def _matches_hierarchical_tags(func_tags: set[str], filter_tags: set[str]) -> bo
 
     A filter tag matches the same tag and the tags under it: "crud" matches
     "crud:read" and "crud:read:attributes", but "read" matches neither.
-    A function tagged "*" always matches.
     """
-    if "*" in func_tags:
-        return True
-
     return any(
         func_tag == filter_tag or func_tag.startswith(f"{filter_tag}:")
         for filter_tag in filter_tags
@@ -419,8 +416,35 @@ class ResourceManager:
                 pass
 
 
+def _skip_reason(conf: CheckConfig, func_tags: set[str]) -> str | None:
+    """Tell why the tags of the configuration skip a check, if they do."""
+    if conf.include_tags and not _matches_hierarchical_tags(
+        func_tags, conf.include_tags
+    ):
+        return "Skipped due to tag filtering"
+
+    if conf.exclude_tags and _matches_hierarchical_tags(func_tags, conf.exclude_tags):
+        return "Skipped due to tag exclusion"
+
+    return None
+
+
+def discovered_objects(results: list[CheckResult]) -> Any:
+    """Extract the objects a discovery endpoint exposed.
+
+    Discovery orchestrators run the check querying the whole collection first,
+    so its result comes first. The data of a failed check describes why it
+    failed, and must not be mistaken for discovered objects. A discovery check
+    that succeeded, but that the tags skip, keeps the objects it discovered.
+    """
+    if results[0].status not in (Status.SUCCESS, Status.SKIPPED):
+        return None
+    return results[0].data
+
+
 def checker(
     *tags: str,
+    prerequisite: bool = False,
 ) -> Callable[
     [Callable[Concatenate[CheckContext, P], list[CheckResult]]],
     Callable[Concatenate[CheckContext, P], list[CheckResult]],
@@ -431,6 +455,10 @@ def checker(
     - It catches the scim2-client and SCIM protocol errors.
     - It allows tagging checks for selective execution.
     - It skips execution based on tag filtering in CheckConfig.
+
+    A prerequisite check runs regardless of the tags, as the next checks need
+    its results. When the tags skip it, its successes are reported as skipped,
+    and keep their data. Its failures are reported, as they stop the next checks.
 
     Usage:
         @checker("discovery", "schemas")
@@ -445,31 +473,16 @@ def checker(
         def wrapped(
             context: CheckContext, /, *args: P.args, **kwargs: P.kwargs
         ) -> list[CheckResult]:
-            func_tags = set(tags) if tags else set()
-
-            if context.conf.include_tags and not _matches_hierarchical_tags(
-                func_tags, context.conf.include_tags
-            ):
+            func_tags = set(tags)
+            skip_reason = _skip_reason(context.conf, func_tags)
+            if skip_reason and not prerequisite:
                 return [
                     CheckResult(
                         status=Status.SKIPPED,
                         title=func.__name__,
                         description=func.__doc__,
                         tags=func_tags,
-                        reason="Skipped due to tag filtering",
-                    )
-                ]
-
-            if context.conf.exclude_tags and _matches_hierarchical_tags(
-                func_tags, context.conf.exclude_tags
-            ):
-                return [
-                    CheckResult(
-                        status=Status.SKIPPED,
-                        title=func.__name__,
-                        description=func.__doc__,
-                        tags=func_tags,
-                        reason="Skipped due to tag exclusion",
+                        reason=skip_reason,
                     )
                 ]
 
@@ -505,7 +518,16 @@ def checker(
                 r.title = func.__name__
                 r.description = func.__doc__
                 r.tags = func_tags
-            return result
+
+            if not skip_reason:
+                return result
+
+            return [
+                replace(r, status=Status.SKIPPED, reason=skip_reason)
+                if r.status == Status.SUCCESS
+                else r
+                for r in result
+            ]
 
         wrapped.tags = set(tags)  # type: ignore[attr-defined]
         _REGISTERED_TAGS.update(tags)

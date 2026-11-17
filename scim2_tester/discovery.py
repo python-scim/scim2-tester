@@ -12,7 +12,7 @@ def get_all_available_tags() -> list[str]:
     import scim2_tester.checkers  # noqa: F401
 
     tags: set[str] = set()
-    for tag in get_registered_tags() - {"*"}:
+    for tag in get_registered_tags():
         segments = tag.split(":")
         tags.update(":".join(segments[:end]) for end in range(1, len(segments) + 1))
     return sorted(tags)

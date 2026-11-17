@@ -13,6 +13,7 @@ from ..utils import CheckResult
 from ..utils import Status
 from ..utils import check_result
 from ..utils import checker
+from ..utils import discovered_objects
 from ._discovery_utils import _test_discovery_endpoint_methods
 
 
@@ -39,12 +40,10 @@ def _resource_types_endpoint(context: CheckContext) -> list[CheckResult]:
     results = []
     resource_types_result_list = query_all_resource_types(context)
     results.extend(resource_types_result_list)
-    resource_types_result = resource_types_result_list[
-        0
-    ]  # Get the first (and only) result
+    resource_types = discovered_objects(resource_types_result_list)
 
-    if resource_types_result.status == Status.SUCCESS:
-        for resource_type in resource_types_result.data or []:
+    if resource_types is not None:
+        for resource_type in resource_types:
             if not resource_type.id:
                 continue
 
@@ -187,7 +186,7 @@ def resource_types_schema_validation(
     return results
 
 
-@checker("*", "discovery", "resource-types")
+@checker("discovery", "resource-types", prerequisite=True)
 def query_all_resource_types(context: CheckContext) -> list[CheckResult]:
     """Validate retrieval of all available resource types.
 

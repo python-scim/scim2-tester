@@ -101,6 +101,9 @@ Available tags include:
 A tag selects the tags under it: ``crud`` selects ``crud:create`` and ``crud:read:attributes``,
 and ``crud:read`` selects ``crud:read:attributes``.
 :func:`~scim2_tester.get_all_available_tags` lists all the tags.
+The other checks need the discovery endpoints, so the discovery checks query them regardless of the tags.
+When the tags do not select them, their successes are reported as skipped.
+Their failures are still reported, as the other checks cannot run without them.
 
 Resource type filtering
 ~~~~~~~~~~~~~~~~~~~~~~~
