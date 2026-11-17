@@ -1,3 +1,5 @@
+from collections import Counter
+
 import pytest
 from scim2_client.engines.wsgi import WSGISCIMClient
 
@@ -201,3 +203,50 @@ def test_the_available_tags_hold_the_tags_above_the_check_tags():
     )
     assert "*" not in tags
     assert tags == sorted(tags)
+
+
+def failing_server(app):
+    """Answer 500 to every request, but the lists of the discovery endpoints."""
+    discovery_lists = ("/ServiceProviderConfig", "/ResourceTypes", "/Schemas")
+
+    def wrapped(environ, start_response):
+        if environ["REQUEST_METHOD"] == "GET" and environ["PATH_INFO"].endswith(
+            discovery_lists
+        ):
+            return app(environ, start_response)
+
+        start_response("500 Internal Server Error", [("Content-Type", "text/plain")])
+        return [b"Internal Server Error"]
+
+    return wrapped
+
+
+def test_the_result_ids_are_unique_when_the_server_fails(scim2_server_app):
+    """Each failed check has its own identifier."""
+    client = WSGISCIMClient(failing_server(scim2_server_app))
+    results = check_server(client)
+
+    assert {r.status for r in results} >= {Status.SUCCESS, Status.ERROR}
+    ids = Counter(r.id for r in results)
+    assert [id for id, count in ids.items() if count > 1] == []
+    assert "object_creation[User]" in ids
+    assert "object_creation[Group]" in ids
+    assert "query_resource_type_by_id[User]" in ids
+
+
+def test_the_result_ids_are_unique_when_the_checks_are_skipped(scim_client):
+    """Each check skipped by the tags has its own identifier."""
+    results = check_server(scim_client, include_tags={"misc"})
+
+    assert Status.SKIPPED in {r.status for r in results}
+    ids = Counter(r.id for r in results)
+    assert [id for id, count in ids.items() if count > 1] == []
+    assert "object_creation[User]" in ids
+
+
+def test_the_result_ids_are_unique(scim_client):
+    """Each result of a run against a compliant server has its own identifier."""
+    results = check_server(scim_client)
+
+    ids = Counter(r.id for r in results)
+    assert [id for id, count in ids.items() if count > 1] == []

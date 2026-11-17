@@ -4,6 +4,12 @@ Changelog
 [0.6.5] - Unreleased
 --------------------
 
+Added
+^^^^^
+- :attr:`CheckResult.id <scim2_tester.CheckResult.id>` identifies a result among the results of a run,
+  such as ``check_add_attribute[User][name.givenName]``.
+  It is stable across versions, so a CI can compare two runs.
+
 Changed
 ^^^^^^^
 - A tag selects the tags under it: ``crud:read`` now selects the ``crud:read:attributes`` checks.
