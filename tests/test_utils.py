@@ -164,6 +164,41 @@ def test_hierarchical_tag_matching():
     assert result[0].status.name == "SKIPPED"
 
 
+@pytest.mark.parametrize(
+    "tags", [{"include_tags": {"crud"}}, {"exclude_tags": {"discovery"}}]
+)
+def test_a_skipped_prerequisite_keeps_the_data_of_its_success(tags):
+    """A prerequisite check runs whatever the tags, and its data stays available."""
+    calls = []
+
+    @checker("discovery", prerequisite=True)
+    def prerequisite_check(context):
+        calls.append(context)
+        return [CheckResult(status=Status.SUCCESS, data=["discovered"])]
+
+    context = CheckContext(client=None, conf=CheckConfig(**tags))
+    result = prerequisite_check(context)
+
+    assert len(calls) == 1
+    assert result[0].status == Status.SKIPPED
+    assert result[0].reason.startswith("Skipped due to tag")
+    assert result[0].data == ["discovered"]
+
+
+def test_a_skipped_prerequisite_reports_its_failure():
+    """A failed prerequisite is reported, as it stops the next checks."""
+
+    @checker("discovery", prerequisite=True)
+    def prerequisite_check(context):
+        raise ValueError("unreachable")
+
+    context = CheckContext(client=None, conf=CheckConfig(include_tags={"crud"}))
+    result = prerequisite_check(context)
+
+    assert result[0].status == Status.ERROR
+    assert result[0].reason == "unreachable"
+
+
 def test_get_registered_tags():
     """Test get_registered_tags function returns a copy of registered tags."""
 

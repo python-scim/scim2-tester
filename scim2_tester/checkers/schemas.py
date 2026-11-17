@@ -12,6 +12,7 @@ from ..utils import CheckResult
 from ..utils import Status
 from ..utils import check_result
 from ..utils import checker
+from ..utils import discovered_objects
 from ._discovery_utils import _test_discovery_endpoint_methods
 
 
@@ -38,11 +39,11 @@ def _schemas_endpoint(context: CheckContext) -> list[CheckResult]:
     schemas_result_list = query_all_schemas(context)
     results = []
     results.extend(schemas_result_list)
-    schemas_result = schemas_result_list[0]  # Get the first (and only) result
+    schemas = discovered_objects(schemas_result_list)
 
-    if schemas_result.status == Status.SUCCESS:
+    if schemas is not None:
         results.extend(access_schema_by_id(context))
-        for schema in schemas_result.data or []:
+        for schema in schemas:
             if schema.id:
                 for result in schema_by_id_methods(context, schema):
                     result.attribute = schema.id
@@ -54,7 +55,7 @@ def _schemas_endpoint(context: CheckContext) -> list[CheckResult]:
     return results
 
 
-@checker("*", "discovery", "schemas")
+@checker("discovery", "schemas", prerequisite=True)
 def query_all_schemas(context: CheckContext) -> list[CheckResult]:
     """Validate retrieval of all available schemas.
 

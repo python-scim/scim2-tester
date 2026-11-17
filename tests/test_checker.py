@@ -268,3 +268,49 @@ def test_check_server_refuses_an_unknown_tag(scim2_server_app, tags):
     client = WSGISCIMClient(scim2_server_app)
     with pytest.raises(ValueError, match="Unknown tags: (read|crud:unknown)$"):
         check_server(client, **tags)
+
+
+DISCOVERY_CHECKS = {
+    "service_provider_config_endpoint",
+    "query_all_resource_types",
+    "query_all_schemas",
+}
+
+
+@pytest.mark.parametrize(
+    "tags,discovery_status",
+    [
+        ({"exclude_tags": {"crud:delete"}}, Status.SUCCESS),
+        ({"exclude_tags": {"discovery"}}, Status.SKIPPED),
+        ({"include_tags": {"crud:create"}}, Status.SKIPPED),
+    ],
+)
+def test_the_tags_do_not_prevent_the_discovery(
+    scim2_server_app, tags, discovery_status
+):
+    """The server is discovered whatever the tags, and the selected checks run."""
+    client = WSGISCIMClient(scim2_server_app)
+    results = {result.id: result for result in check_server(client, **tags)}
+
+    assert {results[title].status for title in DISCOVERY_CHECKS} == {discovery_status}
+    assert results["object_creation[User]"].status == Status.SUCCESS
+    assert results["object_creation[Group]"].status == Status.SUCCESS
+
+
+def test_a_failed_discovery_is_reported_when_the_tags_skip_it(scim2_server_app):
+    """The run reports why the selected checks could not run."""
+
+    def failing_resource_types(environ, start_response):
+        if environ["PATH_INFO"].endswith("/ResourceTypes"):
+            start_response(
+                "500 Internal Server Error", [("Content-Type", "text/plain")]
+            )
+            return [b"Internal Server Error"]
+        return scim2_server_app(environ, start_response)
+
+    client = WSGISCIMClient(failing_resource_types)
+    results = {r.id: r for r in check_server(client, include_tags={"crud"})}
+
+    assert results["query_all_resource_types"].status == Status.ERROR
+    assert results["query_all_schemas"].status == Status.SKIPPED
+    assert "object_creation[User]" not in results

@@ -1,5 +1,4 @@
 from collections.abc import Iterator
-from typing import Any
 
 from scim2_client import BaseSyncSCIMClient
 from scim2_models import ScimProvider
@@ -16,16 +15,7 @@ from scim2_tester.utils import CheckContext
 from scim2_tester.utils import CheckResult
 from scim2_tester.utils import Status
 from scim2_tester.utils import check_result
-
-
-def _discovered_objects(results: list[CheckResult]) -> Any:
-    """Extract the objects a discovery endpoint exposed.
-
-    Discovery orchestrators run the check querying the whole collection first,
-    so its result comes first. The data of the other statuses describes why the
-    check failed and must not be mistaken for discovered objects.
-    """
-    return results[0].data if results[0].status == Status.SUCCESS else None
+from scim2_tester.utils import discovered_objects
 
 
 def _describe_service(
@@ -41,7 +31,7 @@ def _describe_service(
     registered on the client so the remaining checks are run against it.
     """
     provider = context.client.provider
-    config = provider.config or _discovered_objects(results_spc)
+    config = provider.config or discovered_objects(results_spc)
 
     if provider.models:
         described = ScimProvider(
@@ -50,8 +40,8 @@ def _describe_service(
         context.client.provider = described
         return described, []
 
-    resource_types = _discovered_objects(results_resource_types)
-    schemas = _discovered_objects(results_schemas)
+    resource_types = discovered_objects(results_resource_types)
+    schemas = discovered_objects(results_schemas)
     if not resource_types or not schemas:
         return None, []
 

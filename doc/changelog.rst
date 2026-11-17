@@ -18,6 +18,13 @@ Changed
   :func:`~scim2_tester.get_all_available_tags` also lists the tags above the tags of the checks,
   such as ``crud`` and ``patch``.
 
+Fixed
+^^^^^
+- Excluding a tag no longer stops the run after the discovery checks.
+  The discovery checks query the server regardless of the tags.
+  When the tags do not select them, with ``include_tags`` or ``exclude_tags``,
+  their successes are reported as skipped. Their failures are still reported.
+
 [0.6.4] - 2026-10-30
 --------------------
 
