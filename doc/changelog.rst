@@ -1,6 +1,17 @@
 Changelog
 =========
 
+[0.6.5] - Unreleased
+--------------------
+
+Changed
+^^^^^^^
+- A tag selects the tags under it: ``crud:read`` now selects the ``crud:read:attributes`` checks.
+  A tag no longer selects the tags that only contain it: ``read`` no longer selects ``crud:read``.
+  An unknown tag raises a :class:`ValueError`, instead of skipping the checks without notice.
+  :func:`~scim2_tester.get_all_available_tags` also lists the tags above the tags of the checks,
+  such as ``crud`` and ``patch``.
+
 [0.6.4] - 2026-10-30
 --------------------
 

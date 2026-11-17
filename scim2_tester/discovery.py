@@ -4,21 +4,18 @@ from scim2_tester.utils import get_registered_tags
 
 
 def get_all_available_tags() -> list[str]:
-    """Get all available tags from the global registry.
+    """Get the tags that can select the checks, in alphabetical order.
 
-    This function returns tags that have been registered by checker decorators
-    throughout the codebase. The registration happens automatically when
-    modules containing @checker decorators are imported.
-
-    :returns: Set of all unique tags found in the codebase.
+    The list holds the tags of the checks, and the tags above them.
+    For instance, ``crud`` selects ``crud:read`` and ``crud:read:attributes``.
     """
     import scim2_tester.checkers  # noqa: F401
 
-    registered_tags = sorted(get_registered_tags())
-
-    registered_tags = [tag for tag in registered_tags if tag != "*"]
-
-    return registered_tags
+    tags: set[str] = set()
+    for tag in get_registered_tags() - {"*"}:
+        segments = tag.split(":")
+        tags.update(":".join(segments[:end]) for end in range(1, len(segments) + 1))
+    return sorted(tags)
 
 
 def get_standard_resource_types() -> list[str]:

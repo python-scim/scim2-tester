@@ -192,6 +192,18 @@ def test_hierarchical_tag_no_match():
     assert _matches_hierarchical_tags(func_tags, filter_tags) is False
 
 
+@pytest.mark.parametrize("filter_tag", ["crud", "crud:read", "crud:read:attributes"])
+def test_a_tag_selects_the_tags_under_it(filter_tag):
+    """A filter tag selects the tags that start with it."""
+    assert _matches_hierarchical_tags({"crud:read:attributes"}, {filter_tag})
+
+
+@pytest.mark.parametrize("filter_tag", ["read", "attributes", "cru", "crud:re"])
+def test_a_tag_does_not_select_the_tags_containing_it(filter_tag):
+    """A filter tag does not select a tag that only contains it."""
+    assert not _matches_hierarchical_tags({"crud:read:attributes"}, {filter_tag})
+
+
 def test_scim_client_exception_handling():
     """Test SCIMClientException handling in checker decorator."""
 

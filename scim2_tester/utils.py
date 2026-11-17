@@ -42,26 +42,18 @@ def get_registered_tags() -> set[str]:
 def _matches_hierarchical_tags(func_tags: set[str], filter_tags: set[str]) -> bool:
     """Check if function tags match filter tags using hierarchical logic.
 
-    Supports patterns like:
-    - "crud" matches "crud:read", "crud:create", etc.
-    - "crud:read" matches exactly "crud:read"
-    - "*" matches any function with tags (always executed)
-
-    :param func_tags: Tags on the function
-    :param filter_tags: Tags to filter by
-    :returns: True if there's a match
+    A filter tag matches the same tag and the tags under it: "crud" matches
+    "crud:read" and "crud:read:attributes", but "read" matches neither.
+    A function tagged "*" always matches.
     """
     if "*" in func_tags:
         return True
 
-    for filter_tag in filter_tags:
-        for func_tag in func_tags:
-            if filter_tag == func_tag:
-                return True
-            if ":" in func_tag and filter_tag in func_tag.split(":"):
-                return True
-
-    return False
+    return any(
+        func_tag == filter_tag or func_tag.startswith(f"{filter_tag}:")
+        for filter_tag in filter_tags
+        for func_tag in func_tags
+    )
 
 
 class Outcome(Enum):
