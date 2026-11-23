@@ -182,6 +182,50 @@ def test_generate_random_value_multiple_field(testing_context):
     assert len(value)
 
 
+def test_generate_random_value_multiple_field_is_primary(testing_context):
+    """The value generated for a multi-valued attribute with a primary sub-attribute is primary."""
+    with patch.object(
+        testing_context.random, "choice", side_effect=lambda values: values[-1]
+    ):
+        value = generate_random_value(testing_context, Path[User]("emails"))
+
+    assert [email.primary for email in value] == [True]
+
+
+def test_generate_random_value_multiple_field_without_primary(testing_context):
+    """The value generated for a multi-valued attribute without a primary sub-attribute has no primary."""
+
+    class Tag(ComplexAttribute):
+        label: str | None = None
+
+    class Tagged(Resource):
+        __schema__ = "urn:test:Tagged"
+
+        tags: list[Tag] | None = None
+
+    value = generate_random_value(testing_context, Path[Tagged]("tags"))
+
+    assert len(value) == 1
+    assert not hasattr(value[0], "primary")
+
+
+def test_generate_random_value_multiple_field_with_read_only_primary(testing_context):
+    """A read-only primary sub-attribute is left empty in the generated value."""
+
+    class Address(ComplexAttribute):
+        value: str | None = None
+        primary: Annotated[bool | None, Mutability.read_only] = None
+
+    class Located(Resource):
+        __schema__ = "urn:test:Located"
+
+        addresses: list[Address] | None = None
+
+    value = generate_random_value(testing_context, Path[Located]("addresses"))
+
+    assert [address.primary for address in value] == [None]
+
+
 def test_generate_random_value_reference_external(testing_context):
     """Generates external reference values."""
     value = generate_random_value(testing_context, Path[User]("profileUrl"))

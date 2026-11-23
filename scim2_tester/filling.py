@@ -166,6 +166,8 @@ def generate_random_value(
         value = str(context.random_uuid())
 
     if binding and binding.target_is_multivalued:
+        if getattr(value, "primary", None) is not None:
+            value.primary = True
         value = [value]
 
     return value
@@ -275,14 +277,10 @@ def _referenced_resource_type(context: "CheckContext", ref: str) -> str | None:
 
 
 def fix_primary_attributes(context: "CheckContext", obj: BaseModel) -> None:
-    """Fix primary attributes to respect RFC 7643 constraints.
+    """Set exactly one primary value in each multi-valued attribute.
 
-    Ensures that for multi-valued attributes with 'primary' sub-attributes:
-    - If the list has one item, sets primary=True
-    - If the list has multiple items, exactly one has primary=True and others primary=False
-    - If the list is empty, does nothing
-
-    According to RFC 7643 §2.4: The primary attribute value "true" MUST appear no more than once.
+    Per RFC 7643 §2.4, the primary value "true" MUST appear no more than once.
+    The tester goes further and always sets one value as primary.
     """
     for field_name in type(obj).model_fields:
         attr_value = getattr(obj, field_name, None)

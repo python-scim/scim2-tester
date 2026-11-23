@@ -1,6 +1,14 @@
 Changelog
 =========
 
+[0.6.6] - Unreleased
+--------------------
+
+Fixed
+^^^^^
+- The value sent by ``check_add_attribute`` and ``check_replace_attribute`` to a multi-valued attribute is primary,
+  like the values sent at creation.
+
 [0.6.5] - 2026-11-17
 --------------------
 
