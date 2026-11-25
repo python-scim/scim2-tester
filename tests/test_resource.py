@@ -1,9 +1,11 @@
 from enum import StrEnum
+from typing import Annotated
 from unittest.mock import MagicMock
 from unittest.mock import patch
 
 from scim2_models import ComplexAttribute
 from scim2_models import Context
+from scim2_models import Email
 from scim2_models import EnterpriseUser
 from scim2_models import Error
 from scim2_models import ListResponse
@@ -11,6 +13,7 @@ from scim2_models import Mutability
 from scim2_models import Reference
 from scim2_models import Resource
 from scim2_models import ResourceType
+from scim2_models import Returned
 from scim2_models import User
 
 from scim2_tester.checkers.resource import resource_type_tests
@@ -18,6 +21,7 @@ from scim2_tester.checkers.resource_delete import object_deletion
 from scim2_tester.checkers.resource_get import _model_from_resource_type
 from scim2_tester.checkers.resource_get import object_query_without_id
 from scim2_tester.checkers.resource_post import object_creation
+from scim2_tester.checkers.resource_put import _compared_paths
 from scim2_tester.checkers.resource_put import object_replacement
 from scim2_tester.filling import fill_with_random_values
 from scim2_tester.utils import CheckConfig
@@ -244,6 +248,150 @@ def test_object_replacement_fails_when_no_mutable_fields(testing_context):
         assert result[0].status == Status.ERROR
         assert "Could not modify User object with mutable fields" in result[0].reason
         assert isinstance(result[0].data, ValueError)
+
+
+def _replace_user(testing_context, created, response=None, queried=None, model=User):
+    """Run object_replacement against a server whose PUT and GET answers are given.
+
+    ``response`` and ``queried`` build the answers from the sent resource.
+    By default, the server applies the PUT.
+    """
+    resource_manager = MagicMock()
+    resource_manager.create_and_register.return_value = created
+    testing_context.resource_manager = resource_manager
+    sent = {}
+
+    def replace(resource, **kwargs):
+        sent["resource"] = resource
+        return response(resource) if response else resource
+
+    def query(model, id):
+        return queried(sent["resource"]) if queried else sent["resource"]
+
+    with (
+        patch.object(testing_context.client, "replace", side_effect=replace),
+        patch.object(testing_context.client, "query", side_effect=query),
+    ):
+        results = object_replacement(testing_context, model)
+
+    return {result.attribute: result for result in results}
+
+
+def test_object_replacement_checks_each_replaced_attribute(testing_context):
+    """Each read-write attribute gets its own successful result when the server applies the PUT."""
+    results = _replace_user(testing_context, User(id="test-id", user_name="test"))
+
+    assert {"userName", "name", "emails", "displayName"} <= results.keys()
+    assert None not in results
+    assert all(result.status == Status.SUCCESS for result in results.values())
+    assert results["userName"].id == "object_replacement[][userName]"
+
+
+def test_object_replacement_without_write_only_attributes(testing_context):
+    """Write-only attributes are sent but not compared, since the server never returns them."""
+    results = _replace_user(testing_context, User(id="test-id", user_name="test"))
+
+    assert "password" not in results
+
+
+def test_object_replacement_put_response_with_old_values(testing_context):
+    """A PUT response that keeps the old values is an error."""
+    old = User(id="test-id", user_name="test")
+
+    results = _replace_user(
+        testing_context, old.model_copy(), response=lambda resource: old
+    )
+
+    assert results["userName"].status == Status.ERROR
+    assert "PUT response" in results["userName"].reason
+    assert results["userName"].data["actual"] == "test"
+
+
+def test_object_replacement_get_with_old_values(testing_context):
+    """A GET that returns the old values after the PUT is an error."""
+    old = User(id="test-id", user_name="test")
+
+    results = _replace_user(
+        testing_context, old.model_copy(), queried=lambda resource: old
+    )
+
+    assert results["userName"].status == Status.ERROR
+    assert "GET after PUT" in results["userName"].reason
+
+
+def test_object_replacement_merged_multi_valued_attribute(testing_context):
+    """A server that adds the sent values to the old ones instead of replacing them is detected."""
+    old_email = Email(value="old@example.com")
+
+    def merged(resource):
+        merged_resource = resource.model_copy(deep=True)
+        merged_resource.emails = [old_email, *resource.emails]
+        return merged_resource
+
+    results = _replace_user(
+        testing_context,
+        User(id="test-id", user_name="test", emails=[old_email]),
+        queried=merged,
+    )
+
+    assert results["emails"].status == Status.ERROR
+    assert results["userName"].status == Status.SUCCESS
+
+
+def test_object_replacement_without_response_body(testing_context):
+    """Without a PUT response body, the values are compared in the GET only."""
+    results = _replace_user(
+        testing_context,
+        User(id="test-id", user_name="test"),
+        response=lambda resource: None,
+    )
+
+    assert all(result.status == Status.SUCCESS for result in results.values())
+
+
+class Credentials(ComplexAttribute):
+    login: str | None = None
+    secret: Annotated[str | None, Mutability.write_only, Returned.never] = None
+    hint: Annotated[str | None, Returned.request] = None
+
+
+class ReturnedVariants(Resource):
+    __schema__ = "urn:test:ReturnedVariants"
+
+    by_default: str | None = None
+    on_request: Annotated[str | None, Returned.request] = None
+    never: Annotated[str | None, Returned.never] = None
+    credentials: Credentials | None = None
+
+
+def _without_unreturned_values(resource):
+    """Answer like a server that does not return what it should not return."""
+    credentials = Credentials(login=resource.credentials.login)
+    return resource.model_copy(
+        update={"on_request": None, "never": None, "credentials": credentials}
+    )
+
+
+def test_object_replacement_compares_the_values_returned_by_default(testing_context):
+    """Values returned never or on request are not compared, including in sub-attributes."""
+    results = _replace_user(
+        testing_context,
+        ReturnedVariants(id="test-id"),
+        response=_without_unreturned_values,
+        queried=_without_unreturned_values,
+        model=ReturnedVariants,
+    )
+
+    assert results.keys() == {"externalId", "byDefault", "credentials"}
+    assert all(result.status == Status.SUCCESS for result in results.values())
+
+
+def test_compared_paths_skip_the_extension_itself():
+    """The attributes of an extension are compared one by one, not the extension as a whole."""
+    paths = [str(path) for path in _compared_paths(User[EnterpriseUser])]
+
+    assert EnterpriseUser.__schema__ not in paths
+    assert f"{EnterpriseUser.__schema__}:employeeNumber" in paths
 
 
 def _refuse_user_creation(httpserver):

@@ -4,6 +4,13 @@ Changelog
 [0.6.6] - Unreleased
 --------------------
 
+Changed
+^^^^^^^
+- ``object_replacement`` checks that the server applies the values of a PUT.
+  It compares each read-write attribute in the PUT response, then in a GET of the resource.
+  It returns one result per attribute, such as ``object_replacement[User][userName]``,
+  instead of one result per resource type.
+
 Fixed
 ^^^^^
 - The value sent by ``check_add_attribute`` and ``check_replace_attribute`` to a multi-valued attribute is primary,

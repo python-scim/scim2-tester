@@ -12,6 +12,8 @@ from ..utils import CheckResult
 from ..utils import Status
 from ..utils import check_result
 from ..utils import checker
+from ..utils import fields_equality
+from ..utils import parametrize
 from ..utils import resource_endpoint
 from ._rejection_utils import INVALID_JSON
 from ._rejection_utils import INVALID_JSON_HEADERS
@@ -23,23 +25,26 @@ from ._required_utils import check_required_attributes
 def object_replacement(
     context: CheckContext, model: type[Resource[Any]]
 ) -> list[CheckResult]:
-    """Validate SCIM resource replacement via PUT requests.
+    """Validate that PUT replaces the values of a resource.
 
-    Tests that resources can be successfully replaced using PUT method, modifying
-    mutable fields and validating the complete resource replacement operation.
+    Creates a resource, then replaces it with new random values.
+    Compares each read-write attribute in the PUT response, then in a GET of the resource.
+    Returns one result per attribute.
+    Attributes that the server does not return by default are not compared.
 
     **Status:**
 
-    - :attr:`~scim2_tester.Status.SUCCESS`: Resource replaced successfully with valid response
-    - :attr:`~scim2_tester.Status.ERROR`: Replacement failed due to client/server error
+    - :attr:`~scim2_tester.Status.SUCCESS`: The server returns the new value
+    - :attr:`~scim2_tester.Status.ERROR`: The PUT fails,
+      or the PUT response or the GET returns another value
 
-    .. pull-quote:: :rfc:`RFC 7644 Section 3.5.1 - Replacing Resources <7644#section-3.5.1>`
+    .. pull-quote:: :rfc:`RFC 7644 Section 3.5.1 <7644#section-3.5.1>`
 
-       "To replace a resource's attributes, clients issue an HTTP PUT request
-       to the resource endpoint (e.g., ``/Users/{id}`` or ``/Groups/{id}``)."
+       "readWrite, writeOnly: Any values provided SHALL replace the existing
+       attribute values."
 
-       "If successful, the server responds with HTTP status code 200 (OK) and
-       includes the updated resource within the response body."
+       "Unless otherwise specified, a successful PUT operation returns a 200
+       OK response code and the entire resource within the response body."
     """
     test_obj = context.resource_manager.create_and_register(model)
 
@@ -91,15 +96,81 @@ def object_replacement(
     response = context.client.replace(
         modified_obj, expected_status_codes=context.conf.expected_status_codes or [200]
     )
+    queried = context.client.query(model, test_obj.id)
 
+    expected = _returned_by_default(modified_obj)
     return [
-        check_result(
-            context,
-            status=Status.SUCCESS,
-            reason=f"Successfully replaced {model.__name__} object with id {test_obj.id}",
-            data=response,
-        )
+        _replaced_value_result(context, path, expected, response, queried)
+        for path in _compared_paths(model)
+        if path.get(expected) is not None
     ]
+
+
+def _returned_by_default(resource: Resource[Any]) -> Resource[Any]:
+    """Return the resource without the values that the server does not return by default.
+
+    The write-only values and the values returned never or on request are removed,
+    including in sub-attributes.
+    """
+    return type(resource).model_validate(
+        resource.model_dump(scim_ctx=Context.RESOURCE_REPLACEMENT_RESPONSE)
+    )
+
+
+def _compared_paths(model: type[Resource[Any]]) -> list[Path[Any]]:
+    """Return the read-write attributes, without the extensions themselves."""
+    return [
+        path
+        for path in parametrize(Path, model).iter_paths(
+            mutability=[Mutability.read_write], include_subattributes=False
+        )
+        if path.resolve() is not None
+    ]
+
+
+def _replaced_value_result(
+    context: CheckContext,
+    path: Path[Any],
+    expected_resource: Resource[Any],
+    response: Any,
+    queried: Any,
+) -> CheckResult:
+    """Compare the value sent for an attribute with the PUT response and the GET."""
+    urn = str(path)
+    expected = path.get(expected_resource)
+    if response is not None and not fields_equality(expected, path.get(response)):
+        return _unreplaced_value_result(
+            context, urn, expected, path.get(response), "PUT response"
+        )
+
+    if not fields_equality(expected, path.get(queried)):
+        return _unreplaced_value_result(
+            context, urn, expected, path.get(queried), "GET after PUT"
+        )
+
+    return check_result(
+        context,
+        status=Status.SUCCESS,
+        reason=f"Successfully replaced attribute '{urn}'",
+        attribute=urn,
+        data={"urn": urn, "value": expected},
+    )
+
+
+def _unreplaced_value_result(
+    context: CheckContext, urn: str, expected: Any, actual: Any, source: str
+) -> CheckResult:
+    return check_result(
+        context,
+        status=Status.ERROR,
+        reason=(
+            f"The {source} returned another value for '{urn}'.\n"
+            f"Sent value: {expected}\n"
+            f"Returned value: {actual}"
+        ),
+        attribute=urn,
+        data={"urn": urn, "expected": expected, "actual": actual, "source": source},
+    )
 
 
 @checker("crud:update")

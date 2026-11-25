@@ -84,6 +84,16 @@ def test_patch_results_identify_their_attribute(scim_client):
     assert len(keys) == len(set(keys))
 
 
+def test_replacement_results_identify_their_attribute(scim_client):
+    """Each PUT result has the path of its attribute, and scim2-server applies every replaced value."""
+    results = check_server(scim_client, include_tags={"crud:update"})
+
+    replaced = [r for r in results if r.title == "object_replacement"]
+    assert all(r.status == Status.SUCCESS for r in replaced)
+    assert all(r.attribute == r.data["urn"] for r in replaced)
+    assert ("Group", "members") in {(r.resource_type, r.attribute) for r in replaced}
+
+
 def test_attribute_filtering_results_identify_their_attribute(scim_client):
     """Each result of the attributes and excludedAttributes checks tells its attribute."""
     results = check_server(
